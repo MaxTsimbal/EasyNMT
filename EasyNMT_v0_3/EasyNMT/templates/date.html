@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}
+Час до НМТ | EasyNMT
+{% endblock %}
+
+{% block content %}
+
+<div class="container">
+
+    {% include "components/progress.html" %}
+
+    <div class="logo">
+        EasyNMT
+    </div>
+
+    <h1>
+        📅 Скільки часу залишилось до НМТ?
+    </h1>
+
+    <p>
+        Це допоможе EasyNMT скласти оптимальний план підготовки.
+    </p>
+
+    <div class="goal-grid">
+
+        <a href="/set-time/1-month" class="goal-link">
+            <div class="goal-card">
+                <span class="score">1 міс</span>
+                <span class="desc">Інтенсивна підготовка</span>
+            </div>
+        </a>
+
+        <a href="/set-time/2-months" class="goal-link">
+            <div class="goal-card">
+                <span class="score">2 міс</span>
+                <span class="desc">Швидкий темп</span>
+            </div>
+        </a>
+
+        <a href="/set-time/3-plus" class="goal-link">
+            <div class="goal-card">
+                <span class="score">3+ міс</span>
+                <span class="desc">Комфортний темп</span>
+            </div>
+        </a>
+
+        <a href="/set-time/6-plus" class="goal-link">
+            <div class="goal-card premium">
+                <span class="score">6+ міс</span>
+                <span class="desc">Максимальний результат</span>
+            </div>
+        </a>
+
+    </div>
+
+</div>
+
+{% endblock %}

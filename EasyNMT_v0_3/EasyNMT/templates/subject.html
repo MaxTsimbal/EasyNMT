@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}
+Обери предмет | EasyNMT
+{% endblock %}
+
+{% block content %}
+
+<div class="container">
+
+    {% include "components/progress.html" %}
+
+    <div class="logo">
+        EasyNMT
+    </div>
+
+    <h1>
+        📚 Обери предмет
+    </h1>
+
+    <div class="goal-grid">
+
+        <a href="/set-subject/math" class="goal-link">
+            <div class="goal-card premium">
+                <span class="score">📐</span>
+                <span class="desc">Математика</span>
+            </div>
+        </a>
+
+        <a href="/set-subject/ukrainian" class="goal-link">
+            <div class="goal-card">
+                <span class="score">🇺🇦</span>
+                <span class="desc">Українська мова</span>
+            </div>
+        </a>
+
+        <a href="/set-subject/history" class="goal-link">
+            <div class="goal-card">
+                <span class="score">📜</span>
+                <span class="desc">Історія України</span>
+            </div>
+        </a>
+
+        <a href="/set-subject/english" class="goal-link">
+            <div class="goal-card">
+                <span class="score">🇬🇧</span>
+                <span class="desc">Англійська</span>
+            </div>
+        </a>
+
+    </div>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,287 @@
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    background:#0f172a;
+    color:white;
+    font-family:Arial, Helvetica, sans-serif;
+}
+
+.container{
+    width:100%;
+    max-width:1200px;
+    margin:0 auto;
+    padding:0 30px;
+}
+
+.hero{
+    min-height:100vh;
+
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+
+    text-align:center;
+}
+
+h1{
+    font-size:64px;
+    line-height:1.15;
+    margin-bottom:25px;
+}
+
+p{
+    font-size:22px;
+    color:#cbd5e1;
+    line-height:1.6;
+    margin-bottom:45px;
+    max-width:850px;
+}
+
+button{
+    background:#7c3aed;
+    color:white;
+    border:none;
+    padding:18px 40px;
+    border-radius:15px;
+    font-size:20px;
+    cursor:pointer;
+    transition:.3s;
+}
+
+button:hover{
+    transform:scale(1.05);
+    background:#8b5cf6;
+}
+/* ---------- Goal Page ---------- */
+
+.goal-grid{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:25px;
+    margin-top:40px;
+}
+
+.goal-card{
+    background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:22px;
+    padding:35px 20px;
+
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:12px;
+
+    color:white;
+    cursor:pointer;
+
+    transition:.35s ease;
+
+    backdrop-filter:blur(12px);
+}
+
+.goal-card:hover{
+
+    transform:translateY(-8px);
+
+    border-color:#8b5cf6;
+
+    box-shadow:0 0 35px rgba(139,92,246,.45);
+
+    background:rgba(255,255,255,.08);
+}
+
+.goal-card:active{
+
+    transform:scale(.97);
+}
+
+.score{
+
+    font-size:34px;
+
+    font-weight:700;
+}
+
+.desc{
+
+    color:#cbd5e1;
+
+    font-size:17px;
+}
+
+.premium{
+
+    background:linear-gradient(
+        135deg,
+        #7c3aed,
+        #4f46e5
+    );
+}
+
+.premium:hover{
+
+    box-shadow:0 0 45px rgba(124,58,237,.7);
+}
+.goal-link{
+    text-decoration:none;
+    color:inherit;
+}
+/* ---------- Step Progress ---------- */
+
+.step-progress{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    margin-bottom:40px;
+}
+
+.step{
+    width:38px;
+    height:38px;
+    border-radius:50%;
+    background:rgba(255,255,255,.07);
+    border:1px solid rgba(255,255,255,.12);
+    color:#cbd5e1;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    font-weight:700;
+    transition:.3s;
+}
+
+.step.active{
+    background:linear-gradient(135deg,#7c3aed,#4f46e5);
+    color:white;
+    box-shadow:0 0 25px rgba(124,58,237,.65);
+}
+
+.line{
+    width:45px;
+    height:3px;
+    border-radius:999px;
+    background:rgba(255,255,255,.14);
+}
+.line.active {
+    background: #7c3aed;
+}
+/* ---------- AI Loader ---------- */
+
+.loader-container{
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    text-align:center;
+}
+
+.ai-loader-card{
+    width:100%;
+    max-width:760px;
+    padding:45px 35px;
+    border-radius:28px;
+    background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.10);
+    box-shadow:0 0 60px rgba(124,58,237,.25);
+    backdrop-filter:blur(14px);
+}
+
+.loader-icon{
+    font-size:56px;
+    margin-bottom:20px;
+    animation:pulseBrain 1.3s infinite ease-in-out;
+}
+
+.loader-steps{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    color:#cbd5e1;
+    font-size:18px;
+    margin:25px 0;
+}
+
+.loader-bar{
+    width:100%;
+    height:12px;
+    background:rgba(255,255,255,.12);
+    border-radius:999px;
+    overflow:hidden;
+}
+
+.loader-fill{
+    height:100%;
+    width:0%;
+    background:linear-gradient(135deg,#7c3aed,#4f46e5);
+    border-radius:999px;
+    animation:loaderFill 2.6s forwards ease-in-out;
+}
+
+@keyframes loaderFill{
+    from{ width:0%; }
+    to{ width:100%; }
+}
+
+@keyframes pulseBrain{
+    0%,100%{ transform:scale(1); }
+    50%{ transform:scale(1.12); }
+}
+
+
+/* ---------- EasyNMT v0.3 ---------- */
+
+.loader-focus{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    min-height:420px;
+}
+
+.loader-title{
+    font-size:52px;
+    margin-bottom:18px;
+}
+
+.loader-main-text{
+    min-height:70px;
+    font-size:34px;
+    font-weight:700;
+    color:white;
+    margin-bottom:34px;
+    transition:.25s ease;
+}
+
+.loader-main-text.fade-out{
+    opacity:0;
+    transform:translateY(8px);
+}
+
+.primary-action{
+    min-width:260px;
+    box-shadow:0 0 35px rgba(124,58,237,.45);
+}
+
+.secondary-action{
+    background:rgba(255,255,255,.08);
+    color:#cbd5e1;
+    border:1px solid rgba(255,255,255,.14);
+    box-shadow:none;
+}
+
+.today-card{
+    padding:38px 24px;
+}
+
+.today-page .lesson-hero{
+    padding:42px 24px;
+}

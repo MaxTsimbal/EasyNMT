@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}
+Обери ціль | EasyNMT
+{% endblock %}
+
+{% block content %}
+
+<div class="container">
+
+    {% include "components/progress.html" %}
+
+    <div class="logo">
+        EasyNMT
+    </div>
+
+    <h1>
+        🎯 Який бал на НМТ ти хочеш отримати?
+    </h1>
+
+    <p>
+        Обери свою ціль.
+    </p>
+
+    <div class="goal-grid">
+
+        <a href="/set-goal/150" class="goal-link">
+            <div class="goal-card">
+                <span class="score">150+</span>
+                <span class="desc">Впевнено скласти НМТ</span>
+            </div>
+        </a>
+
+        <a href="/set-goal/170" class="goal-link">
+            <div class="goal-card">
+                <span class="score">170+</span>
+                <span class="desc">Високий результат</span>
+            </div>
+        </a>
+
+        <a href="/set-goal/190" class="goal-link">
+            <div class="goal-card">
+                <span class="score">190+</span>
+                <span class="desc">Майже максимум</span>
+            </div>
+        </a>
+
+        <a href="/set-goal/200" class="goal-link">
+            <div class="goal-card premium">
+                <span class="score">200 ⭐</span>
+                <span class="desc">Максимальний бал</span>
+            </div>
+        </a>
+
+    </div>
+
+</div>
+
+{% endblock %}

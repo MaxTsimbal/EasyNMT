@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}
+Кабінет | EasyNMT
+{% endblock %}
+
+{% block content %}
+
+<div class="container">
+
+    <div class="logo">
+        EasyNMT
+    </div>
+
+    <h1>
+        👋 Твій персональний план готовий
+    </h1>
+
+    <p>
+        EasyNMT підібрав стартовий маршрут під твою ціль, предмет і час до НМТ.
+    </p>
+
+    <div class="goal-grid">
+
+        <div class="goal-card premium">
+            <span class="score">🎯 {{ goal }}</span>
+            <span class="desc">Твоя ціль</span>
+        </div>
+
+        <div class="goal-card">
+            <span class="score">📚</span>
+            <span class="desc">{{ subject }}</span>
+        </div>
+
+        <div class="goal-card">
+            <span class="score">📅</span>
+            <span class="desc">До НМТ: {{ time_left }}</span>
+        </div>
+
+        <div class="goal-card">
+            <span class="score">0%</span>
+            <span class="desc">Загальний прогрес</span>
+        </div>
+
+    </div>
+
+    <br>
+
+    <div class="goal-card premium today-card">
+        <span class="score">🔥 Почнемо сьогодні</span>
+        <span class="desc">
+            Урок 1: {{ first_topic }} · {{ daily_time }} · міні-тест після уроку
+        </span>
+    </div>
+
+    <br>
+
+    <div class="goal-card">
+        <span class="score">📋 План на тиждень</span>
+        <span class="desc">
+            День 1: {{ first_topic }}<br>
+            День 2: Повторення бази<br>
+            День 3: Практичні завдання<br>
+            День 4: Міні-тест<br>
+            День 5: Аналіз помилок
+        </span>
+    </div>
+
+    <br>
+
+    <a href="/today" class="goal-link">
+        <button class="primary-action">
+            🚀 Почнемо сьогодні
+        </button>
+    </a>
+
+    <br><br>
+
+    <a href="/goal" class="goal-link">
+        <button class="secondary-action">
+            Налаштувати план заново
+        </button>
+    </a>
+
+</div>
+
+{% endblock %}
