@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block title %}
-Чат з Easy | EasyNMT
+Мені цікаво | EasyNMT
 {% endblock %}
 
 {% block content %}
@@ -14,25 +14,25 @@
 
     <div class="lesson-topline">
         <span>{{ lesson.badge }}</span>
-        <span>AI-викладач</span>
-        <span>Чат з Easy</span>
+        <span>Easy помічник</span>
+        <span>💭 Мені цікаво...</span>
     </div>
 
     <h1>
-        Чат з Easy
+        💭 Мені цікаво...
     </h1>
 
     <p>
-        Запитай про тему «{{ lesson.title }}» або надішли свою помилку.
+        Запитай Easy про тему «{{ lesson.title }}». Можеш написати: “поясни простіше”, “дай приклад” або своє питання.
     </p>
 
     <div class="goal-card premium tutor-panel">
-        <span class="score">Easy онлайн</span>
+        <span class="score">Easy готовий пояснити</span>
         <span class="ai-status {{ ai_mode }}">
             {% if ai_mode == "openai" %}🟢 OpenAI · {{ ai_model }}{% elif ai_mode == "limit" %}🟠 Денний ліміт{% else %}🟣 Демо-режим{% endif %}
         </span>
         <span class="desc">
-            Пиши звичайними словами. Відповідь буде короткою й по суті.
+            Не треба формулювати ідеально. Напиши як думаєш, а Easy розкладе тему по поличках.
         </span>
     </div>
 
@@ -40,7 +40,7 @@
 
     <form method="POST" class="tutor-form">
         <textarea name="question" maxlength="1500" placeholder="Наприклад: поясни простіше або дай приклад...">{{ question }}</textarea>
-        <div class="tutor-meta">Запитів сьогодні: {{ ai_used }}/{{ ai_limit }}</div>
+        <div class="tutor-meta">AI-запити сьогодні: {{ ai_used }}/{{ ai_limit }}</div>
 
         <button type="submit" class="primary-action">
             Запитати Easy
@@ -51,7 +51,7 @@
         <br>
 
         <div class="goal-card tutor-answer">
-            <span class="score">Відповідь Easy</span>
+            <span class="score">✨ Відповідь Easy</span>
             <span class="desc">{{ answer }}</span>
         </div>
     {% endif %}

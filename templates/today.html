@@ -1,54 +1,44 @@
 {% extends "base.html" %}
-
 {% block title %}Уроки | EasyNMT{% endblock %}
-
 {% block content %}
-<section class="learning-page path-v098">
-    <div class="learning-wrap">
-        <header class="learning-heading">
-            <span class="pill">Твій маршрут</span>
-            <h1>{{ subject }}</h1>
-            <p>Уроки відкриваються по черзі. Пройди тест, набери щонайменше 18 із 24 балів і переходь далі.</p>
-        </header>
-
-        <article class="path-summary glass-card">
-            <div><span>Завершено</span><b>{{ completed_count }}/{{ lessons_total }}</b></div>
-            <div><span>Прогрес</span><b>{{ progress }}%</b></div>
-            <div><span>Досвід</span><b>{{ xp }} XP</b></div>
-            <div><span>Серія</span><b>{{ streak }} дн.</b></div>
-        </article>
-
-        <div class="lesson-path-list">
-            {% for lesson in lessons %}
-                {% set unlocked = loop.first or (lesson.id - 1) in completed_lessons or lesson.id in completed_lessons %}
-                {% set completed = lesson.id in completed_lessons %}
-                {% if unlocked %}
-                <a class="lesson-path-row glass-card {% if completed %}is-completed{% else %}is-current{% endif %}" href="{{ url_for('lesson', lesson_id=lesson.id) }}">
-                    <span class="lesson-path-status">{% if completed %}✓{% else %}{{ lesson.id }}{% endif %}</span>
-                    <div class="lesson-path-copy">
-                        <span>{% if completed %}Пройдено{% elif loop.first or (lesson.id - 1) in completed_lessons %}Доступно зараз{% endif %}</span>
-                        <h2>{{ lesson.title }}</h2>
-                        <p>{{ lesson.goal }}</p>
-                    </div>
-                    <div class="lesson-path-meta"><b>12 питань</b><span>{% if completed %}Повторити{% else %}Почати →{% endif %}</span></div>
-                </a>
-                {% else %}
-                <div class="lesson-path-row glass-card is-locked" aria-disabled="true">
-                    <span class="lesson-path-status">🔒</span>
-                    <div class="lesson-path-copy">
-                        <span>Ще закрито</span>
-                        <h2>{{ lesson.title }}</h2>
-                        <p>Спочатку заверши попередній урок.</p>
-                    </div>
-                    <div class="lesson-path-meta"><b>Недоступно</b><span>18/24 для відкриття</span></div>
-                </div>
-                {% endif %}
-            {% endfor %}
-        </div>
-
-        <div class="lesson-actions-v098">
-            <a class="button button-ghost button-large" href="{{ url_for('dashboard') }}">У кабінет</a>
-        </div>
+<div class="today-page learning-path-page">
+    <div class="lesson-header fade-up">
+        <span class="pill">Твій маршрут</span>
+        <h1>Уроки йдуть по черзі</h1>
+        <p>Заверши поточну тему, щоб відкрити наступну. Так знання не будуть накопичуватися з прогалинами.</p>
     </div>
-</section>
+
+    <div class="goal-card premium lesson-hero">
+        <div>
+            <span class="score">{{ subject }}</span>
+            <span class="desc">Пройдено {{ completed_count }} з {{ lessons_total }} · {{ xp }} XP · {{ streak }} дн. поспіль</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width: {{ progress }}%;"></div></div>
+    </div>
+
+    <div class="level-path">
+        {% for lesson in lessons %}
+            {% set completed = lesson.id in completed_lessons %}
+            {% set unlocked = lesson.id in unlocked_lessons %}
+            {% if unlocked %}
+            <a href="{{ url_for('lesson', lesson_id=lesson.id) }}" class="level-card {% if completed %}is-complete{% elif not completed %}is-current{% endif %}">
+            {% else %}
+            <div class="level-card is-locked" aria-disabled="true">
+            {% endif %}
+                <div class="level-number">{% if completed %}✓{% elif unlocked %}{{ lesson.id }}{% else %}🔒{% endif %}</div>
+                <div class="level-copy">
+                    <span class="level-kicker">Тема {{ lesson.id }}</span>
+                    <h2>{{ lesson.title }}</h2>
+                    <p>{% if completed %}Пройдено. Можна повторити.{% elif unlocked %}Пояснення, один повний приклад і тест на 12 питань.{% else %}Відкриється після попередньої теми.{% endif %}</p>
+                </div>
+                <span class="level-action">{% if completed %}Повторити{% elif unlocked %}Почати →{% else %}Закрито{% endif %}</span>
+            {% if unlocked %}</a>{% else %}</div>{% endif %}
+        {% endfor %}
+    </div>
+
+    <div class="goal-grid compact-actions">
+        <a href="{{ url_for('progress_page') }}" class="goal-link"><button class="secondary-action">Переглянути прогрес</button></a>
+        <a href="{{ url_for('dashboard') }}" class="goal-link"><button class="secondary-action">Повернутися в кабінет</button></a>
+    </div>
+</div>
 {% endblock %}

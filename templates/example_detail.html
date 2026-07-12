@@ -1,77 +1,39 @@
 {% extends "base.html" %}
-
-{% block title %}
-Приклади | EasyNMT
-{% endblock %}
-
+{% block title %}Приклад: {{ lesson.title }} | EasyNMT{% endblock %}
 {% block content %}
-
 <div class="container lesson-detail-page rich-lesson-page">
-
-    <div class="logo">EasyNMT</div>
-
-    <div class="lesson-topline">
-        <span>{{ lesson.badge }}</span>
-        <span>Урок {{ lesson.id }}</span>
-        <span>Приклади</span>
+    <div class="lesson-topline"><span>{{ lesson.badge }}</span><span>Тема {{ lesson.id }}</span><span>Повний розбір</span></div>
+    <div class="lesson-header">
+        <span class="pill">Один приклад, але до кінця</span>
+        <h1>Розберімо задачу крок за кроком</h1>
+        <p>Не просто дивись на відповідь. Після кожного кроку перевіряй, чи розумієш, навіщо ми його зробили.</p>
     </div>
 
-    <h1>✨ Приклади: {{ lesson.title }}</h1>
-
-    <p>Почни з базового прикладу, а потім пройди ще кілька рівнів складності.</p>
-
-    <div class="goal-card premium lesson-section detail-card">
-        <span class="score">⭐ Базовий приклад</span>
+    <div class="goal-card premium detail-card worked-example">
+        <span class="score">Умова</span>
         <span class="desc">{{ lesson.example }}</span>
     </div>
 
-    <br>
-
-    <div class="examples-stack">
-        {% for example in details.extra_examples %}
-            <div class="goal-card lesson-section detail-card example-card">
-                <span class="score">Приклад {{ loop.index }}</span>
-                <span class="desc">{{ example }}</span>
-            </div>
-        {% endfor %}
+    <div class="worked-steps">
+        <div class="worked-step"><span>1</span><div><h2>Визнач, що відомо</h2><p>{{ details.theory_points[0] }}</p></div></div>
+        <div class="worked-step"><span>2</span><div><h2>Обери правило</h2><p>{{ details.formulas[0] if details.formulas else lesson.theory }}</p></div></div>
+        <div class="worked-step"><span>3</span><div><h2>Виконай дію без стрибків</h2><p>{{ details.extra_examples[0] if details.extra_examples else lesson.example }}</p></div></div>
+        <div class="worked-step"><span>4</span><div><h2>Перевір відповідь</h2><p>Поверни результат в умову або поясни собі, чому він підходить. Саме ця перевірка ловить більшість помилок зі знаком чи формою відповіді.</p></div></div>
     </div>
 
-    <br>
-
-    <div class="goal-card lesson-section detail-card">
-        <span class="score">💡 Як тренуватися</span>
-        <span class="desc">
-            1. Прочитай приклад повністю.<br>
-            2. Закрий розв’язання і повтори кроки самостійно.<br>
-            3. Якщо застряг, повернися до теорії.<br>
-            4. Після 2–3 прикладів переходь до тесту.
-        </span>
+    <div class="goal-card warning-card detail-card">
+        <span class="score">Зверни увагу</span>
+        <span class="desc">{{ details.mistakes[0] if details.mistakes else 'Не пропускай проміжні кроки.' }}</span>
     </div>
 
-    <br>
-
-    <div class="goal-grid">
-        <a href="/theory/{{ lesson.id }}" class="goal-link">
-            <div class="goal-card clickable-card">
-                <span class="score">🧠 Теорія</span>
-                <span class="desc">Повернутися до пояснення</span>
-            </div>
-        </a>
-
-        <a href="/quiz/{{ lesson.id }}" class="goal-link">
-            <div class="goal-card premium clickable-card">
-                <span class="score">📝 Тест</span>
-                <span class="desc">Перевірити себе</span>
-            </div>
-        </a>
+    <div class="goal-card detail-card human-note">
+        <span class="score">Тепер спробуй сам</span>
+        <span class="desc">Закрий розбір і повтори його на чернетці. Якщо застрягнеш, повернися лише до того кроку, де виникла проблема.</span>
     </div>
 
-    <br>
-
-    <a href="/lesson/{{ lesson.id }}" class="goal-link">
-        <button class="secondary-action">Назад до уроку</button>
-    </a>
-
+    <div class="goal-grid compact-actions">
+        <a href="{{ url_for('quiz', lesson_id=lesson.id) }}" class="goal-link"><button class="primary-action">Почати тест</button></a>
+        <a href="{{ url_for('theory_detail', lesson_id=lesson.id) }}" class="goal-link"><button class="secondary-action">Ще раз пояснення</button></a>
+    </div>
 </div>
-
 {% endblock %}

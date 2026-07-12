@@ -1,13 +1,15 @@
-# EasyNMT v0.9.8 Stable
+# EasyNMT v0.9.8 Stable — Humanized Learning Engine
 
-- Природніші й коротші тексти в кабінеті.
-- Постійна кнопка чату з Easy.
-- Мобільне меню у вигляді трьох рисок.
-- Liquid Glass оформлення обох плаваючих кнопок.
-- Спрощена верхня панель кабінету.
-- Підготовлено OpenAI Responses API через змінні Railway.
+- Додано послідовне відкриття тем: наступна відкривається після успішного тесту.
+- Тест розширено до 12 питань і 24 балів.
+- Питання 1–4 мають вибір відповіді; 5–8 — коротку письмову; 9–12 — повне розв’язання.
+- Прохідний результат: 18/24.
+- Додано часткові бали за правильні кроки у складних задачах.
+- Пояснення перероблено під один повний покроковий приклад.
+- Додано єдиний природний голос Easy у prompts.py.
+- Оновлено тексти уроків, тестів, результатів і навігації.
 
-# EasyNMT v0.9.8 Stable Horizontal Dashboard
+# EasyNMT v0.9.7.6 Stable Horizontal Dashboard
 
 - Привітання переміщене першим блоком зверху.
 - Кожна секція кабінету займає всю доступну ширину.
@@ -15,7 +17,7 @@
 - Ліва навігаційна панель збережена окремою колонкою.
 - Верхня панель кабінету спрощена.
 
-# EasyNMT v0.9.8 Compact Dashboard Hotfix
+# EasyNMT v0.9.7.6 Compact Dashboard Hotfix
 
 - Dashboard cards made compact on desktop.
 - Mascot size constrained to prevent layout overflow.
@@ -23,14 +25,14 @@
 - Text wrapping and spacing improved.
 - Mobile layout preserved.
 
-# EasyNMT v0.9.8 Stable Hotfix
+# EasyNMT v0.9.7.6 Stable Hotfix
 
 - Fixed dashboard 500 error caused by an incorrect Flask endpoint.
 - Replaced `url_for("achievements")` with `url_for("achievements_page")`.
 - Rechecked every `url_for()` reference in all templates against registered Flask endpoints.
 - Verified Python syntax and core route responses with Flask test client.
 
-# EasyNMT v0.9.8
+# EasyNMT v0.9.7.6.2
 
 - Dashboard navigation moved into a separate full-height desktop sidebar.
 - Added grouped learning, tools, profile, and settings navigation.
@@ -38,7 +40,7 @@
 
 # EasyNMT Changelog
 
-## v0.9.8 Stable — Dashboard repair and stability pass
+## v0.9.7.6.1 Stable — Dashboard repair and stability pass
 - Fixed the `/dashboard` 500 error caused by an invalid Jinja endpoint name.
 - Replaced `url_for("progress")` with the real Flask endpoint `url_for("progress_page")`.
 - Verified every template `url_for()` target against the Flask URL map.
@@ -117,21 +119,3 @@
 - SQLite підключено до постійного Railway Volume.
 - Посилено cookie та production-налаштування.
 - Локальні бази й секрети виключено з Git.
-
-## v0.9.8 Stable Learning Engine
-
-- Уроки відкриваються послідовно: наступний доступний лише після успішного тесту.
-- Додано 12-питальний тест у трьох частинах: 4 тести, 4 короткі відповіді, 4 повні розв’язання.
-- Система оцінювання: 24 бали, прохідний результат 18 балів.
-- Питання 5–12 потребують письмової відповіді.
-- Додано часткові бали за правильний хід розв’язання у складних задачах.
-- Уроки містять один повний покроковий розбір прикладу.
-- Тексти переписано природною українською без шаблонної «AI-мови».
-- OpenAI можна підключити як генератор і перевіряльник поверх стабільної локальної логіки.
-
-## v0.9.8 Stable Dashboard Rework
-- Повністю перебудовано кабінет без великих порожніх зон.
-- Привітання та наступний урок повернуто на перший екран.
-- Додано читабельні картки статистики й послідовні уроки з блокуванням.
-- Виправлено мобільну бічну навігацію та адаптивність Dashboard.
-- Збережено Learning Engine: 12 питань, письмові відповіді 5–12 і послідовне відкриття уроків.

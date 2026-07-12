@@ -2,6 +2,8 @@ import os
 from dataclasses import dataclass
 from typing import Optional
 
+from prompts import EASY_TUTOR_SYSTEM_PROMPT, GRADING_STYLE_PROMPT, LESSON_STYLE_PROMPT
+
 try:
     from openai import OpenAI
 except ImportError:  # App can still run in demo mode before dependencies are installed.
@@ -29,13 +31,7 @@ class EasyNMT_AI:
     def answer(self, *, question: str, subject: str, lesson_title: str, lesson_goal: str, fallback: str) -> AIResult:
         if not self.enabled:
             return AIResult(fallback, "demo")
-
-        system_prompt = (
-            "Ти Easy, доброзичливий AI-репетитор для підготовки до українського НМТ. "
-            "Відповідай українською, точно, без вигаданих фактів. Пояснюй покроково й доступно для школяра. "
-            "Не давай надмірно довгих відповідей. Для математики показуй логіку та проміжні кроки. "
-            "Якщо даних недостатньо, прямо попроси уточнення. Завершуй одним коротким питанням для самоперевірки."
-        )
+        system_prompt = "\n\n".join([EASY_TUTOR_SYSTEM_PROMPT, LESSON_STYLE_PROMPT, GRADING_STYLE_PROMPT])
         user_prompt = (
             f"Предмет: {subject}.\n"
             f"Поточна тема: {lesson_title}.\n"

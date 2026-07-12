@@ -1,17 +1,31 @@
-# OpenAI setup for EasyNMT v0.9.8
+# Підключення OpenAI до EasyNMT
 
-EasyNMT уже використовує OpenAI Responses API через `client.responses.create(...)`.
+## 1. Встановлення
 
-## Railway Variables
-
-```text
-OPENAI_API_KEY=твій_секретний_ключ
-OPENAI_MODEL=gpt-4o-mini
-OPENAI_MAX_OUTPUT_TOKENS=500
-OPENAI_DAILY_LIMIT=40
-OPENAI_MAX_QUESTION_CHARS=1500
+```bash
+python -m venv .venv
+.venv\\Scripts\\activate
+pip install -r requirements.txt
 ```
 
-Після додавання змінних зроби Redeploy. Ключ не вставляй у GitHub або JavaScript.
+## 2. Налаштування
 
-Без ключа сайт працює в демо-режимі. Якщо API тимчасово недоступне, користувач також отримує безпечну демо-відповідь.
+1. Скопіюй `.env.example` у новий файл `.env`.
+2. Встав API-ключ після `OPENAI_API_KEY=`.
+3. Не надсилай `.env` іншим і не завантажуй його на GitHub.
+
+## 3. Запуск
+
+```bash
+python app.py
+```
+
+Без ключа EasyNMT працює у безкоштовному демо-режимі. З ключем сторінка «Easy помічник» автоматично використовує OpenAI.
+
+## Контроль витрат
+
+- модель за замовчуванням: `gpt-4o-mini`;
+- максимум 40 звернень на користувача за добу;
+- максимум 500 вихідних токенів;
+- довжина питання обмежена 1500 символами;
+- при помилці API вмикається демо-відповідь, сайт не падає.

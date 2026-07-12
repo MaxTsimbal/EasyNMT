@@ -6,14 +6,14 @@
     <meta name="theme-color" content="#070b1f">
     <meta name="color-scheme" content="dark">
     <title>{% block title %}EasyNMT — AI-викладач для підготовки до НМТ{% endblock %}</title>
-    <meta name="description" content="{% block description %}EasyNMT — персональна підготовка до НМТ з уроками, тестами та AI-викладачем.{% endblock %}">
+    <meta name="description" content="{% block description %}EasyNMT — персональна підготовка до НМТ з AI-викладачем, уроками, тестами та збереженням прогресу.{% endblock %}">
     <meta name="robots" content="{% block robots %}noindex, nofollow{% endblock %}">
     <link rel="canonical" href="{% block canonical %}{{ request.url_root.rstrip('/') }}{{ request.path }}{% endblock %}">
     <meta property="og:locale" content="uk_UA">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="EasyNMT">
-    <meta property="og:title" content="{% block og_title %}EasyNMT — підготовка до НМТ{% endblock %}">
-    <meta property="og:description" content="{% block og_description %}Персональний план, короткі уроки, тести та AI-викладач.{% endblock %}">
+    <meta property="og:title" content="{% block og_title %}EasyNMT — Cosmic Tutor{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}Персональний маршрут, короткі уроки, smart-тести та AI-викладач.{% endblock %}">
     <meta property="og:url" content="{{ request.url_root.rstrip('/') }}{{ request.path }}">
     {% if config.GOOGLE_SITE_VERIFICATION %}<meta name="google-site-verification" content="{{ config.GOOGLE_SITE_VERIFICATION }}">{% endif %}
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/favicon.png') }}">
@@ -25,44 +25,33 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body class="cosmic-body {% block body_class %}{% endblock %}">
-<a class="skip-link" href="#main-content">До основного вмісту</a>
+<a class="skip-link" href="#main-content">Перейти до основного вмісту</a>
 <div class="cosmic-background" aria-hidden="true">
     <div class="cosmic-gradient cosmic-gradient-one"></div><div class="cosmic-gradient cosmic-gradient-two"></div><div class="cosmic-gradient cosmic-gradient-three"></div>
     <div class="stars stars-small"></div><div class="stars stars-medium"></div><div class="stars stars-large"></div>
     <div class="shooting-star shooting-star-one"></div><div class="shooting-star shooting-star-two"></div>
 </div>
-<div class="page-loader" id="pageLoader" aria-hidden="true"><div class="page-loader-content"><div class="loader-planet"><div class="loader-orbit"><span class="loader-moon"></span></div></div><p class="loader-text">Відкриваємо EasyNMT...</p></div></div>
-
-{% set cabinet_endpoints = ['dashboard', 'today', 'library', 'progress_page', 'mistakes', 'tutor', 'planner', 'achievements_page', 'profile', 'settings', 'lesson', 'quiz', 'result', 'theory_detail', 'example_detail'] %}
-{% set cabinet_mode = request.endpoint in cabinet_endpoints %}
-<header class="site-header {% if cabinet_mode %}cabinet-header{% endif %}" id="siteHeader">
+<div class="page-loader" id="pageLoader" aria-hidden="true"><div class="page-loader-content"><div class="loader-planet"><div class="loader-orbit"><span class="loader-moon"></span></div></div><p class="loader-text">Запускаємо EasyNMT...</p></div></div>
+<header class="site-header" id="siteHeader">
     <div class="container header-container">
-        <a class="brand" href="{{ url_for('dashboard') if cabinet_mode and is_logged_in else url_for('home') }}" aria-label="EasyNMT — головна">
+        <a class="brand" href="{{ url_for('home') }}" aria-label="EasyNMT — головна">
             <img class="brand-mascot" src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
             <span class="brand-text">Easy<span>NMT</span></span><span class="brand-version">v0.9.8</span>
         </a>
-
-        {% if cabinet_mode and is_logged_in %}
-            <div class="cabinet-header-actions">
-                <span class="cabinet-header-status"><i></i> Кабінет</span>
-                <a class="button button-ghost button-small" href="{{ url_for('logout') }}">Вийти</a>
+        <button class="mobile-menu-button" id="mobileMenuButton" type="button" aria-label="Відкрити меню" aria-expanded="false" aria-controls="mainNavigation"><span class="mobile-menu-line"></span><span class="mobile-menu-line"></span><span class="mobile-menu-line"></span></button>
+        <nav class="main-navigation" id="mainNavigation" aria-label="Головна навігація">
+            <div class="navigation-links">
+                <a class="navigation-link" href="{{ url_for('home') }}#features">Можливості</a><a class="navigation-link" href="{{ url_for('home') }}#subjects">Предмети</a><a class="navigation-link" href="{{ url_for('home') }}#how-it-works">Як це працює</a>
             </div>
-        {% else %}
-            <button class="mobile-menu-button" id="mobileMenuButton" type="button" aria-label="Відкрити меню" aria-expanded="false" aria-controls="mainNavigation"><span class="mobile-menu-line"></span><span class="mobile-menu-line"></span><span class="mobile-menu-line"></span></button>
-            <nav class="main-navigation" id="mainNavigation" aria-label="Головна навігація">
-                <div class="navigation-links">
-                    <a class="navigation-link" href="{{ url_for('home') }}#features">Можливості</a><a class="navigation-link" href="{{ url_for('home') }}#subjects">Предмети</a><a class="navigation-link" href="{{ url_for('home') }}#how-it-works">Як це працює</a>
-                </div>
-                <div class="navigation-actions">
-                    {% if is_logged_in %}<a class="button button-ghost button-small" href="{{ url_for('dashboard') }}">Кабінет</a><a class="button button-primary button-small" href="{{ url_for('logout') }}">Вийти</a>{% else %}<a class="button button-ghost button-small" href="{{ url_for('login') }}">Увійти</a><a class="button button-primary button-small" href="{{ url_for('register') }}">Почати</a>{% endif %}
-                </div>
-            </nav>
-        {% endif %}
+            <div class="navigation-actions">
+                {% if is_logged_in %}<a class="button button-ghost button-small" href="{{ url_for('dashboard') }}">Кабінет</a><a class="button button-primary button-small" href="{{ url_for('logout') }}">Вийти</a>{% else %}<a class="button button-ghost button-small" href="{{ url_for('login') }}">Увійти</a><a class="button button-primary button-small" href="{{ url_for('register') }}">Почати</a>{% endif %}
+            </div>
+        </nav>
     </div>
 </header>
 {% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}<div class="flash-stack">{% for category, message in messages %}<div class="flash-message flash-{{ category }}">{{ message }}</div>{% endfor %}</div>{% endif %}{% endwith %}
 <main id="main-content" class="main-content">{% block content %}{% endblock %}</main>
-<footer class="site-footer"><div class="container footer-bottom"><p>© <span id="currentYear">2026</span> EasyNMT.</p><p>Stable ✦ v0.9.8</p></div></footer>
+<footer class="site-footer"><div class="container footer-bottom"><p>© <span id="currentYear">2026</span> EasyNMT. Усі права захищено.</p><p>Cosmic Tutor Responsive ✦ v0.9.8</p></div></footer>
 <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 <button class="scroll-top-button" id="scrollTopButton" type="button" aria-label="Повернутися нагору"><span>↑</span></button>
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>

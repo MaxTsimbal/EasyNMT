@@ -1187,7 +1187,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 });
 
-/* EasyNMT v0.9.8 Liquid Glass dashboard controls */
+/* EasyNMT v0.9.7.6 mobile dashboard sidebar */
 document.addEventListener("DOMContentLoaded", () => {
     const body = document.body;
     const toggle = document.getElementById("dashboardSidebarToggle");
