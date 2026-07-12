@@ -1,3 +1,11 @@
+# EasyNMT v0.9.7.4 Compact Dashboard Hotfix
+
+- Dashboard cards made compact on desktop.
+- Mascot size constrained to prevent layout overflow.
+- Statistics, roadmap, AI card, and lesson list no longer stretch vertically.
+- Text wrapping and spacing improved.
+- Mobile layout preserved.
+
 # EasyNMT v0.9.7.3 Stable Hotfix
 
 - Fixed dashboard 500 error caused by an incorrect Flask endpoint.

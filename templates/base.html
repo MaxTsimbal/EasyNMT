@@ -36,7 +36,7 @@
     <div class="container header-container">
         <a class="brand" href="{{ url_for('home') }}" aria-label="EasyNMT — головна">
             <img class="brand-mascot" src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
-            <span class="brand-text">Easy<span>NMT</span></span><span class="brand-version">v0.9.7.1</span>
+            <span class="brand-text">Easy<span>NMT</span></span><span class="brand-version">v0.9.7.4</span>
         </a>
         <button class="mobile-menu-button" id="mobileMenuButton" type="button" aria-label="Відкрити меню" aria-expanded="false" aria-controls="mainNavigation"><span class="mobile-menu-line"></span><span class="mobile-menu-line"></span><span class="mobile-menu-line"></span></button>
         <nav class="main-navigation" id="mainNavigation" aria-label="Головна навігація">
@@ -51,7 +51,7 @@
 </header>
 {% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}<div class="flash-stack">{% for category, message in messages %}<div class="flash-message flash-{{ category }}">{{ message }}</div>{% endfor %}</div>{% endif %}{% endwith %}
 <main id="main-content" class="main-content">{% block content %}{% endblock %}</main>
-<footer class="site-footer"><div class="container footer-bottom"><p>© <span id="currentYear">2026</span> EasyNMT. Усі права захищено.</p><p>Cosmic Tutor Responsive ✦ v0.9.7.1</p></div></footer>
+<footer class="site-footer"><div class="container footer-bottom"><p>© <span id="currentYear">2026</span> EasyNMT. Усі права захищено.</p><p>Cosmic Tutor Responsive ✦ v0.9.7.4</p></div></footer>
 <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 <button class="scroll-top-button" id="scrollTopButton" type="button" aria-label="Повернутися нагору"><span>↑</span></button>
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>
