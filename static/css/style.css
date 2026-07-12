@@ -4061,3 +4061,60 @@ body.page-leaving { opacity: .6; transform: scale(.995); transition: opacity 180
         padding: 15px 16px !important;
     }
 }
+
+/* ========================================================================== 
+   EasyNMT v0.9.6.2 Desktop spacing hotfix
+   Keeps mobile spacing unchanged and removes excessive desktop gaps.
+   ========================================================================== */
+
+@media (min-width: 921px) {
+    .section {
+        padding-top: 58px !important;
+        padding-bottom: 58px !important;
+    }
+
+    .section-compact {
+        padding-top: 42px !important;
+        padding-bottom: 42px !important;
+    }
+
+    .section-header {
+        margin-bottom: 30px !important;
+    }
+
+    .section-header .section-eyebrow,
+    .section-header .eyebrow {
+        margin-bottom: 12px !important;
+    }
+
+    #features,
+    #subjects,
+    #how-it-works {
+        scroll-margin-top: 94px;
+    }
+
+    #how-it-works {
+        padding-bottom: 36px !important;
+    }
+
+    #how-it-works + .section {
+        padding-top: 28px !important;
+        padding-bottom: 58px !important;
+    }
+
+    .feature-grid,
+    .subject-grid,
+    .how-grid {
+        row-gap: 18px !important;
+    }
+
+    .step-card {
+        min-height: 0 !important;
+        padding-top: 24px !important;
+        padding-bottom: 24px !important;
+    }
+
+    .final-cosmic-cta {
+        min-height: 0 !important;
+    }
+}

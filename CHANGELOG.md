@@ -1,3 +1,12 @@
+# EasyNMT Changelog
+
+## v0.9.7 Stable — Dashboard repair and stability pass
+- Fixed the `/dashboard` 500 error caused by an invalid Jinja endpoint name.
+- Replaced `url_for("progress")` with the real Flask endpoint `url_for("progress_page")`.
+- Verified every template `url_for()` target against the Flask URL map.
+- Added a full authenticated route smoke test for the main cabinet pages.
+- Preserved the responsive mobile layout and desktop spacing hotfixes.
+
 
 ## v0.9.6.1 — Responsive layout hotfix
 - Compact sticky navigation header.
