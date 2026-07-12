@@ -4,19 +4,16 @@
 {% block body_class %}dashboard-app{% endblock %}
 
 {% block content %}
-<section class="dashboard-page dashboard-v098">
-    <div class="container dashboard-shell-v2">
+<section class="dashboard-page dashboard-v098-final">
+    <div class="container dashboard-shell-final">
         <button class="liquid-control liquid-menu-button" id="dashboardSidebarToggle" type="button" aria-controls="dashboardSidebar" aria-expanded="false" aria-label="Відкрити меню кабінету">
             <span class="liquid-menu-lines" aria-hidden="true"><i></i><i></i><i></i></span>
         </button>
 
-        <a class="liquid-control liquid-chat-button" href="{{ url_for('tutor') }}" aria-label="Відкрити чат з Easy">
-            <span aria-hidden="true">✦</span>
-        </a>
-
+        <a class="liquid-control liquid-chat-button" href="{{ url_for('tutor') }}" aria-label="Відкрити чат з Easy"><span aria-hidden="true">✦</span></a>
         <div class="dashboard-sidebar-overlay" id="dashboardSidebarOverlay" aria-hidden="true"></div>
 
-        <aside class="dashboard-sidebar dashboard-sidebar-v3" id="dashboardSidebar" aria-label="Навігація кабінету">
+        <aside class="dashboard-sidebar dashboard-sidebar-final" id="dashboardSidebar" aria-label="Навігація кабінету">
             <div class="dashboard-sidebar-inner">
                 <div class="dashboard-user dashboard-user-v3">
                     <span class="dashboard-avatar">{{ (user_name or 'E')[0]|upper }}</span>
@@ -47,37 +44,80 @@
             </div>
         </aside>
 
-        <main class="dashboard-main dashboard-main-v2 dashboard-main-v098">
-            <section class="dashboard-welcome dashboard-wide-card glass-card dashboard-welcome-v098">
-                <div class="dashboard-welcome-copy">
+        <main class="dashboard-main dashboard-main-final">
+            <section class="dashboard-hero-final glass-card">
+                <div class="dashboard-hero-copy-final">
                     <span class="eyebrow">Сьогодні</span>
-                    <h1 class="dashboard-title">Привіт, {{ user_name or 'друже' }}! 👋</h1>
-                    <p class="dashboard-subtitle">Почнемо з наступної теми.</p>
-                    <div class="dashboard-next-lesson">
-                        <span class="dashboard-next-icon">📘</span>
-                        <div><small>Наступний урок</small><strong>{{ first_topic }}</strong><span>{{ subject }} · {{ daily_time }}</span></div>
-                    </div>
-                    <div class="dashboard-welcome-actions">
-                        <a class="button button-primary button-large" href="{{ url_for('lesson', lesson_id=first_lesson_id) }}">Продовжити <span>→</span></a>
-                        <a class="button button-ghost button-large" href="{{ url_for('today') }}">План на сьогодні</a>
+                    <h1>Привіт, {{ user_name or 'друже' }}! 👋</h1>
+                    <p>Наступний крок уже готовий. Без зайвого шуму, просто продовжуємо.</p>
+
+                    <div class="next-lesson-final">
+                        <span class="next-lesson-icon-final">📘</span>
+                        <div class="next-lesson-copy-final">
+                            <small>Наступний урок</small>
+                            <strong>{{ first_topic }}</strong>
+                            <span>{{ subject }} · {{ daily_time }}</span>
+                        </div>
+                        <a class="button button-primary" href="{{ url_for('lesson', lesson_id=first_lesson_id) }}">Почати <span>→</span></a>
                     </div>
                 </div>
-                <div class="dashboard-welcome-visual" aria-hidden="true">
-                    <div class="dashboard-mascot-glow"></div>
-                    <img class="dashboard-mascot" src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
-                    <div class="dashboard-mascot-bubble">Почнемо? 🚀</div>
+
+                <div class="dashboard-hero-mascot-final" aria-hidden="true">
+                    <div class="mascot-orbit-final"></div>
+                    <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
+                    <span>Я поруч</span>
                 </div>
             </section>
 
-            <section class="dashboard-stats-strip glass-card" aria-label="Статистика">
-                <article class="dashboard-stat-item"><div class="dashboard-metric-icon metric-purple">📈</div><div class="dashboard-stat-copy"><span>До цілі</span><strong>{{ progress }}%</strong><small>{{ completed_count }} з {{ lessons_total }} уроків</small></div><div class="progress-track dashboard-stat-progress"><div class="progress-bar" data-progress="{{ progress }}"></div></div></article>
-                <article class="dashboard-stat-item"><div class="dashboard-metric-icon metric-blue">⭐</div><div class="dashboard-stat-copy"><span>XP сьогодні</span><strong>{{ xp }}</strong><small>За уроки й тести</small></div></article>
-                <article class="dashboard-stat-item"><div class="dashboard-metric-icon metric-orange">🔥</div><div class="dashboard-stat-copy"><span>Днів поспіль</span><strong>{{ streak }}</strong><small>Продовжуй у тому ж темпі</small></div></article>
+            <section class="dashboard-stats-final" aria-label="Статистика">
+                <article class="stat-card-final glass-card">
+                    <span class="stat-icon-final purple">📈</span>
+                    <div><small>Прогрес</small><strong>{{ progress }}%</strong><span>{{ completed_count }} з {{ lessons_total }} уроків</span></div>
+                    <div class="progress-track"><div class="progress-bar" data-progress="{{ progress }}"></div></div>
+                </article>
+                <article class="stat-card-final glass-card">
+                    <span class="stat-icon-final blue">⭐</span>
+                    <div><small>XP</small><strong>{{ xp }}</strong><span>За уроки й тести</span></div>
+                </article>
+                <article class="stat-card-final glass-card">
+                    <span class="stat-icon-final orange">🔥</span>
+                    <div><small>Серія</small><strong>{{ streak }} дн.</strong><span>Продовжуй у тому ж темпі</span></div>
+                </article>
             </section>
 
-            <article class="dashboard-card dashboard-wide-card glass-card dashboard-roadmap-card">
-                <div class="dashboard-card-header"><div><h2 class="dashboard-card-title">Шлях до 200</h2><p class="dashboard-card-subtitle">Твій прогрес за планом</p></div><span class="dashboard-progress-pill">{{ progress }}%</span></div>
-                <div class="cosmic-progress cosmic-progress-v2">
+            <section class="dashboard-section-final glass-card">
+                <div class="dashboard-section-heading-final">
+                    <div><span class="section-kicker-final">Твій маршрут</span><h2>Уроки по черзі</h2><p>Наступний відкриється після успішного тесту.</p></div>
+                    <a class="text-link" href="{{ url_for('today') }}">Весь план →</a>
+                </div>
+
+                <div class="levels-row-final">
+                    {% for lesson in lessons %}
+                        {% set is_done = lesson.id in completed_lessons %}
+                        {% set is_open = lesson.id == first_lesson_id or is_done or (lesson.id - 1) in completed_lessons %}
+                        {% if is_open %}
+                            <a class="level-card-final {% if is_done %}completed{% elif lesson.id == first_lesson_id %}current{% endif %}" href="{{ url_for('lesson', lesson_id=lesson.id) }}">
+                                <span class="level-number-final">{{ loop.index }}</span>
+                                <span class="level-copy-final"><small>{% if is_done %}Пройдено{% elif lesson.id == first_lesson_id %}Зараз{% else %}Відкрито{% endif %}</small><strong>{{ lesson.title }}</strong><span>{{ lesson.badge }} · 25 хв</span></span>
+                                <span class="level-status-final">{% if is_done %}✓{% else %}→{% endif %}</span>
+                            </a>
+                        {% else %}
+                            <div class="level-card-final locked" aria-label="Урок заблоковано">
+                                <span class="level-number-final">{{ loop.index }}</span>
+                                <span class="level-copy-final"><small>Поки закрито</small><strong>{{ lesson.title }}</strong><span>Спершу пройди попередній урок</span></span>
+                                <span class="level-status-final">🔒</span>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="dashboard-section-final roadmap-final glass-card">
+                <div class="dashboard-section-heading-final compact">
+                    <div><span class="section-kicker-final">Шлях до цілі</span><h2>Космічний маршрут</h2></div>
+                    <span class="dashboard-progress-pill">{{ progress }}%</span>
+                </div>
+                <div class="cosmic-progress cosmic-progress-final">
                     <div class="cosmic-progress-step completed"><span class="cosmic-progress-icon">🌍</span><span>Старт</span></div>
                     <div class="cosmic-progress-step {% if progress >= 20 %}completed{% endif %}"><span class="cosmic-progress-icon">🌙</span><span>20%</span></div>
                     <div class="cosmic-progress-step {% if progress >= 40 %}completed{% endif %}"><span class="cosmic-progress-icon">🛰️</span><span>40%</span></div>
@@ -85,18 +125,13 @@
                     <div class="cosmic-progress-step {% if progress >= 80 %}completed{% endif %}"><span class="cosmic-progress-icon">⭐</span><span>80%</span></div>
                     <div class="cosmic-progress-step {% if progress >= 100 %}completed{% endif %}"><span class="cosmic-progress-icon">🌌</span><span>200</span></div>
                 </div>
-            </article>
+            </section>
 
-            <article class="dashboard-card dashboard-wide-card glass-card dashboard-lessons-card dashboard-lessons-wide">
-                <div class="dashboard-card-header"><div><h2 class="dashboard-card-title">Далі за планом</h2><p class="dashboard-card-subtitle">Три найближчі уроки</p></div><a class="text-link" href="{{ url_for('library') }}">Усі уроки</a></div>
-                <div class="lesson-list lesson-list-v2 lesson-list-horizontal">
-                    {% for lesson in lessons[:3] %}<a class="lesson-item lesson-item-v2" href="{{ url_for('lesson', lesson_id=lesson.id) }}"><span class="lesson-icon">{% if lesson.id in completed_lessons %}✓{% else %}📘{% endif %}</span><span class="lesson-info"><b class="lesson-title">{{ lesson.title }}</b><small class="lesson-meta">{{ lesson.badge }} · 25 хв</small></span><span class="lesson-arrow">→</span></a>{% else %}<p class="dashboard-empty-state">План з’явиться після налаштування.</p>{% endfor %}
-                </div>
-            </article>
-
-            <article class="dashboard-card dashboard-wide-card glass-card dashboard-ai-card dashboard-ai-wide">
-                <div class="dashboard-ai-icon">✦</div><div class="dashboard-ai-copy"><span class="dashboard-ai-label">Easy</span><h2 class="dashboard-card-title">Є питання?</h2><p class="dashboard-card-subtitle">Поясню тему або допоможу розібрати помилку.</p></div><a class="button button-secondary" href="{{ url_for('tutor') }}">Відкрити чат</a>
-            </article>
+            <section class="dashboard-ai-final glass-card">
+                <div class="dashboard-ai-icon-final">✦</div>
+                <div><span class="section-kicker-final">Easy</span><h2>Застряг на завданні?</h2><p>Покажи хід розв’язання. Розберемо саме той крок, де все пішло не так.</p></div>
+                <a class="button button-secondary" href="{{ url_for('tutor') }}">Відкрити чат</a>
+            </section>
         </main>
     </div>
 </section>
