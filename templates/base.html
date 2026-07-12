@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="google-site-verification" content="eb91dnbOK_84BYAKKBVklnLbhqwnMCiQC91WS5oQLEA">
 
     <title>{% block title %}EasyNMT — легка підготовка до НМТ з AI{% endblock %}</title>
 
@@ -23,11 +24,6 @@
     <meta name="twitter:card" content="summary">
     <meta name="twitter:title" content="EasyNMT — легка підготовка до НМТ з AI">
     <meta name="twitter:description" content="Персональний план, уроки, тести та прогрес для підготовки до НМТ.">
-
-    {% if config.GOOGLE_SITE_VERIFICATION %}
-    <meta name="google-site-verification" content="{{ config.GOOGLE_SITE_VERIFICATION }}">
-    {% endif %}
-
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/navbar.css') }}">
 
