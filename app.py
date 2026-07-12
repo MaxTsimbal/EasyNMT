@@ -10,6 +10,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from config import Config
 from ai_service import EasyNMT_AI
+from learning_engine import MAX_SCORE, PASS_SCORE, get_quiz as get_learning_quiz, grade_question, lesson_breakdown
 
 load_dotenv()
 
@@ -1348,12 +1349,25 @@ def lesson(lesson_id=1):
         return redirect(url_for("goal"))
 
     lesson_id = normalize_lesson_id(lesson_id)
+    completed = get_completed_lessons()
+    unlocked_ids = {get_lessons_for_subject()[0]["id"]}
+    for item in get_lessons_for_subject():
+        if item["id"] in completed:
+            unlocked_ids.add(item["id"])
+            unlocked_ids.add(item["id"] + 1)
+
+    if lesson_id not in unlocked_ids:
+        flash("Спочатку заверши попередній урок. Наступний відкриється автоматично.", "error")
+        return redirect(url_for("today"))
+
     session["current_lesson_id"] = lesson_id
+    lesson_data = get_lesson_content(lesson_id)
 
     return render_template(
         "lesson.html",
         **get_user_data(),
-        lesson=get_lesson_content(lesson_id),
+        lesson=lesson_data,
+        breakdown=lesson_breakdown(get_subject_key(), lesson_data),
     )
 
 
@@ -1365,22 +1379,24 @@ def quiz(lesson_id=None):
         return redirect(url_for("goal"))
 
     lesson_id = normalize_lesson_id(lesson_id)
+    completed = get_completed_lessons()
+    unlocked_ids = {get_lessons_for_subject()[0]["id"]}
+    for item in get_lessons_for_subject():
+        if item["id"] in completed:
+            unlocked_ids.add(item["id"])
+            unlocked_ids.add(item["id"] + 1)
+
+    if lesson_id not in unlocked_ids:
+        flash("Цей урок ще закритий. Заверши попередній.", "error")
+        return redirect(url_for("today"))
+
     session["current_lesson_id"] = lesson_id
+    lesson_data = get_lesson_content(lesson_id)
 
     if request.method == "POST":
-        # Stable quiz check: every rendered question has its own id.
-        # This prevents a bug where shuffled questions and answers could detach.
         active_quiz_map = session.get("active_quiz_map", {})
         question_ids = request.form.getlist("question_ids")
-
-        # Fallback for older sessions opened before this fix.
-        if not question_ids:
-            old_questions = session.get("active_quiz_questions") or get_quiz_questions(lesson_id)
-            active_quiz_map = {f"q_{i}": q for i, q in enumerate(old_questions)}
-            question_ids = list(active_quiz_map.keys())
-
         score = 0
-        total = len(question_ids)
         review = []
 
         for qid in question_ids:
@@ -1388,27 +1404,23 @@ def quiz(lesson_id=None):
             if not question:
                 continue
 
-            user_answer = request.form.get(f"answer_{qid}")
-            correct_answer = question.get("answer")
-            is_correct = user_answer == correct_answer
-
-            if is_correct:
-                score += 1
-
+            user_answer = request.form.get(f"answer_{qid}", "").strip()
+            points_awarded, is_correct, feedback = grade_question(question, user_answer)
+            score += points_awarded
             review.append({
                 "question": question.get("question", "Питання"),
-                "user_answer": user_answer or "Не вибрано",
-                "correct_answer": correct_answer,
+                "user_answer": user_answer or "Не відповів",
+                "correct_answer": question.get("answer", ""),
                 "is_correct": is_correct,
-                "explanation": question.get(
-                    "explanation",
-                    f"Easy: правильна відповідь — «{correct_answer}». Повернись до теорії уроку й порівняй правило з прикладом."
-                ),
+                "points_awarded": points_awarded,
+                "points": question.get("points", 1),
+                "explanation": feedback,
+                "type": question.get("type", "choice"),
             })
 
         conn = get_db_connection()
         for item in review:
-            if not item["is_correct"]:
+            if item["points_awarded"] < item["points"]:
                 conn.execute(
                     """INSERT INTO mistakes
                     (user_id, subject, lesson_id, question, user_answer, correct_answer, explanation)
@@ -1419,68 +1431,46 @@ def quiz(lesson_id=None):
         conn.commit()
         conn.close()
 
+        passed = score >= PASS_SCORE
+        completed_before = lesson_id in completed
+        xp_gain = (80 if not completed_before else 25) if passed else (20 if not completed_before else 5)
+        session["xp"] = session.get("xp", 0) + xp_gain
+
+        lesson_update = complete_lesson(lesson_id, score, MAX_SCORE) if passed else {"first_completion": False, "new_achievements": []}
+        if not passed:
+            update_streak_for_today()
+
         session["last_score"] = score
-        session["last_total"] = total
+        session["last_total"] = MAX_SCORE
         session["last_lesson_id"] = lesson_id
         session["last_review"] = review
-        session.pop("active_quiz_questions", None)
-        session.pop("active_quiz_map", None)
-
-        success_threshold = max(3, round(total * 0.6))
-        completed_before = lesson_id in get_completed_lessons()
-
-        if score >= success_threshold:
-            xp_gain = 50 if not completed_before else 15
-        else:
-            xp_gain = 20 if not completed_before else 5
-
-        session["xp"] = session.get("xp", 0) + xp_gain
-        lesson_update = complete_lesson(lesson_id, score, total) if score >= success_threshold else {"first_completion": False, "new_achievements": []}
-
-        if score < success_threshold:
-            update_streak_for_today()
-            session["progress"] = max(session.get("progress", 0), round((len(get_completed_lessons()) / max(1, len(get_lessons_for_subject()))) * 100))
-
+        session["last_passed"] = passed
         session["xp_gain"] = xp_gain
         session["new_achievements"] = lesson_update.get("new_achievements", [])
+        session.pop("active_quiz_map", None)
         save_plan_to_db()
         return redirect(url_for("result"))
 
-    raw_questions = get_quiz_questions(lesson_id)
+    questions = get_learning_quiz(get_subject_key(), lesson_data)
     prepared_questions = []
     active_quiz_map = {}
-    lesson_title = get_lesson_content(lesson_id)["title"]
+    for question in questions:
+        item = dict(question)
+        if item["type"] == "choice":
+            options = list(item["options"])
+            random.shuffle(options)
+            item["options"] = options
+        prepared_questions.append(item)
+        active_quiz_map[item["id"]] = item
 
-    for index, question in enumerate(raw_questions):
-        options = list(question["options"])
-        random.shuffle(options)
-
-        qid = f"{get_subject_key()}_{lesson_id}_{index}"
-        explanation = question.get(
-            "explanation",
-            f"Easy: правильна відповідь — «{question['answer']}». Це правило пов’язане з темою «{lesson_title}»."
-        )
-
-        prepared = {
-            "id": qid,
-            "question": question["question"],
-            "options": options,
-            "answer": question["answer"],
-            "explanation": explanation,
-        }
-
-        prepared_questions.append(prepared)
-        active_quiz_map[qid] = prepared
-
-    # Questions can move, answers can move, but the id keeps everything connected.
-    random.shuffle(prepared_questions)
     session["active_quiz_map"] = active_quiz_map
-
     return render_template(
         "quiz.html",
         **get_user_data(),
-        lesson=get_lesson_content(lesson_id),
+        lesson=lesson_data,
         questions=prepared_questions,
+        pass_score=PASS_SCORE,
+        max_score=MAX_SCORE,
     )
 
 
@@ -1493,7 +1483,8 @@ def result():
     lesson_id = normalize_lesson_id(session.get("last_lesson_id"))
     lessons = get_lessons_for_subject()
     valid_ids = [lesson["id"] for lesson in lessons]
-    next_lesson_id = lesson_id + 1 if lesson_id + 1 in valid_ids else None
+    passed = bool(session.get("last_passed", False))
+    next_lesson_id = lesson_id + 1 if passed and lesson_id + 1 in valid_ids else None
 
     return render_template(
         "result.html",
@@ -1501,8 +1492,10 @@ def result():
         lesson=get_lesson_content(lesson_id),
         next_lesson_id=next_lesson_id,
         has_next_lesson=next_lesson_id is not None,
+        passed=passed,
+        pass_score=PASS_SCORE,
         score=session.get("last_score", 0),
-        total=session.get("last_total", 5),
+        total=session.get("last_total", MAX_SCORE),
         review=session.get("last_review", []),
         xp_gain=session.get("xp_gain", 0),
         new_achievements=session.get("new_achievements", []),

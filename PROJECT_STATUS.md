@@ -1,23 +1,27 @@
 # EasyNMT Project Status
 
-Version: v0.9.7.6 Stable
+Version: v0.9.8 Stable
 
-## Working
-- Persistent registration and login with SQLite
-- 30-day login session
-- Automatic account and plan restore after restart
-- Separate XP and progress for each subject
-- Completed lessons, achievements and quiz mistakes stored in SQLite
-- Subject switching without losing previous progress
-- OpenAI-ready assistant with demo fallback and request limits
+## Готово
+- Responsive Cosmic Tutor UI
+- Стабільний Dashboard
+- Мобільне off-canvas меню
+- Постійна Liquid Glass кнопка чату
+- OpenAI Responses API інтеграція в `ai_service.py`
+- Demo fallback без API-ключа
 
-## Database
-The database is created automatically at `instance/users.db`. Existing databases are migrated on launch.
+## Для ввімкнення OpenAI
+Додати в Railway Variables: `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_DAILY_LIMIT`.
 
-## Next
-- Connect and test a real OpenAI API key
-- Add password reset and email verification
-- Prepare deployment configuration
+## Learning Engine v0.9.8
 
-SEO status: metadata, sitemap, robots.txt and Search Console verification support are ready.
-Next: connect Google Search Console, request indexing, then design the EasyNMT logo and favicon.
+Готово:
+- послідовне відкриття уроків;
+- тест 12 питань (4 + 4 + 4);
+- письмові відповіді для питань 5–12;
+- оцінювання 24 бали, прохід 18;
+- детальний розбір одного прикладу;
+- детальний розбір відповідей після тесту;
+- fallback-режим без OpenAI API.
+
+OpenAI буде підключено як інтелектуальний двигун для персоналізації пояснень, генерації завдань і семантичної перевірки письмових відповідей. Остаточне відкриття уроків лишається під контролем Flask.

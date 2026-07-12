@@ -1,96 +1,61 @@
 {% extends "base.html" %}
 
-{% block title %}
-Урок | EasyNMT
-{% endblock %}
+{% block title %}{{ lesson.title }} | EasyNMT{% endblock %}
 
 {% block content %}
+<section class="learning-page lesson-v098">
+    <div class="learning-wrap">
+        <header class="learning-heading">
+            <span class="pill">Урок {{ lesson.id }} із {{ lessons|length }}</span>
+            <h1>{{ lesson.title }}</h1>
+            <p>{{ lesson.goal }}</p>
+        </header>
 
-<div class="lesson-page">
-
-    <div class="logo">EasyNMT</div>
-
-    <div class="lesson-topline">
-        <span>{{ lesson.badge }}</span>
-        <span>Урок {{ lesson.id }} із {{ lessons|length }}</span>
-        <span>+50 XP</span>
-    </div>
-
-    <div class="lesson-header fade-up">
-        <h1>📖 {{ lesson.title }}</h1>
-        <p>Сьогодні йдемо по чіткому маршруту: мета, теорія, приклад, швидкий тест і результат.</p>
-    </div>
-
-    <div class="goal-card premium lesson-progress-card">
-        <span class="score">🧭 Карта уроку</span>
-        <span class="desc">Ти зараз на старті. Відкрий теорію, розбери приклад і пройди тест.</span>
-
-        <div class="lesson-map">
-            <div class="lesson-step active">🎯 Мета</div>
-            <div class="lesson-step">🧠 Теорія</div>
-            <div class="lesson-step">✨ Приклад</div>
-            <div class="lesson-step">📝 Тест</div>
-        </div>
-
-        <div class="lesson-progress-bar">
-            <div class="lesson-progress-fill" style="width:25%;"></div>
-        </div>
-    </div>
-
-    <br>
-
-    <div class="goal-card premium lesson-section">
-        <span class="score">🎯 Мета уроку</span>
-        <span class="desc">{{ lesson.goal }}</span>
-    </div>
-
-    <br>
-
-    <div class="lesson-section-grid">
-        <a href="/theory/{{ lesson.id }}" class="goal-link">
-            <div class="goal-card lesson-section clickable-card">
-                <span class="score">🧠 Теорія</span>
-                <span class="desc">{{ lesson.theory }}<br><br>Натисни, щоб відкрити повну теорію, правила, типові помилки й міні-конспект.</span>
+        <article class="lesson-focus glass-card">
+            <div class="lesson-focus-copy">
+                <span class="section-kicker">Спочатку зрозумій ідею</span>
+                <h2>{{ breakdown.intro }}</h2>
+                <p>Нижче один приклад розібрано повністю. Без купи схожих завдань і без стрибків через кроки.</p>
             </div>
-        </a>
-
-        <a href="/example/{{ lesson.id }}" class="goal-link">
-            <div class="goal-card lesson-section clickable-card">
-                <span class="score">✨ Приклад</span>
-                <span class="desc">{{ lesson.example }}<br><br>Натисни, щоб побачити багато прикладів від легких до складніших.</span>
+            <div class="lesson-focus-meta">
+                <span>Пояснення</span><b>10–15 хв</b>
+                <span>Тест</span><b>12 питань</b>
+                <span>Прохід</span><b>18/24</b>
             </div>
-        </a>
+        </article>
+
+        <section class="worked-example glass-card">
+            <div class="worked-example-head">
+                <div>
+                    <span class="section-kicker">Повний розбір</span>
+                    <h2>Один приклад, крок за кроком</h2>
+                </div>
+                <span class="difficulty-chip">Від простого до складного</span>
+            </div>
+
+            <div class="breakdown-list">
+                {% for step in breakdown.steps %}
+                <div class="breakdown-step">
+                    <span class="breakdown-index">{{ loop.index }}</span>
+                    <div><h3>{{ step.title }}</h3><p>{{ step.text }}</p></div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="human-note warning-note">
+                <b>Де легко помилитися</b>
+                <p>{{ breakdown.mistake }}</p>
+            </div>
+            <div class="human-note conclusion-note">
+                <b>Що забрати з уроку</b>
+                <p>{{ breakdown.conclusion }}</p>
+            </div>
+        </section>
+
+        <div class="lesson-actions-v098">
+            <a class="button button-ghost button-large" href="{{ url_for('today') }}">До списку уроків</a>
+            <a class="button button-primary button-large" href="{{ url_for('quiz', lesson_id=lesson.id) }}">Перейти до тесту</a>
+        </div>
     </div>
-
-    <br>
-
-    <div class="goal-card easy-recommend">
-        <span class="score">💭 Easy рекомендує</span>
-        <span class="desc">
-            ✔ Спочатку відкрий теорію<br>
-            ✔ Потім розбери приклад<br>
-            ✔ Після цього проходь тест без поспіху
-        </span>
-    </div>
-
-    <br>
-
-    <div class="goal-grid">
-        <a href="/tutor" class="goal-link">
-            <button class="primary-action curiosity-button">💭 Мені цікаво...</button>
-        </a>
-
-        <a href="/quiz/{{ lesson.id }}" class="goal-link">
-            <button class="primary-action">Перейти до міні-тесту</button>
-        </a>
-    </div>
-
-    <br>
-
-    <a href="/today" class="goal-link">
-        <button class="secondary-action">Назад до уроків</button>
-    </a>
-
-</div>
-
+</section>
 {% endblock %}

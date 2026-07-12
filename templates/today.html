@@ -1,58 +1,54 @@
 {% extends "base.html" %}
 
-{% block title %}
-Почнемо сьогодні | EasyNMT
-{% endblock %}
+{% block title %}Уроки | EasyNMT{% endblock %}
 
 {% block content %}
+<section class="learning-page path-v098">
+    <div class="learning-wrap">
+        <header class="learning-heading">
+            <span class="pill">Твій маршрут</span>
+            <h1>{{ subject }}</h1>
+            <p>Уроки відкриваються по черзі. Пройди тест, набери щонайменше 18 із 24 балів і переходь далі.</p>
+        </header>
 
-<div class="today-page">
+        <article class="path-summary glass-card">
+            <div><span>Завершено</span><b>{{ completed_count }}/{{ lessons_total }}</b></div>
+            <div><span>Прогрес</span><b>{{ progress }}%</b></div>
+            <div><span>Досвід</span><b>{{ xp }} XP</b></div>
+            <div><span>Серія</span><b>{{ streak }} дн.</b></div>
+        </article>
 
-    <div class="logo">EasyNMT</div>
+        <div class="lesson-path-list">
+            {% for lesson in lessons %}
+                {% set unlocked = loop.first or (lesson.id - 1) in completed_lessons or lesson.id in completed_lessons %}
+                {% set completed = lesson.id in completed_lessons %}
+                {% if unlocked %}
+                <a class="lesson-path-row glass-card {% if completed %}is-completed{% else %}is-current{% endif %}" href="{{ url_for('lesson', lesson_id=lesson.id) }}">
+                    <span class="lesson-path-status">{% if completed %}✓{% else %}{{ lesson.id }}{% endif %}</span>
+                    <div class="lesson-path-copy">
+                        <span>{% if completed %}Пройдено{% elif loop.first or (lesson.id - 1) in completed_lessons %}Доступно зараз{% endif %}</span>
+                        <h2>{{ lesson.title }}</h2>
+                        <p>{{ lesson.goal }}</p>
+                    </div>
+                    <div class="lesson-path-meta"><b>12 питань</b><span>{% if completed %}Повторити{% else %}Почати →{% endif %}</span></div>
+                </a>
+                {% else %}
+                <div class="lesson-path-row glass-card is-locked" aria-disabled="true">
+                    <span class="lesson-path-status">🔒</span>
+                    <div class="lesson-path-copy">
+                        <span>Ще закрито</span>
+                        <h2>{{ lesson.title }}</h2>
+                        <p>Спочатку заверши попередній урок.</p>
+                    </div>
+                    <div class="lesson-path-meta"><b>Недоступно</b><span>18/24 для відкриття</span></div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
 
-    <div class="lesson-header fade-up" style="text-align:center;">
-        <span class="pill">📚 Lesson Path</span>
-        <h1>🚀 Почнемо сьогодні</h1>
-        <p>Обери урок. Завершені уроки збережуться у прогресі, а за тести ти отримуватимеш XP і досягнення.</p>
+        <div class="lesson-actions-v098">
+            <a class="button button-ghost button-large" href="{{ url_for('dashboard') }}">У кабінет</a>
+        </div>
     </div>
-
-    <div class="goal-card premium lesson-hero">
-        <span class="score">📚 {{ subject }}</span>
-        <span class="desc">{{ completed_count }} з {{ lessons_total }} уроків завершено · {{ xp }} XP · серія {{ streak }} дн.</span>
-        <br>
-        <div class="progress-bar"><div class="progress-fill" style="width: {{ progress }}%;"></div></div>
-    </div>
-
-    <br>
-
-    <div class="goal-grid">
-        {% for lesson in lessons %}
-        <a href="/lesson/{{ lesson.id }}" class="goal-link">
-            <div class="goal-card {% if lesson.id in completed_lessons %}completed-lesson{% elif loop.index == 1 %}premium{% endif %} clickable-card">
-                <span class="score">
-                    {% if lesson.id in completed_lessons %}✅{% else %}📖{% endif %}
-                    Урок {{ lesson.id }}
-                </span>
-                <span class="desc">
-                    {{ lesson.title }}<br>
-                    {% if lesson.id in completed_lessons %}
-                        Пройдено · можна повторити для XP
-                    {% else %}
-                        25 хв · теорія · приклад · тест
-                    {% endif %}
-                </span>
-            </div>
-        </a>
-        {% endfor %}
-    </div>
-
-    <br>
-
-    <div class="goal-grid">
-        <a href="/progress" class="goal-link"><button class="secondary-action">📊 Мій прогрес</button></a>
-        <a href="/dashboard" class="goal-link"><button class="secondary-action">Назад у кабінет</button></a>
-    </div>
-
-</div>
-
+</section>
 {% endblock %}

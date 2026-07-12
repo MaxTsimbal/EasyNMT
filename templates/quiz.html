@@ -1,47 +1,66 @@
 {% extends "base.html" %}
 
-{% block title %}
-Міні-тест | EasyNMT
-{% endblock %}
+{% block title %}Тест на 12 питань | EasyNMT{% endblock %}
 
 {% block content %}
+<section class="learning-page quiz-v098">
+    <div class="learning-wrap">
+        <header class="learning-heading">
+            <span class="pill">Перевірка теми</span>
+            <h1>{{ lesson.title }}</h1>
+            <p>12 питань у трьох частинах. Для наступного уроку потрібно набрати {{ pass_score }} із {{ max_score }} балів.</p>
+        </header>
 
-<div class="quiz-page">
-
-    <div class="logo">EasyNMT</div>
-
-    <div class="lesson-header fade-up">
-        <span class="pill">🧠 Smart Test</span>
-        <h1>📝 Міні-тест: {{ lesson.title }}</h1>
-        <p>Варіанти відповідей перемішуються автоматично, тому тест чесніший і корисніший.</p>
-    </div>
-
-    <form method="post" class="quiz-form">
-
-        {% for question in questions %}
-        <input type="hidden" name="question_ids" value="{{ question.id }}">
-
-        <div class="goal-card quiz-question">
-            <span class="quiz-badge">Питання {{ loop.index }} із {{ questions|length }}</span>
-            <span class="score">{{ question.question }}</span>
-
-            <div class="quiz-options">
-                {% for option in question.options %}
-                <label class="quiz-option">
-                    <input type="radio" name="answer_{{ question.id }}" value="{{ option }}" required>
-                    <span>{{ ['A','B','C','D'][loop.index0] }}. {{ option }}</span>
-                </label>
-                {% endfor %}
-            </div>
+        <div class="quiz-stage-strip" aria-label="Структура тесту">
+            <div><b>1–4</b><span>Вибір відповіді</span><small>1 бал</small></div>
+            <div><b>5–8</b><span>Коротка відповідь</span><small>2 бали</small></div>
+            <div><b>9–12</b><span>Повне розв’язання</span><small>3 бали</small></div>
         </div>
 
-        <br>
-        {% endfor %}
+        <form method="post" class="quiz-form" data-validate>
+            {% for question in questions %}
+            <input type="hidden" name="question_ids" value="{{ question.id }}">
 
-        <button class="primary-action" type="submit">Перевірити відповіді</button>
+            {% if loop.first or question.stage != questions[loop.index0 - 1].stage %}
+            <div class="quiz-stage-heading">
+                <span>Частина {{ question.stage }}</span>
+                <h2>{{ question.stage_name }}</h2>
+            </div>
+            {% endif %}
 
-    </form>
+            <article class="quiz-card glass-card">
+                <div class="quiz-card-top">
+                    <span class="quiz-number">{{ question.number }}/12</span>
+                    <span class="quiz-points">{{ question.points }} {% if question.points == 1 %}бал{% else %}бали{% endif %}</span>
+                </div>
+                <h3>{{ question.question }}</h3>
 
-</div>
+                {% if question.type == "choice" %}
+                <div class="quiz-options">
+                    {% for option in question.options %}
+                    <label class="quiz-option-v098">
+                        <input type="radio" name="answer_{{ question.id }}" value="{{ option }}" required>
+                        <span class="option-letter">{{ ['A','Б','В','Г'][loop.index0] }}</span>
+                        <span>{{ option }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+                {% elif question.type == "short" %}
+                <label class="written-answer-label" for="answer_{{ question.id }}">Твоя відповідь</label>
+                <input class="written-answer-input" id="answer_{{ question.id }}" name="answer_{{ question.id }}" placeholder="{{ question.placeholder }}" required autocomplete="off">
+                {% else %}
+                <label class="written-answer-label" for="answer_{{ question.id }}">Розв’язання</label>
+                <textarea class="written-answer-textarea" id="answer_{{ question.id }}" name="answer_{{ question.id }}" placeholder="{{ question.placeholder }}" required rows="6"></textarea>
+                <p class="answer-hint">Не пиши лише число. Покажи основні кроки, щоб перевірка побачила хід розв’язання.</p>
+                {% endif %}
+            </article>
+            {% endfor %}
 
+            <div class="quiz-submit-bar glass-card">
+                <div><b>Готово?</b><span>Перевір, чи відповів на всі 12 питань.</span></div>
+                <button class="button button-primary button-large" type="submit">Завершити тест</button>
+            </div>
+        </form>
+    </div>
+</section>
 {% endblock %}
