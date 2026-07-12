@@ -45,3 +45,14 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 });
+
+// Cosmic Tutor: subtle pointer parallax without affecting usability.
+(() => {
+    const scene = document.querySelector('.cosmic-scene');
+    if (!scene || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    window.addEventListener('pointermove', (event) => {
+        const x = (event.clientX / window.innerWidth - 0.5) * 8;
+        const y = (event.clientY / window.innerHeight - 0.5) * 8;
+        scene.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+    }, { passive: true });
+})();

@@ -1,6 +1,6 @@
 # EasyNMT Project Status
 
-Version: v0.9.4 SEO Ready
+Version: v0.9.6 Cosmic Tutor
 
 ## Working
 - Persistent registration and login with SQLite

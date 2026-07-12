@@ -1,76 +1,42 @@
 {% extends "base.html" %}
-
 {% block title %}Кабінет | EasyNMT{% endblock %}
-
 {% block content %}
-<div class="dashboard-shell progress-dashboard v079-dashboard">
+<div class="dashboard-shell cosmic-dashboard">
+    <div class="dashboard-brand-row">
+        <a href="/" class="brand-lockup"><img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="EasyNMT"><span>Easy<span>NMT</span></span></a>
+        <span class="pill">v0.9.6 Cosmic Tutor</span>
+    </div>
 
-    <div class="logo">EasyNMT</div>
-
-    <section class="dashboard-hero fade-up">
-        <span class="pill">v0.9.4 SEO Ready</span>
-        <h1>👋 {% if user_name %}Привіт, {{ user_name }}{% else %}Твій навчальний центр{% endif %}</h1>
-        <p>
-            EasyNMT готовий до великого етапу перед OpenAI: уроки, прогрес, XP, досягнення, бібліотека, план і персональні налаштування вже зібрані в один навчальний простір.
-        </p>
+    <section class="dashboard-hero cosmic-dashboard-hero fade-up">
+        <div><span class="eyebrow">КОСМІЧНА АКАДЕМІЯ</span><h1>{% if user_name %}Привіт, {{ user_name }}! 👋{% else %}Твій навчальний центр{% endif %}</h1><p>Сьогодні зробимо ще один крок до твоєї цілі. Я вже підготував наступний урок.</p></div>
+        <div class="dashboard-tutor"><img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="AI-викладач"><div class="mini-speech">Готовий продовжити місію?</div></div>
     </section>
 
-    <section class="dashboard-stats achievement-stats">
-        <div class="stat-card premium">
-            <span class="stat-label">📈 Прогрес</span>
-            <span class="stat-value">{{ progress }}%</span>
-            <div class="progress-bar mini-progress"><div class="progress-fill" style="width: {{ progress }}%;"></div></div>
-            <span class="stat-note">{{ completed_count }} з {{ lessons_total }} уроків завершено</span>
-        </div>
-        <div class="stat-card"><span class="stat-label">⭐ XP</span><span class="stat-value">{{ xp }}</span><span class="stat-note">Досвід за уроки, тести й повторення.</span></div>
-        <div class="stat-card"><span class="stat-label">🔥 Серія</span><span class="stat-value">{{ streak }} дн.</span><span class="stat-note">Стабільність сильніша за ривок раз на тиждень.</span></div>
-        <a href="/planner" class="goal-link"><div class="stat-card clickable-card"><span class="stat-label">📅 План</span><span class="stat-value">{{ daily_time }}</span><span class="stat-note">Натисни, щоб побачити навчальний маршрут.</span></div></a>
+    <section class="dashboard-stats achievement-stats cosmic-cards">
+        <div class="stat-card premium"><span class="stat-label">📈 Прогрес</span><span class="stat-value">{{ progress }}%</span><div class="progress-bar mini-progress"><div class="progress-fill" style="width: {{ progress }}%;"></div></div><span class="stat-note">{{ completed_count }} з {{ lessons_total }} уроків</span></div>
+        <div class="stat-card"><span class="stat-label">⭐ XP</span><span class="stat-value">{{ xp }}</span><span class="stat-note">Твоя навчальна енергія</span></div>
+        <div class="stat-card"><span class="stat-label">🔥 Серія</span><span class="stat-value">{{ streak }} дн.</span><span class="stat-note">Тримай орбіту</span></div>
+        <a href="/planner" class="goal-link"><div class="stat-card clickable-card"><span class="stat-label">📅 План</span><span class="stat-value">{{ daily_time }}</span><span class="stat-note">Відкрити маршрут</span></div></a>
+    </section>
+
+    <section class="space-journey-card">
+        <div class="journey-head"><div><span class="eyebrow">ТВІЙ МАРШРУТ</span><h2>Космічна подорож до 200</h2></div><strong>{{ progress }}%</strong></div>
+        <div class="journey-track"><span class="active">🌍<small>Земля</small></span><span>🌙<small>Місяць</small></span><span>🛰️<small>Орбіта</small></span><span>🚀<small>Марс</small></span><span>⭐<small>190+</small></span><span>🌌<small>200</small></span></div>
+        <div class="journey-line"><div style="width: {{ progress }}%;"></div></div>
     </section>
 
     <div class="dashboard-main">
-        <a href="/lesson/{{ first_lesson_id }}" class="goal-link">
-            <div class="goal-card premium big-action-card clickable-card">
-                <span class="score">▶️ Продовжити навчання</span>
-                <span class="desc">Наступний крок: <b>{{ first_topic }}</b><br>{{ subject }} · {{ daily_time }} · теорія · приклади · smart-тест · XP</span>
-                <div class="progress-wrapper" style="margin-top:24px;margin-bottom:0;">
-                    <div class="progress-top"><span>{{ subject }}</span><span>{{ progress }}%</span></div>
-                    <div class="progress-bar"><div class="progress-fill" style="width: {{ progress }}%;"></div></div>
-                </div>
-            </div>
-        </a>
-
-        <div class="goal-card lesson-list-card">
-            <span class="score">📚 Найближчі уроки</span>
-            <span class="desc">Кожен урок має теорію, приклади, тест і повторення помилок.</span>
-            <div style="margin-top:16px;">
-                {% for lesson in lessons %}
-                <a href="/lesson/{{ lesson.id }}" class="mini-lesson-row {% if lesson.id in completed_lessons %}completed-row{% endif %}">
-                    <div>
-                        <div class="mini-lesson-title">{% if lesson.id in completed_lessons %}✅{% else %}○{% endif %} Урок {{ lesson.id }}: {{ lesson.title }}</div>
-                        <div class="mini-lesson-meta">{{ lesson.badge }} · 25 хв · Smart Test</div>
-                    </div>
-                    <span>→</span>
-                </a>
-                {% endfor %}
-            </div>
-        </div>
+        <a href="/lesson/{{ first_lesson_id }}" class="goal-link"><div class="goal-card premium big-action-card clickable-card"><span class="score">▶️ Продовжити навчання</span><span class="desc">Наступний крок: <b>{{ first_topic }}</b><br>{{ subject }} · {{ daily_time }}</span><div class="progress-wrapper"><div class="progress-top"><span>{{ subject }}</span><span>{{ progress }}%</span></div><div class="progress-bar"><div class="progress-fill" style="width: {{ progress }}%;"></div></div></div></div></a>
+        <div class="goal-card lesson-list-card"><span class="score">📚 Найближчі уроки</span><span class="desc">Теорія, приклади, тест і повторення.</span><div style="margin-top:16px;">{% for lesson in lessons %}<a href="/lesson/{{ lesson.id }}" class="mini-lesson-row {% if lesson.id in completed_lessons %}completed-row{% endif %}"><div><div class="mini-lesson-title">{% if lesson.id in completed_lessons %}✅{% else %}○{% endif %} Урок {{ lesson.id }}: {{ lesson.title }}</div><div class="mini-lesson-meta">{{ lesson.badge }} · 25 хв · Smart Test</div></div><span>→</span></a>{% endfor %}</div></div>
     </div>
 
-    <br>
-
-    <div class="goal-grid v079-nav-grid">
-        <a href="/library" class="goal-link"><div class="goal-card clickable-card"><span class="score">📚 Бібліотека</span><span class="desc">Усі предмети й уроки в одному центрі.</span></div></a>
-        <a href="/progress" class="goal-link"><div class="goal-card clickable-card"><span class="score">📊 Мій прогрес</span><span class="desc">XP, уроки, результати тестів і статистика.</span></div></a>
-        <a href="/mistakes" class="goal-link"><div class="goal-card clickable-card"><span class="score">🔁 Мої помилки</span><span class="desc">Повтори неправильні відповіді з останнього тесту.</span></div></a>
-        <a href="/achievements" class="goal-link"><div class="goal-card clickable-card"><span class="score">🏆 Досягнення</span><span class="desc">Нагороди за навчальний шлях.</span></div></a>
-        <a href="/profile" class="goal-link"><div class="goal-card clickable-card"><span class="score">👤 Профіль</span><span class="desc">Акаунт, ціль, предмет і загальна активність.</span></div></a>
-        <a href="/change-subject" class="goal-link"><div class="goal-card clickable-card premium"><span class="score">🔁 Змінити предмет</span><span class="desc">Перемкнути навчальний маршрут на інший предмет.</span></div></a>
-        <a href="/settings" class="goal-link"><div class="goal-card clickable-card"><span class="score">⚙️ Налаштування</span><span class="desc">Змінити ціль, предмет або час підготовки.</span></div></a>
-        <a href="/tutor" class="goal-link"><div class="goal-card clickable-card"><span class="score">💭 Мені цікаво...</span><span class="desc">Easy-помічник уже готовий до майбутнього OpenAI.</span></div></a>
-        <a href="/beta-check" class="goal-link"><div class="goal-card clickable-card"><span class="score">🚀 Release Check</span><span class="desc">Перевірка готовності до публічного запуску.</span></div></a>
+    <div class="goal-grid v079-nav-grid cosmic-nav-grid">
+        <a href="/library" class="goal-link"><div class="goal-card clickable-card"><span class="score">📚 Бібліотека</span><span class="desc">Усі уроки й предмети.</span></div></a>
+        <a href="/progress" class="goal-link"><div class="goal-card clickable-card"><span class="score">📊 Прогрес</span><span class="desc">XP, результати й статистика.</span></div></a>
+        <a href="/mistakes" class="goal-link"><div class="goal-card clickable-card"><span class="score">🔁 Помилки</span><span class="desc">Повтори складні завдання.</span></div></a>
+        <a href="/achievements" class="goal-link"><div class="goal-card clickable-card"><span class="score">🏆 Нагороди</span><span class="desc">Досягнення за шлях.</span></div></a>
+        <a href="/change-subject" class="goal-link"><div class="goal-card clickable-card premium"><span class="score">🔁 Змінити предмет</span><span class="desc">Нова навчальна траєкторія.</span></div></a>
+        <a href="/tutor" class="goal-link"><div class="goal-card clickable-card"><span class="score">🤖 AI-викладач</span><span class="desc">Постав своє питання.</span></div></a>
     </div>
-
-    <br>
-    <a href="/start" class="goal-link"><button class="secondary-action">Налаштувати план заново</button></a>
 </div>
 {% endblock %}

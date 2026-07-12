@@ -1,6 +1,15 @@
-# Changelog
+# EasyNMT Changelog
 
-## v0.9.4 SEO Ready
+## v0.9.6 Cosmic Tutor
+- New cosmic background across landing, onboarding, authentication and dashboard.
+- EasyNMT robot is now the main AI tutor and brand mascot.
+- Compact goal, subject and date selection screens designed to fit without scrolling.
+- New glass cards, responsive layout, micro-animations and space journey progress.
+- Added logo assets and favicon.
+- Preserved accounts, database, SEO, Google verification support and Railway deployment.
+
+
+## v0.9.6 Cosmic Tutor
 
 - Додано SEO title, description, canonical і social metadata.
 - Додано фрази EasyNMT та «Легкий НМТ» у головну сторінку.
@@ -12,8 +21,8 @@
 
 # EasyNMT Changelog
 
-## v0.9.2 Stable Label Fix
-- Updated the dashboard release badge from `v0.7.9 Beta Ready` to `v0.9.2 Stable`.
+## v0.9.6 Cosmic Tutor Label Fix
+- Updated the dashboard release badge from `v0.7.9 Beta Ready` to `v0.9.6 Cosmic Tutor`.
 - Updated page metadata and internal release labels.
 - Renamed the beta-readiness screen to a public-launch readiness screen.
 - Prepared the build as the final local release before deployment.

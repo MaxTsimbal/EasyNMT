@@ -1,203 +1,66 @@
 {% extends "base.html" %}
-
 {% block title %}EasyNMT — легка підготовка до НМТ з AI{% endblock %}
-{% block description %}EasyNMT, або «Легкий НМТ», допомагає готуватися до НМТ за персональним планом: уроки, тести, AI-помічник і збереження прогресу.{% endblock %}
+{% block description %}EasyNMT, або «Легкий НМТ», допомагає готуватися до НМТ за персональним планом: уроки, тести, AI-викладач і збереження прогресу.{% endblock %}
 {% block robots %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endblock %}
 {% block canonical %}{{ request.url_root.rstrip('/') }}/{% endblock %}
-{% block og_title %}EasyNMT — легка підготовка до НМТ з AI{% endblock %}
-{% block og_description %}Персональний план підготовки до НМТ, уроки, тести та прогрес в одному українському сервісі.{% endblock %}
-{% block structured_data %}
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "WebApplication",
-  "name": "EasyNMT",
-  "alternateName": "Легкий НМТ",
-  "url": "{{ request.url_root.rstrip('/') }}/",
-  "applicationCategory": "EducationalApplication",
-  "operatingSystem": "Web",
-  "inLanguage": "uk",
-  "description": "Українська AI-платформа для персональної підготовки до НМТ з уроками, тестами та збереженням прогресу.",
-  "offers": {
-    "@type": "Offer",
-    "price": "0",
-    "priceCurrency": "UAH"
-  }
-}
-</script>
-{% endblock %}
-
 {% block content %}
-
-<div class="landing-shell">
-
-    <nav class="landing-nav">
-        <a href="/" class="landing-logo">EasyNMT</a>
-
+<div class="landing-shell cosmic-landing">
+    <nav class="landing-nav cosmic-nav">
+        <a href="/" class="brand-lockup">
+            <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="EasyNMT">
+            <span>Easy<span>NMT</span></span>
+        </a>
         <div class="landing-nav-links">
             <a href="#features">Можливості</a>
             <a href="#subjects">Предмети</a>
-            <a href="#pricing">Ціни</a>
             <a href="/login">Увійти</a>
-            {% if is_logged_in %}
-                <a href="/dashboard">Кабінет</a>
-                <a href="/logout">Вийти</a>
-            {% else %}
-                <a href="/register">Реєстрація</a>
-                <a href="/register" class="landing-start">Почати</a>
-            {% endif %}
+            {% if is_logged_in %}<a href="/dashboard" class="landing-start">Кабінет</a>{% else %}<a href="/register" class="landing-start">Почати</a>{% endif %}
         </div>
     </nav>
 
-    <main class="landing-hero-pro">
-
-        <div class="landing-badge">
-            🧠 AI-платформа для підготовки до НМТ
-        </div>
-
-        <h1>
-            Персональний план підготовки до НМТ за 2 хвилини
-        </h1>
-
-        <p>
-            EasyNMT аналізує твою ціль, предмет і час до НМТ, а потім створює маршрут навчання з уроками, тестами та прогресом.
-        </p>
-
-        <div class="landing-actions">
-            <a href="/register">
-                <button class="primary-action">
-                    Почати безкоштовно
-                </button>
-            </a>
-
-            <span>
-                Реєстрація займає менше хвилини
-            </span>
-        </div>
-
-        <div class="landing-stats-row">
-
-            <div class="landing-stat-card">
-                <span class="landing-stat-icon">🎯</span>
-                <strong>150–200+</strong>
-                <small>ціль на НМТ</small>
+    <main class="cosmic-hero">
+        <div class="hero-copy">
+            <div class="landing-badge">🚀 EasyNMT AI Academy</div>
+            <h1>Твій персональний <span>AI-викладач</span> для підготовки до НМТ</h1>
+            <p>Персональний маршрут, короткі уроки, smart-тести та прогрес, який перетворює підготовку на космічну подорож.</p>
+            <div class="landing-actions">
+                <a href="/register"><button class="primary-action">Почати безкоштовно</button></a>
+                <a href="#features"><button class="secondary-action">Дізнатися більше</button></a>
             </div>
-
-            <div class="landing-stat-card">
-                <span class="landing-stat-icon">📚</span>
-                <strong>4 предмети</strong>
-                <small>математика, мова, історія, англійська</small>
-            </div>
-
-            <div class="landing-stat-card premium">
-                <span class="landing-stat-icon">⚡</span>
-                <strong>AI-маршрут</strong>
-                <small>уроки, тести, прогрес</small>
-            </div>
-
+            <div class="trust-row"><span>✓ безкоштовний старт</span><span>✓ прогрес зберігається</span><span>✓ 4 предмети</span></div>
         </div>
-
+        <div class="hero-tutor-card">
+            <div class="orbit-ring ring-one"></div><div class="orbit-ring ring-two"></div>
+            <img class="hero-mascot" src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="AI-викладач EasyNMT">
+            <div class="tutor-bubble"><strong>Привіт! 👋</strong><span>Я твій AI-викладач. Почнемо шлях до 190+?</span></div>
+        </div>
     </main>
 
+    <div class="landing-stats-row cosmic-stats">
+        <div class="landing-stat-card"><span class="landing-stat-icon">🎯</span><strong>150–200+</strong><small>твоя ціль</small></div>
+        <div class="landing-stat-card"><span class="landing-stat-icon">🪐</span><strong>6 рівнів</strong><small>космічна подорож</small></div>
+        <div class="landing-stat-card premium"><span class="landing-stat-icon">🤖</span><strong>AI-викладач</strong><small>завжди поруч</small></div>
+    </div>
 </div>
 
-<section id="about" class="landing-section compact-section">
-    <div class="section-header">
-        <span>EasyNMT · Легкий НМТ</span>
-        <h2>Що таке EasyNMT?</h2>
-        <p>EasyNMT — це український сервіс для легкої та послідовної підготовки до НМТ. Він створює персональний маршрут, зберігає прогрес і допомагає рухатися від першої теми до цільового бала без навчального хаосу.</p>
-    </div>
-</section>
-
-<section id="features" class="landing-section">
-    <div class="section-header">
-        <span>01 · Можливості</span>
-        <h2>Не просто чат, а особистий маршрут до НМТ</h2>
-        <p>EasyNMT показує, що робити сьогодні, що повторити завтра і як рухатися до цілі без хаосу.</p>
-    </div>
-
+<section id="features" class="landing-section cosmic-section">
+    <div class="section-header"><span>01 · Можливості</span><h2>Навчання без хаосу</h2><p>EasyNMT показує один зрозумілий наступний крок і веде тебе вперед.</p></div>
     <div class="feature-grid">
-        <div class="info-card premium">
-            <div class="info-icon">🧠</div>
-            <h3>AI-план</h3>
-            <p>Сервіс бере твою ціль, предмет і час до НМТ та формує стартову програму.</p>
-        </div>
-
-        <div class="info-card">
-            <div class="info-icon">📈</div>
-            <h3>Прогрес</h3>
-            <p>Кожен урок і тест поступово рухає тебе вперед, а кабінет показує результат.</p>
-        </div>
-
-        <div class="info-card">
-            <div class="info-icon">📝</div>
-            <h3>Міні-тести</h3>
-            <p>Після теми користувач проходить короткий тест, щоб закріпити матеріал.</p>
-        </div>
-
-        <div class="info-card">
-            <div class="info-icon">🔥</div>
-            <h3>Почнемо сьогодні</h3>
-            <p>Замість думати, що вчити, користувач одразу бачить свій перший крок.</p>
-        </div>
+        <div class="info-card premium"><div class="info-icon">🤖</div><h3>AI-викладач</h3><p>Пояснення, підказки й підтримка у фірмовому стилі EasyNMT.</p></div>
+        <div class="info-card"><div class="info-icon">🧭</div><h3>Персональний маршрут</h3><p>Ціль, предмет і час перетворюються на конкретний план.</p></div>
+        <div class="info-card"><div class="info-icon">📝</div><h3>Smart-тести</h3><p>Короткі перевірки після кожної теми та робота над помилками.</p></div>
+        <div class="info-card"><div class="info-icon">🌌</div><h3>Космічний прогрес</h3><p>Земля, Місяць, Орбіта, Марс, Зірка та Галактика 200.</p></div>
     </div>
 </section>
 
-<section id="subjects" class="landing-section compact-section">
-    <div class="section-header">
-        <span>02 · Предмети</span>
-        <h2>Почни з одного предмета, потім розширюй підготовку</h2>
-    </div>
-
-    <div class="subject-row">
-        <div class="subject-pill">📐 Математика</div>
-        <div class="subject-pill">🇺🇦 Українська мова</div>
-        <div class="subject-pill">📜 Історія України</div>
-        <div class="subject-pill">🇬🇧 Англійська</div>
-    </div>
+<section id="subjects" class="landing-section compact-section cosmic-section">
+    <div class="section-header"><span>02 · Предмети</span><h2>Обери свою траєкторію</h2></div>
+    <div class="subject-row"><div class="subject-pill">📐 Математика</div><div class="subject-pill">🇺🇦 Українська мова</div><div class="subject-pill">📜 Історія України</div><div class="subject-pill">🇬🇧 Англійська</div></div>
 </section>
 
-<section id="pricing" class="landing-section">
-    <div class="section-header">
-        <span>03 · Ціни</span>
-        <h2>Старт без барʼєрів</h2>
-        <p>Спочатку EasyNMT можна тестувати без оплати, а платні можливості зʼявляться після MVP.</p>
-    </div>
-
-    <div class="pricing-grid">
-        <div class="price-card">
-            <span class="price-label">Start</span>
-            <h3>Безкоштовно</h3>
-            <p>Перший план, стартова тема, AI Loader і базовий кабінет.</p>
-            <strong>0 грн</strong>
-        </div>
-
-        <div class="price-card premium">
-            <span class="price-label">Pro · скоро</span>
-            <h3>AI-репетитор</h3>
-            <p>Персональні пояснення, аналіз помилок, тести й адаптивний план.</p>
-            <strong>Пізніше</strong>
-        </div>
-    </div>
+<section class="landing-section final-cta cosmic-cta">
+    <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="EasyNMT tutor">
+    <div><h2>Готовий до старту?</h2><p>Створи акаунт і отримай свій перший навчальний маршрут.</p></div>
+    <a href="/register"><button class="primary-action">Розпочати місію</button></a>
 </section>
-
-<section id="login" class="landing-section final-cta">
-    <h2>Готовий зібрати свій перший план?</h2>
-    <p>Створи акаунт, щоб зберігати прогрес, план, XP і майбутні уроки.</p>
-
-    <div class="landing-actions center-actions">
-        <a href="/register">
-            <button class="primary-action">
-                Створити акаунт
-            </button>
-        </a>
-
-        <a href="/login">
-            <button class="secondary-action">
-                Увійти
-            </button>
-        </a>
-    </div>
-</section>
-
 {% endblock %}

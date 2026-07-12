@@ -4,11 +4,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="google-site-verification" content="eb91dnbOK_84BYAKKBVklnLbhqwnMCiQC91WS5oQLEA">
 
     <title>{% block title %}EasyNMT — легка підготовка до НМТ з AI{% endblock %}</title>
 
-    <meta name="theme-color" content="#6D28D9">
+    <meta name="theme-color" content="#070B1F">
     <meta name="description" content="{% block description %}EasyNMT — українська AI-платформа для персональної підготовки до НМТ з уроками, тестами та збереженням прогресу.{% endblock %}">
     <meta name="robots" content="{% block robots %}noindex, nofollow{% endblock %}">
 
@@ -24,6 +23,12 @@
     <meta name="twitter:card" content="summary">
     <meta name="twitter:title" content="EasyNMT — легка підготовка до НМТ з AI">
     <meta name="twitter:description" content="Персональний план, уроки, тести та прогрес для підготовки до НМТ.">
+
+    {% if config.GOOGLE_SITE_VERIFICATION %}
+    <meta name="google-site-verification" content="{{ config.GOOGLE_SITE_VERIFICATION }}">
+    {% endif %}
+
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/favicon.png') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/navbar.css') }}">
 
@@ -31,7 +36,13 @@
     {% block extra_css %}{% endblock %}
 </head>
 
-<body class="page-transition">
+<body class="page-transition cosmic-body">
+<div class="cosmic-scene" aria-hidden="true">
+    <div class="stars stars-one"></div>
+    <div class="stars stars-two"></div>
+    <div class="nebula nebula-one"></div>
+    <div class="nebula nebula-two"></div>
+</div>
 
 <div id="page-loader">
     <div class="loader-shell">
