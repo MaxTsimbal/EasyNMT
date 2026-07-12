@@ -1,3 +1,10 @@
+# EasyNMT v0.9.7.3 Stable Hotfix
+
+- Fixed dashboard 500 error caused by an incorrect Flask endpoint.
+- Replaced `url_for("achievements")` with `url_for("achievements_page")`.
+- Rechecked every `url_for()` reference in all templates against registered Flask endpoints.
+- Verified Python syntax and core route responses with Flask test client.
+
 # EasyNMT v0.9.7.2
 
 - Dashboard navigation moved into a separate full-height desktop sidebar.
