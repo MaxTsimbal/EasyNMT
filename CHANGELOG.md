@@ -1,3 +1,15 @@
+# Changelog
+
+## v0.9.4 SEO Ready
+
+- Додано SEO title, description, canonical і social metadata.
+- Додано фрази EasyNMT та «Легкий НМТ» у головну сторінку.
+- Додано structured data для освітнього вебзастосунку.
+- Додано динамічні `/robots.txt` і `/sitemap.xml`.
+- Приватні сторінки захищено від індексації за замовчуванням.
+- Додано підтримку Google Search Console verification через Railway Variable.
+- Додано `SEO_SETUP.md`.
+
 # EasyNMT Changelog
 
 ## v0.9.2 Stable Label Fix

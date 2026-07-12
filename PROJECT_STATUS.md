@@ -1,6 +1,6 @@
 # EasyNMT Project Status
 
-Version: v0.9.3 Public Deployment Ready
+Version: v0.9.4 SEO Ready
 
 ## Working
 - Persistent registration and login with SQLite
@@ -18,3 +18,6 @@ The database is created automatically at `instance/users.db`. Existing databases
 - Connect and test a real OpenAI API key
 - Add password reset and email verification
 - Prepare deployment configuration
+
+SEO status: metadata, sitemap, robots.txt and Search Console verification support are ready.
+Next: connect Google Search Console, request indexing, then design the EasyNMT logo and favicon.

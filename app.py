@@ -4,7 +4,7 @@ import sqlite3
 from datetime import date as dt_date, datetime, timedelta
 from functools import wraps
 
-from flask import Flask, flash, redirect, render_template, request, session, url_for
+from flask import Flask, Response, flash, redirect, render_template, request, session, url_for
 from dotenv import load_dotenv
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -1761,6 +1761,28 @@ def beta_check():
         {"icon": "✅", "title": "Публікація", "desc": "Збірка підготовлена до Railway: Gunicorn, health-check і постійна база даних."},
     ]
     return render_template("beta_check.html", **get_user_data(), checks=checks)
+
+
+@app.route("/robots.txt")
+def robots_txt():
+    base_url = request.url_root.rstrip("/")
+    content = f"User-agent: *\nAllow: /\n\nSitemap: {base_url}/sitemap.xml\n"
+    return Response(content, mimetype="text/plain")
+
+
+@app.route("/sitemap.xml")
+def sitemap_xml():
+    base_url = request.url_root.rstrip("/")
+    content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>{base_url}/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>
+"""
+    return Response(content, mimetype="application/xml")
 
 
 @app.route("/health")

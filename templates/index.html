@@ -1,7 +1,30 @@
 {% extends "base.html" %}
 
-{% block title %}
-EasyNMT | AI-підготовка до НМТ
+{% block title %}EasyNMT — легка підготовка до НМТ з AI{% endblock %}
+{% block description %}EasyNMT, або «Легкий НМТ», допомагає готуватися до НМТ за персональним планом: уроки, тести, AI-помічник і збереження прогресу.{% endblock %}
+{% block robots %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endblock %}
+{% block canonical %}{{ request.url_root.rstrip('/') }}/{% endblock %}
+{% block og_title %}EasyNMT — легка підготовка до НМТ з AI{% endblock %}
+{% block og_description %}Персональний план підготовки до НМТ, уроки, тести та прогрес в одному українському сервісі.{% endblock %}
+{% block structured_data %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "EasyNMT",
+  "alternateName": "Легкий НМТ",
+  "url": "{{ request.url_root.rstrip('/') }}/",
+  "applicationCategory": "EducationalApplication",
+  "operatingSystem": "Web",
+  "inLanguage": "uk",
+  "description": "Українська AI-платформа для персональної підготовки до НМТ з уроками, тестами та збереженням прогресу.",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "UAH"
+  }
+}
+</script>
 {% endblock %}
 
 {% block content %}
@@ -77,6 +100,14 @@ EasyNMT | AI-підготовка до НМТ
     </main>
 
 </div>
+
+<section id="about" class="landing-section compact-section">
+    <div class="section-header">
+        <span>EasyNMT · Легкий НМТ</span>
+        <h2>Що таке EasyNMT?</h2>
+        <p>EasyNMT — це український сервіс для легкої та послідовної підготовки до НМТ. Він створює персональний маршрут, зберігає прогрес і допомагає рухатися від першої теми до цільового бала без навчального хаосу.</p>
+    </div>
+</section>
 
 <section id="features" class="landing-section">
     <div class="section-header">

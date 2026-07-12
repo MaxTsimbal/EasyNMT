@@ -5,14 +5,33 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>{% block title %}EasyNMT{% endblock %}</title>
+    <title>{% block title %}EasyNMT — легка підготовка до НМТ з AI{% endblock %}</title>
 
     <meta name="theme-color" content="#6D28D9">
-    <meta name="description" content="EasyNMT v0.9.3 Public Ready — AI-платформа для персональної підготовки до НМТ зі збереженням акаунтів і прогресу.">
+    <meta name="description" content="{% block description %}EasyNMT — українська AI-платформа для персональної підготовки до НМТ з уроками, тестами та збереженням прогресу.{% endblock %}">
+    <meta name="robots" content="{% block robots %}noindex, nofollow{% endblock %}">
+
+    <link rel="canonical" href="{% block canonical %}{{ request.url_root.rstrip('/') }}{{ request.path }}{% endblock %}">
+
+    <meta property="og:locale" content="uk_UA">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="EasyNMT">
+    <meta property="og:title" content="{% block og_title %}EasyNMT — легка підготовка до НМТ з AI{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}Персональний план підготовки до НМТ, уроки, тести та збереження прогресу в одному сервісі.{% endblock %}">
+    <meta property="og:url" content="{{ request.url_root.rstrip('/') }}{{ request.path }}">
+
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="EasyNMT — легка підготовка до НМТ з AI">
+    <meta name="twitter:description" content="Персональний план, уроки, тести та прогрес для підготовки до НМТ.">
+
+    {% if config.GOOGLE_SITE_VERIFICATION %}
+    <meta name="google-site-verification" content="{{ config.GOOGLE_SITE_VERIFICATION }}">
+    {% endif %}
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/navbar.css') }}">
 
+    {% block structured_data %}{% endblock %}
     {% block extra_css %}{% endblock %}
 </head>
 
