@@ -5635,3 +5635,180 @@ body.dashboard-app .brand-version::after {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 }
+
+/* ========================================================================== 
+   EasyNMT v0.9.7.6 Mobile dashboard sidebar hotfix
+   The dashboard navigation becomes a real off-canvas list on phones/tablets.
+   ========================================================================== */
+
+.dashboard-mobile-sidebar-toggle,
+.dashboard-sidebar-overlay {
+    display: none;
+}
+
+@media (max-width: 920px) {
+    body.dashboard-app.dashboard-sidebar-open {
+        overflow: hidden;
+    }
+
+    body.dashboard-app .dashboard-v2 {
+        padding-top: 14px;
+    }
+
+    body.dashboard-app .dashboard-shell-v2 {
+        display: block;
+        width: min(calc(100% - 24px), var(--container-width));
+    }
+
+    body.dashboard-app .dashboard-mobile-sidebar-toggle {
+        position: sticky;
+        top: calc(var(--header-height) + 10px);
+        z-index: 930;
+        display: inline-flex;
+        width: 100%;
+        min-height: 50px;
+        margin: 0 0 14px;
+        padding: 0 16px;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        border: 1px solid rgba(167, 139, 250, 0.25);
+        border-radius: 16px;
+        color: #fff;
+        background: rgba(13, 18, 42, 0.9);
+        box-shadow: 0 12px 34px rgba(0, 0, 0, 0.28);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        font-weight: 750;
+        cursor: pointer;
+    }
+
+    body.dashboard-app .dashboard-mobile-sidebar-toggle > span:first-child {
+        font-size: 20px;
+        line-height: 1;
+    }
+
+    body.dashboard-app .dashboard-sidebar-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 1390;
+        display: block;
+        background: rgba(2, 4, 14, 0.68);
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 220ms ease, visibility 220ms ease;
+        backdrop-filter: blur(3px);
+        -webkit-backdrop-filter: blur(3px);
+    }
+
+    body.dashboard-app .dashboard-sidebar-overlay.visible {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    body.dashboard-app .dashboard-sidebar-v3 {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 1400;
+        display: block;
+        width: min(84vw, 330px);
+        height: 100dvh;
+        margin: 0;
+        padding: 18px 14px max(18px, env(safe-area-inset-bottom));
+        border: 0;
+        border-right: 1px solid rgba(167, 139, 250, 0.22);
+        border-radius: 0 24px 24px 0;
+        background: rgba(7, 10, 28, 0.98);
+        box-shadow: 24px 0 70px rgba(0, 0, 0, 0.48);
+        overflow-y: auto;
+        transform: translateX(-105%);
+        visibility: hidden;
+        transition: transform 260ms cubic-bezier(.2, .8, .2, 1), visibility 260ms ease;
+        overscroll-behavior: contain;
+    }
+
+    body.dashboard-app .dashboard-sidebar-v3.open {
+        transform: translateX(0);
+        visibility: visible;
+    }
+
+    body.dashboard-app .dashboard-sidebar-inner {
+        display: flex;
+        min-height: 100%;
+        flex-direction: column;
+    }
+
+    body.dashboard-app .dashboard-user-v3 {
+        display: flex;
+        padding: 10px 8px 18px;
+        align-items: center;
+        gap: 12px;
+        border-bottom: 1px solid rgba(255,255,255,.08);
+    }
+
+    body.dashboard-app .dashboard-sidebar-section {
+        margin-top: 18px;
+    }
+
+    body.dashboard-app .dashboard-sidebar-label {
+        display: block;
+        margin: 0 10px 8px;
+        color: #85829b;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+    }
+
+    body.dashboard-app .dashboard-nav-v3 {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 6px;
+    }
+
+    body.dashboard-app .dashboard-nav-v3 .dashboard-nav-link {
+        display: flex;
+        width: 100%;
+        min-height: 48px;
+        padding: 0 13px;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 12px;
+        border-radius: 14px;
+        text-align: left;
+    }
+
+    body.dashboard-app .dashboard-nav-v3 .dashboard-nav-link span {
+        width: 24px;
+        flex: 0 0 24px;
+        text-align: center;
+        font-size: 18px;
+    }
+
+    body.dashboard-app .dashboard-nav-v3 .dashboard-nav-link b {
+        font-size: 14px;
+    }
+
+    body.dashboard-app .dashboard-sidebar-bottom {
+        margin-top: auto;
+        padding-top: 18px;
+    }
+
+    body.dashboard-app .dashboard-sidebar-tip {
+        display: flex;
+        margin-bottom: 12px;
+        padding: 13px;
+        align-items: center;
+        gap: 10px;
+        border: 1px solid rgba(255,255,255,.08);
+        border-radius: 16px;
+        background: rgba(255,255,255,.035);
+    }
+
+    body.dashboard-app .dashboard-main-v0976 {
+        width: 100%;
+        margin: 0;
+    }
+}

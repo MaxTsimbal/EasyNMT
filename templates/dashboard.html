@@ -6,7 +6,14 @@
 {% block content %}
 <section class="dashboard-page dashboard-v2">
     <div class="container dashboard-shell-v2">
-        <aside class="dashboard-sidebar dashboard-sidebar-v3" aria-label="Навігація кабінету">
+        <button class="dashboard-mobile-sidebar-toggle" id="dashboardSidebarToggle" type="button" aria-controls="dashboardSidebar" aria-expanded="false">
+            <span aria-hidden="true">☰</span>
+            <span>Меню кабінету</span>
+        </button>
+
+        <div class="dashboard-sidebar-overlay" id="dashboardSidebarOverlay" aria-hidden="true"></div>
+
+        <aside class="dashboard-sidebar dashboard-sidebar-v3" id="dashboardSidebar" aria-label="Навігація кабінету">
             <div class="dashboard-sidebar-inner">
                 <div class="dashboard-user dashboard-user-v3">
                     <span class="dashboard-avatar">{{ (user_name or 'E')[0]|upper }}</span>
