@@ -1,6 +1,12 @@
+# EasyNMT v0.9.7.2
+
+- Dashboard navigation moved into a separate full-height desktop sidebar.
+- Added grouped learning, tools, profile, and settings navigation.
+- Preserved compact responsive navigation for tablets and phones.
+
 # EasyNMT Changelog
 
-## v0.9.7 Stable — Dashboard repair and stability pass
+## v0.9.7.1 Stable — Dashboard repair and stability pass
 - Fixed the `/dashboard` 500 error caused by an invalid Jinja endpoint name.
 - Replaced `url_for("progress")` with the real Flask endpoint `url_for("progress_page")`.
 - Verified every template `url_for()` target against the Flask URL map.
