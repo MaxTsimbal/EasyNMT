@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Бібліотека уроків | EasyNMT{% endblock %}
+{% block content %}
+<div class="lesson-page">
+    <div class="logo">EasyNMT</div>
+    <div class="lesson-header fade-up"><span class="pill">📚 Lesson Center</span><h1>Бібліотека уроків</h1><p>Усі предмети й теми в одному місці. Можеш подивитися прогрес по кожному напрямку.</p></div>
+    {% for block in catalog_view %}
+    <div class="goal-card library-subject-card">
+        <span class="score">{{ block.name }}</span>
+        <span class="desc">Прогрес: {{ block.progress }}%</span>
+        <div class="progress-bar" style="margin:16px 0;"><div class="progress-fill" style="width:{{ block.progress }}%;"></div></div>
+        {% for lesson in block.lessons %}
+        <a href="/switch-subject/{{ block.key }}" class="mini-lesson-row {% if lesson.id in block.completed %}completed-row{% endif %}">
+            <div><div class="mini-lesson-title">{% if lesson.id in block.completed %}✅{% else %}○{% endif %} Урок {{ lesson.id }}: {{ lesson.title }}</div><div class="mini-lesson-meta">{{ lesson.goal }}</div></div><span>→</span>
+        </a>
+        {% endfor %}
+    </div><br>
+    {% endfor %}
+    <a href="/dashboard"><button>Назад у кабінет</button></a>
+</div>
+{% endblock %}

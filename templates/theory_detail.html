@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}
+Теорія | EasyNMT
+{% endblock %}
+
+{% block content %}
+
+<div class="container lesson-detail-page rich-lesson-page">
+
+    <div class="logo">EasyNMT</div>
+
+    <div class="lesson-topline">
+        <span>{{ lesson.badge }}</span>
+        <span>Урок {{ lesson.id }}</span>
+        <span>Розширена теорія</span>
+    </div>
+
+    <h1>🧠 Теорія: {{ lesson.title }}</h1>
+
+    <p>Тут Easy пояснює тему так, щоб її можна було реально вивчити, а не просто переглянути.</p>
+
+    <div class="goal-card premium lesson-section detail-card">
+        <span class="score">🧩 Простими словами</span>
+        <span class="desc">{{ details.simple_explanation }}</span>
+    </div>
+
+    <br>
+
+    <div class="goal-card lesson-section detail-card">
+        <span class="score">🎯 Де це буде на НМТ</span>
+        <span class="desc">{{ details.nmt_relevance }}</span>
+    </div>
+
+    <br>
+
+    <div class="goal-card lesson-section detail-card">
+        <span class="score">📌 Головне, що треба зрозуміти</span>
+        <span class="desc">
+            {% for point in details.theory_points %}
+                <span class="detail-line"><b>{{ loop.index }}.</b> {{ point }}</span><br>
+            {% endfor %}
+        </span>
+    </div>
+
+    <br>
+
+    <div class="goal-card lesson-section detail-card">
+        <span class="score">🧮 Формули / правила</span>
+        <span class="desc">
+            {% for formula in details.formulas %}
+                <span class="detail-chip">{{ formula }}</span>
+            {% endfor %}
+        </span>
+    </div>
+
+    <br>
+
+    <div class="goal-card lesson-section detail-card">
+        <span class="score">💡 Як запам’ятати</span>
+        <span class="desc">{{ details.memory_tip }}</span>
+    </div>
+
+    <br>
+
+    <div class="goal-card lesson-section detail-card warning-card">
+        <span class="score">⚠️ Типові помилки</span>
+        <span class="desc">
+            {% for mistake in details.mistakes %}
+                <span class="detail-line">❌ {{ mistake }}</span><br>
+            {% endfor %}
+        </span>
+    </div>
+
+    <br>
+
+    <div class="goal-card lesson-section detail-card">
+        <span class="score">📄 Міні-конспект</span>
+        <span class="desc">
+            {% for item in details.summary_points %}
+                <span class="detail-line">✅ {{ item }}</span><br>
+            {% endfor %}
+        </span>
+    </div>
+
+    <br>
+
+    <div class="goal-card lesson-section detail-card">
+        <span class="score">🧠 Перевір себе перед тестом</span>
+        <span class="desc">
+            {% for check in details.self_check %}
+                <span class="detail-line">• {{ check }}</span><br>
+            {% endfor %}
+        </span>
+    </div>
+
+    <br>
+
+    <div class="goal-grid">
+        <a href="/example/{{ lesson.id }}" class="goal-link">
+            <div class="goal-card clickable-card">
+                <span class="score">✨ Приклади</span>
+                <span class="desc">Перейти до розбору прикладів</span>
+            </div>
+        </a>
+
+        <a href="/quiz/{{ lesson.id }}" class="goal-link">
+            <div class="goal-card premium clickable-card">
+                <span class="score">📝 Тест</span>
+                <span class="desc">Перевірити себе</span>
+            </div>
+        </a>
+    </div>
+
+    <br>
+
+    <a href="/lesson/{{ lesson.id }}" class="goal-link">
+        <button class="secondary-action">Назад до уроку</button>
+    </a>
+
+</div>
+
+{% endblock %}

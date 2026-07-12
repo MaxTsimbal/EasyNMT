@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}
+Змінити предмет | EasyNMT
+{% endblock %}
+
+{% block content %}
+
+<div class="container">
+
+    <div class="logo">
+        EasyNMT
+    </div>
+
+    <h1>
+        🔁 Змінити предмет
+    </h1>
+
+    <p>
+        Обери новий предмет. EasyNMT оновить стартові уроки під нього.
+    </p>
+
+    <div class="goal-grid">
+
+        <a href="/switch-subject/math" class="goal-link">
+            <div class="goal-card {% if subject_key == 'math' %}premium{% endif %}">
+                <span class="score">📐</span>
+                <span class="desc">Математика</span>
+            </div>
+        </a>
+
+        <a href="/switch-subject/ukrainian" class="goal-link">
+            <div class="goal-card {% if subject_key == 'ukrainian' %}premium{% endif %}">
+                <span class="score">🇺🇦</span>
+                <span class="desc">Українська мова</span>
+            </div>
+        </a>
+
+        <a href="/switch-subject/history" class="goal-link">
+            <div class="goal-card {% if subject_key == 'history' %}premium{% endif %}">
+                <span class="score">📜</span>
+                <span class="desc">Історія України</span>
+            </div>
+        </a>
+
+        <a href="/switch-subject/english" class="goal-link">
+            <div class="goal-card {% if subject_key == 'english' %}premium{% endif %}">
+                <span class="score">🇬🇧</span>
+                <span class="desc">Англійська мова</span>
+            </div>
+        </a>
+
+    </div>
+
+    <br>
+
+    <a href="/dashboard" class="goal-link">
+        <button class="secondary-action">
+            Назад у кабінет
+        </button>
+    </a>
+
+</div>
+
+{% endblock %}

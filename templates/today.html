@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}
+Почнемо сьогодні | EasyNMT
+{% endblock %}
+
+{% block content %}
+
+<div class="today-page">
+
+    <div class="logo">EasyNMT</div>
+
+    <div class="lesson-header fade-up" style="text-align:center;">
+        <span class="pill">📚 Lesson Path</span>
+        <h1>🚀 Почнемо сьогодні</h1>
+        <p>Обери урок. Завершені уроки збережуться у прогресі, а за тести ти отримуватимеш XP і досягнення.</p>
+    </div>
+
+    <div class="goal-card premium lesson-hero">
+        <span class="score">📚 {{ subject }}</span>
+        <span class="desc">{{ completed_count }} з {{ lessons_total }} уроків завершено · {{ xp }} XP · серія {{ streak }} дн.</span>
+        <br>
+        <div class="progress-bar"><div class="progress-fill" style="width: {{ progress }}%;"></div></div>
+    </div>
+
+    <br>
+
+    <div class="goal-grid">
+        {% for lesson in lessons %}
+        <a href="/lesson/{{ lesson.id }}" class="goal-link">
+            <div class="goal-card {% if lesson.id in completed_lessons %}completed-lesson{% elif loop.index == 1 %}premium{% endif %} clickable-card">
+                <span class="score">
+                    {% if lesson.id in completed_lessons %}✅{% else %}📖{% endif %}
+                    Урок {{ lesson.id }}
+                </span>
+                <span class="desc">
+                    {{ lesson.title }}<br>
+                    {% if lesson.id in completed_lessons %}
+                        Пройдено · можна повторити для XP
+                    {% else %}
+                        25 хв · теорія · приклад · тест
+                    {% endif %}
+                </span>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+
+    <br>
+
+    <div class="goal-grid">
+        <a href="/progress" class="goal-link"><button class="secondary-action">📊 Мій прогрес</button></a>
+        <a href="/dashboard" class="goal-link"><button class="secondary-action">Назад у кабінет</button></a>
+    </div>
+
+</div>
+
+{% endblock %}

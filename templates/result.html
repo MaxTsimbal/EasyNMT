@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}
+Результат | EasyNMT
+{% endblock %}
+
+{% block content %}
+
+<div class="result-page">
+
+    <div class="logo">EasyNMT</div>
+
+    <div class="lesson-header fade-up" style="text-align:center;">
+        <span class="pill">🏆 Підсумок уроку</span>
+        <h1>
+            {% if score >= 4 %}🎉 Сильно! Урок завершено{% elif score >= 3 %}✨ Добре, рухаємось далі{% else %}🧠 Нормальний старт{% endif %}
+        </h1>
+        <p>Ти відповів правильно на {{ score }} з {{ total }} питань.</p>
+    </div>
+
+    {% if new_achievements %}
+    <div class="goal-card premium achievement-unlock-card">
+        <span class="score">🏆 Нове досягнення!</span>
+        <div class="achievement-list">
+            {% for achievement in new_achievements %}
+            <div class="achievement-item unlocked">
+                <span class="achievement-icon">{{ achievement.icon }}</span>
+                <div>
+                    <b>{{ achievement.title }}</b>
+                    <p>{{ achievement.description }}</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <br>
+    {% endif %}
+
+    <div class="goal-grid">
+        <div class="goal-card premium"><span class="score">{{ score }}/{{ total }}</span><span class="desc">Результат міні-тесту</span></div>
+        <div class="goal-card"><span class="score">{{ progress }}%</span><span class="desc">Загальний прогрес</span></div>
+        <div class="goal-card"><span class="score">+{{ xp_gain }} XP</span><span class="desc">Нагорода за проходження</span></div>
+        <div class="goal-card"><span class="score">{{ xp }} XP</span><span class="desc">Усього досвіду</span></div>
+    </div>
+
+    <br>
+
+    <div class="goal-card easy-recommend">
+        <span class="score">💡 Easy підказує</span>
+        <span class="desc">
+            {% if score >= 4 %}
+            Тема зайшла добре. Можеш сміливо переходити до наступного уроку.
+            {% elif score >= 3 %}
+            База є. Перед наступним уроком швидко переглянь приклад ще раз.
+            {% else %}
+            Варто повернутись до теорії і повторити ключові моменти без поспіху.
+            {% endif %}
+        </span>
+    </div>
+
+    {% if review %}
+    <br>
+    <div class="review-panel goal-card">
+        <span class="score">🧠 Розбір відповідей</span>
+        <span class="desc">Easy показує, де все добре, а де варто повторити правило.</span>
+
+        <div class="review-list">
+            {% for item in review %}
+            <div class="review-item {% if item.is_correct %}correct{% else %}wrong{% endif %}">
+                <div class="review-question">
+                    {% if item.is_correct %}✅{% else %}⚠️{% endif %} {{ item.question }}
+                </div>
+                <div class="review-answer">Твоя відповідь: <b>{{ item.user_answer }}</b></div>
+                {% if not item.is_correct %}<div class="review-answer">Правильно: <b>{{ item.correct_answer }}</b></div>{% endif %}
+                <div class="review-explanation">{{ item.explanation }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <br>
+
+    {% if has_next_lesson %}
+    <a href="/lesson/{{ next_lesson_id }}" class="goal-link"><button class="primary-action">➡️ Наступний урок</button></a>
+    <br><br>
+    {% endif %}
+
+    <div class="goal-grid">
+        <a href="/quiz/{{ lesson.id }}" class="goal-link"><button class="secondary-action">🔁 Спробувати ще раз</button></a>
+        <a href="/progress" class="goal-link"><button class="secondary-action">📊 Мій прогрес</button></a>
+        <a href="/today" class="goal-link"><button class="secondary-action">📚 До уроків</button></a>
+        <a href="/dashboard" class="goal-link"><button class="secondary-action">🏠 Кабінет</button></a>
+    </div>
+
+</div>
+
+{% endblock %}

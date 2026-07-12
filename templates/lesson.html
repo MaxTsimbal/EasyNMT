@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}
+Урок | EasyNMT
+{% endblock %}
+
+{% block content %}
+
+<div class="lesson-page">
+
+    <div class="logo">EasyNMT</div>
+
+    <div class="lesson-topline">
+        <span>{{ lesson.badge }}</span>
+        <span>Урок {{ lesson.id }} із {{ lessons|length }}</span>
+        <span>+50 XP</span>
+    </div>
+
+    <div class="lesson-header fade-up">
+        <h1>📖 {{ lesson.title }}</h1>
+        <p>Сьогодні йдемо по чіткому маршруту: мета, теорія, приклад, швидкий тест і результат.</p>
+    </div>
+
+    <div class="goal-card premium lesson-progress-card">
+        <span class="score">🧭 Карта уроку</span>
+        <span class="desc">Ти зараз на старті. Відкрий теорію, розбери приклад і пройди тест.</span>
+
+        <div class="lesson-map">
+            <div class="lesson-step active">🎯 Мета</div>
+            <div class="lesson-step">🧠 Теорія</div>
+            <div class="lesson-step">✨ Приклад</div>
+            <div class="lesson-step">📝 Тест</div>
+        </div>
+
+        <div class="lesson-progress-bar">
+            <div class="lesson-progress-fill" style="width:25%;"></div>
+        </div>
+    </div>
+
+    <br>
+
+    <div class="goal-card premium lesson-section">
+        <span class="score">🎯 Мета уроку</span>
+        <span class="desc">{{ lesson.goal }}</span>
+    </div>
+
+    <br>
+
+    <div class="lesson-section-grid">
+        <a href="/theory/{{ lesson.id }}" class="goal-link">
+            <div class="goal-card lesson-section clickable-card">
+                <span class="score">🧠 Теорія</span>
+                <span class="desc">{{ lesson.theory }}<br><br>Натисни, щоб відкрити повну теорію, правила, типові помилки й міні-конспект.</span>
+            </div>
+        </a>
+
+        <a href="/example/{{ lesson.id }}" class="goal-link">
+            <div class="goal-card lesson-section clickable-card">
+                <span class="score">✨ Приклад</span>
+                <span class="desc">{{ lesson.example }}<br><br>Натисни, щоб побачити багато прикладів від легких до складніших.</span>
+            </div>
+        </a>
+    </div>
+
+    <br>
+
+    <div class="goal-card easy-recommend">
+        <span class="score">💭 Easy рекомендує</span>
+        <span class="desc">
+            ✔ Спочатку відкрий теорію<br>
+            ✔ Потім розбери приклад<br>
+            ✔ Після цього проходь тест без поспіху
+        </span>
+    </div>
+
+    <br>
+
+    <div class="goal-grid">
+        <a href="/tutor" class="goal-link">
+            <button class="primary-action curiosity-button">💭 Мені цікаво...</button>
+        </a>
+
+        <a href="/quiz/{{ lesson.id }}" class="goal-link">
+            <button class="primary-action">Перейти до міні-тесту</button>
+        </a>
+    </div>
+
+    <br>
+
+    <a href="/today" class="goal-link">
+        <button class="secondary-action">Назад до уроків</button>
+    </a>
+
+</div>
+
+{% endblock %}

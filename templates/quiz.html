@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}
+Міні-тест | EasyNMT
+{% endblock %}
+
+{% block content %}
+
+<div class="quiz-page">
+
+    <div class="logo">EasyNMT</div>
+
+    <div class="lesson-header fade-up">
+        <span class="pill">🧠 Smart Test</span>
+        <h1>📝 Міні-тест: {{ lesson.title }}</h1>
+        <p>Варіанти відповідей перемішуються автоматично, тому тест чесніший і корисніший.</p>
+    </div>
+
+    <form method="post" class="quiz-form">
+
+        {% for question in questions %}
+        <input type="hidden" name="question_ids" value="{{ question.id }}">
+
+        <div class="goal-card quiz-question">
+            <span class="quiz-badge">Питання {{ loop.index }} із {{ questions|length }}</span>
+            <span class="score">{{ question.question }}</span>
+
+            <div class="quiz-options">
+                {% for option in question.options %}
+                <label class="quiz-option">
+                    <input type="radio" name="answer_{{ question.id }}" value="{{ option }}" required>
+                    <span>{{ ['A','B','C','D'][loop.index0] }}. {{ option }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <br>
+        {% endfor %}
+
+        <button class="primary-action" type="submit">Перевірити відповіді</button>
+
+    </form>
+
+</div>
+
+{% endblock %}

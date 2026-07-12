@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}
+Реєстрація | EasyNMT
+{% endblock %}
+
+{% block content %}
+
+<div class="auth-shell">
+
+    <a href="/" class="auth-logo">EasyNMT</a>
+
+    <div class="auth-card">
+
+        <div class="auth-badge">👤 Новий акаунт</div>
+
+        <h1>Створи акаунт</h1>
+
+        <p>Збережемо твій план, предмет, прогрес і майбутні уроки.</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-list">
+                    {% for category, message in messages %}
+                        <div class="flash-message {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" class="auth-form">
+            <label>
+                Імʼя
+                <input type="text" name="name" placeholder="Наприклад, Влад" value="{{ name or '' }}" required>
+            </label>
+
+            <label>
+                Email
+                <input type="email" name="email" placeholder="you@example.com" value="{{ email or '' }}" required>
+            </label>
+
+            <label>
+                Пароль
+                <input type="password" name="password" placeholder="Мінімум 6 символів" required>
+            </label>
+
+            <label>
+                Повтори пароль
+                <input type="password" name="confirm_password" placeholder="Введи той самий пароль" required>
+                <small class="auth-hint">Обидва паролі мають бути абсолютно однакові.</small>
+            </label>
+
+            <button type="submit" class="primary-action auth-button">
+                Зареєструватися
+            </button>
+        </form>
+
+        <div class="auth-divider">або</div>
+
+        <a href="/login/google" class="google-button">
+            <span>G</span>
+            Продовжити з Google
+        </a>
+
+        <p class="auth-footer-text">
+            Уже маєш акаунт? <a href="/login">Увійти</a>
+        </p>
+
+    </div>
+
+</div>
+
+{% endblock %}

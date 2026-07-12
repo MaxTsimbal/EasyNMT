@@ -1,10 +1,14 @@
 <!DOCTYPE html>
 <html lang="uk">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <title>{% block title %}EasyNMT{% endblock %}</title>
+
+    <meta name="theme-color" content="#6D28D9">
+    <meta name="description" content="EasyNMT v0.9.3 Public Ready — AI-платформа для персональної підготовки до НМТ зі збереженням акаунтів і прогресу.">
 
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/navbar.css') }}">
@@ -12,14 +16,26 @@
     {% block extra_css %}{% endblock %}
 </head>
 
-<body>
+<body class="page-transition">
 
-    {% block content %}
-    {% endblock %}
+<div id="page-loader">
+    <div class="loader-shell">
+        <div class="loader-circle"></div>
+        <div class="loader-text">
+            EasyNMT
+            <span>Готуємо навчальний простір...</span>
+        </div>
+    </div>
+</div>
 
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<main id="page-content">
+    {% block content %}{% endblock %}
+</main>
 
-    {% block extra_js %}{% endblock %}
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script src="{{ url_for('static', filename='js/animations.js') }}"></script>
+
+{% block extra_js %}{% endblock %}
 
 </body>
 </html>

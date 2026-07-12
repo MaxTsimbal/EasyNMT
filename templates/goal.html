@@ -1,50 +1,59 @@
-<!DOCTYPE html>
-<html lang="uk">
+{% extends "base.html" %}
 
-<head>
+{% block title %}
+Обери ціль | EasyNMT
+{% endblock %}
 
-<meta charset="UTF-8">
-
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>EasyNMT</title>
-
-<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-
-</head>
-
-<body>
+{% block content %}
 
 <div class="container">
 
-<div class="logo">
-EasyNMT
+    {% include "components/progress.html" %}
+
+    <div class="logo">
+        EasyNMT
+    </div>
+
+    <h1>
+        🎯 Який бал на НМТ ти хочеш отримати?
+    </h1>
+
+    <p>
+        Обери свою ціль.
+    </p>
+
+    <div class="goal-grid">
+
+        <a href="/set-goal/150" class="goal-link">
+            <div class="goal-card">
+                <span class="score">150+</span>
+                <span class="desc">Впевнено скласти НМТ</span>
+            </div>
+        </a>
+
+        <a href="/set-goal/170" class="goal-link">
+            <div class="goal-card">
+                <span class="score">170+</span>
+                <span class="desc">Високий результат</span>
+            </div>
+        </a>
+
+        <a href="/set-goal/190" class="goal-link">
+            <div class="goal-card">
+                <span class="score">190+</span>
+                <span class="desc">Майже максимум</span>
+            </div>
+        </a>
+
+        <a href="/set-goal/200" class="goal-link">
+            <div class="goal-card premium">
+                <span class="score">200 ⭐</span>
+                <span class="desc">Максимальний бал</span>
+            </div>
+        </a>
+
+    </div>
+
 </div>
 
-<h1>
-🎯 Який бал на НМТ ти хочеш отримати?
-</h1>
-
-<p>
-Обери свою ціль.
-</p>
-
-<button>150+</button>
-
-<br><br>
-
-<button>170+</button>
-
-<br><br>
-
-<button>190+</button>
-
-<br><br>
-
-<button>200 ⭐</button>
-
-</div>
-
-</body>
-
-</html>
+{% endblock %}

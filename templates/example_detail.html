@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}
+Приклади | EasyNMT
+{% endblock %}
+
+{% block content %}
+
+<div class="container lesson-detail-page rich-lesson-page">
+
+    <div class="logo">EasyNMT</div>
+
+    <div class="lesson-topline">
+        <span>{{ lesson.badge }}</span>
+        <span>Урок {{ lesson.id }}</span>
+        <span>Приклади</span>
+    </div>
+
+    <h1>✨ Приклади: {{ lesson.title }}</h1>
+
+    <p>Почни з базового прикладу, а потім пройди ще кілька рівнів складності.</p>
+
+    <div class="goal-card premium lesson-section detail-card">
+        <span class="score">⭐ Базовий приклад</span>
+        <span class="desc">{{ lesson.example }}</span>
+    </div>
+
+    <br>
+
+    <div class="examples-stack">
+        {% for example in details.extra_examples %}
+            <div class="goal-card lesson-section detail-card example-card">
+                <span class="score">Приклад {{ loop.index }}</span>
+                <span class="desc">{{ example }}</span>
+            </div>
+        {% endfor %}
+    </div>
+
+    <br>
+
+    <div class="goal-card lesson-section detail-card">
+        <span class="score">💡 Як тренуватися</span>
+        <span class="desc">
+            1. Прочитай приклад повністю.<br>
+            2. Закрий розв’язання і повтори кроки самостійно.<br>
+            3. Якщо застряг, повернися до теорії.<br>
+            4. Після 2–3 прикладів переходь до тесту.
+        </span>
+    </div>
+
+    <br>
+
+    <div class="goal-grid">
+        <a href="/theory/{{ lesson.id }}" class="goal-link">
+            <div class="goal-card clickable-card">
+                <span class="score">🧠 Теорія</span>
+                <span class="desc">Повернутися до пояснення</span>
+            </div>
+        </a>
+
+        <a href="/quiz/{{ lesson.id }}" class="goal-link">
+            <div class="goal-card premium clickable-card">
+                <span class="score">📝 Тест</span>
+                <span class="desc">Перевірити себе</span>
+            </div>
+        </a>
+    </div>
+
+    <br>
+
+    <a href="/lesson/{{ lesson.id }}" class="goal-link">
+        <button class="secondary-action">Назад до уроку</button>
+    </a>
+
+</div>
+
+{% endblock %}
