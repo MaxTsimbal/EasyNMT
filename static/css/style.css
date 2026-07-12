@@ -5395,3 +5395,243 @@ body.dashboard-app .brand-version::after {
         width: 100%;
     }
 }
+
+/* ========================================================================== 
+   EasyNMT v0.9.7.6 Final Horizontal Dashboard correction
+   Every dashboard section is a full-width horizontal row.
+   ========================================================================== */
+
+@media (min-width: 921px) {
+    body.dashboard-app .dashboard-main-v0976 {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        max-width: none;
+        gap: 18px;
+        padding: 26px clamp(24px, 3vw, 48px) 48px;
+    }
+
+    body.dashboard-app .dashboard-main-v0976 > * {
+        width: 100%;
+        flex: 0 0 auto;
+        margin: 0;
+    }
+
+    /* 1. Greeting is always the first, largest horizontal row */
+    body.dashboard-app .dashboard-welcome {
+        order: 1;
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(240px, .65fr);
+        align-items: center;
+        min-height: 300px;
+        padding: 34px 40px;
+        overflow: hidden;
+    }
+
+    body.dashboard-app .dashboard-welcome-copy {
+        display: grid;
+        min-width: 0;
+        align-content: center;
+        justify-items: start;
+    }
+
+    body.dashboard-app .dashboard-welcome .dashboard-title {
+        margin: 10px 0 8px;
+        max-width: 760px;
+        font-size: clamp(42px, 4.4vw, 66px);
+        line-height: .98;
+    }
+
+    body.dashboard-app .dashboard-welcome .dashboard-subtitle {
+        margin: 8px 0 20px;
+        max-width: 650px;
+        font-size: 17px;
+    }
+
+    body.dashboard-app .dashboard-next-lesson {
+        display: grid;
+        width: min(100%, 610px);
+        grid-template-columns: 52px minmax(0, 1fr);
+        align-items: center;
+        gap: 14px;
+        padding: 14px 16px;
+    }
+
+    body.dashboard-app .dashboard-welcome-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 18px;
+    }
+
+    body.dashboard-app .dashboard-welcome-visual {
+        display: grid;
+        min-height: 240px;
+        place-items: center;
+    }
+
+    body.dashboard-app img.dashboard-mascot {
+        width: min(100%, 235px) !important;
+        max-width: 235px !important;
+        max-height: 235px !important;
+        object-fit: contain;
+    }
+
+    /* 2. Statistics becomes one clean horizontal row */
+    body.dashboard-app .dashboard-stats-strip {
+        order: 2;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        min-height: 128px;
+        padding: 14px 18px;
+        gap: 0;
+    }
+
+    body.dashboard-app .dashboard-stat-item {
+        display: grid;
+        min-width: 0;
+        min-height: 98px;
+        padding: 14px 22px;
+        grid-template-columns: 50px minmax(0, 1fr);
+        grid-template-rows: auto auto;
+        align-items: center;
+        gap: 4px 14px;
+    }
+
+    body.dashboard-app .dashboard-stat-item + .dashboard-stat-item {
+        border-top: 0;
+        border-left: 1px solid rgba(255, 255, 255, .09);
+    }
+
+    body.dashboard-app .dashboard-stat-copy strong {
+        font-size: 29px;
+    }
+
+    body.dashboard-app .dashboard-stat-progress {
+        position: static;
+        grid-column: 1 / -1;
+        width: 100%;
+        margin: 6px 0 0;
+    }
+
+    /* 3. Roadmap is one horizontal row: title left, route right */
+    body.dashboard-app .dashboard-roadmap-card {
+        order: 3;
+        display: grid;
+        grid-template-columns: minmax(210px, .32fr) minmax(0, .68fr);
+        align-items: center;
+        min-height: 178px;
+        padding: 24px 30px;
+        gap: 28px;
+    }
+
+    body.dashboard-app .dashboard-roadmap-card .dashboard-card-header {
+        display: grid;
+        align-content: center;
+        justify-items: start;
+        margin: 0;
+    }
+
+    body.dashboard-app .dashboard-roadmap-card .dashboard-progress-pill {
+        margin-top: 14px;
+    }
+
+    body.dashboard-app .dashboard-roadmap-card .cosmic-progress-v2 {
+        width: 100%;
+        min-height: 110px;
+        margin: 0;
+        padding: 20px 0 4px;
+        overflow-x: auto;
+    }
+
+    /* 4. Lessons row: heading on left, lesson cards across the rest */
+    body.dashboard-app .dashboard-lessons-card {
+        order: 4;
+        display: grid;
+        grid-template-columns: minmax(210px, .26fr) minmax(0, .74fr);
+        align-items: center;
+        min-height: 190px;
+        padding: 24px 30px;
+        gap: 26px;
+    }
+
+    body.dashboard-app .dashboard-lessons-card .dashboard-card-header {
+        display: grid;
+        align-content: center;
+        justify-items: start;
+        margin: 0;
+    }
+
+    body.dashboard-app .dashboard-lessons-card .text-link {
+        margin-top: 14px;
+    }
+
+    body.dashboard-app .lesson-list-horizontal {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        min-width: 0;
+    }
+
+    body.dashboard-app .lesson-list-horizontal .lesson-item-v2 {
+        min-width: 0;
+        min-height: 96px;
+        padding: 14px;
+    }
+
+    /* 5. AI tutor is a single horizontal call-to-action row */
+    body.dashboard-app .dashboard-ai-wide {
+        order: 5;
+        display: grid;
+        grid-template-columns: 66px minmax(0, 1fr) auto;
+        align-items: center;
+        min-height: 122px;
+        padding: 22px 28px;
+        gap: 20px;
+    }
+
+    body.dashboard-app .dashboard-ai-wide .dashboard-ai-copy {
+        display: grid;
+        min-width: 0;
+        align-content: center;
+    }
+
+    body.dashboard-app .dashboard-ai-wide .dashboard-card-title,
+    body.dashboard-app .dashboard-ai-wide .dashboard-card-subtitle {
+        margin-right: 18px;
+    }
+
+    body.dashboard-app .dashboard-ai-wide .button {
+        min-width: 170px;
+    }
+}
+
+@media (min-width: 921px) and (max-width: 1180px) {
+    body.dashboard-app .dashboard-welcome {
+        grid-template-columns: minmax(0, 1fr) 200px;
+        padding: 30px;
+    }
+
+    body.dashboard-app .dashboard-roadmap-card,
+    body.dashboard-app .dashboard-lessons-card {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    body.dashboard-app .dashboard-roadmap-card .dashboard-card-header,
+    body.dashboard-app .dashboard-lessons-card .dashboard-card-header {
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        justify-items: stretch;
+    }
+
+    body.dashboard-app .dashboard-roadmap-card .dashboard-progress-pill,
+    body.dashboard-app .dashboard-lessons-card .text-link {
+        margin-top: 0;
+        justify-self: end;
+    }
+
+    body.dashboard-app .lesson-list-horizontal {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
