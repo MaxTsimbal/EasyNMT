@@ -1,3 +1,10 @@
+
+## v0.9.6.1 — Responsive layout hotfix
+- Compact sticky navigation header.
+- Removed legacy container padding from the header.
+- Prevented hero text and AI tutor cards from overlapping.
+- Improved tablet and smartphone hero layout.
+
 # EasyNMT Changelog
 
 ## v0.9.6 Cosmic Tutor
@@ -63,12 +70,3 @@
 - SQLite підключено до постійного Railway Volume.
 - Посилено cookie та production-налаштування.
 - Локальні бази й секрети виключено з Git.
-
-## v0.9.6 Cosmic Tutor Responsive — 2026-07-12
-- Повний космічний редизайн головної сторінки.
-- Новий responsive header і мобільне меню.
-- Новий onboarding для цілі, предмета та часу без довгих сторінок.
-- Новий glassmorphism Dashboard з AI-викладачем.
-- Космічна шкала прогресу: Земля → Місяць → Орбіта → Марс → 190+ → 200.
-- Адаптація під ПК, ноутбуки, планшети та смартфони.
-- Оновлені анімації, прелоадер, FAQ, progress bars і accessibility.

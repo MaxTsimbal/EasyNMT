@@ -21,7 +21,3 @@ The database is created automatically at `instance/users.db`. Existing databases
 
 SEO status: metadata, sitemap, robots.txt and Search Console verification support are ready.
 Next: connect Google Search Console, request indexing, then design the EasyNMT logo and favicon.
-
-## EasyNMT v0.9.6 Cosmic Tutor Responsive
-Статус: готово до локального тестування та деплою.
-Оновлено: base.html, style.css, animations.js, index.html, goal.html, subject.html, date.html, dashboard.html.

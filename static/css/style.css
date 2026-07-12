@@ -3792,3 +3792,272 @@ select.form-control {
 body.page-leaving { opacity: .6; transform: scale(.995); transition: opacity 180ms ease, transform 180ms ease; }
 @media (max-width: 920px) { .final-cosmic-cta { grid-template-columns: 90px 1fr; } .final-cosmic-cta .button { grid-column: 1 / -1; width: 100%; } }
 @media (max-width: 620px) { .final-cosmic-cta { grid-template-columns: 1fr; text-align: center; } .final-cosmic-cta img { margin-inline: auto; } .onboarding-shell { gap: 18px; } .onboarding-visual { display: none; } }
+
+/* ========================================================================== 
+   EasyNMT v0.9.6.1 Hotfix: compact sticky header + collision-free hero
+   ========================================================================== */
+
+/* The old project contains legacy .container rules. These explicit selectors
+   keep the navigation compact and prevent inherited vertical padding. */
+.site-header {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 5000 !important;
+    width: 100%;
+    min-height: 76px !important;
+    background: rgba(6, 8, 24, 0.9) !important;
+    border-bottom: 1px solid rgba(167, 139, 250, 0.14) !important;
+    box-shadow: 0 10px 34px rgba(0, 0, 0, 0.22);
+    backdrop-filter: blur(22px) saturate(140%);
+    -webkit-backdrop-filter: blur(22px) saturate(140%);
+}
+
+.site-header .header-container {
+    width: min(calc(100% - 32px), var(--container-width)) !important;
+    min-height: 76px !important;
+    height: 76px !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 22px !important;
+}
+
+.site-header .brand {
+    min-width: max-content;
+}
+
+.site-header .brand-mascot {
+    width: 42px !important;
+    height: 42px !important;
+}
+
+.site-header .main-navigation {
+    min-height: 0;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.site-header .navigation-links,
+.site-header .navigation-actions {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Keep the first screen clear of the sticky navigation. */
+.hero {
+    min-height: calc(100vh - 76px) !important;
+    padding-top: clamp(54px, 7vh, 84px) !important;
+    padding-bottom: clamp(64px, 8vh, 96px) !important;
+    overflow: hidden;
+}
+
+.hero-grid {
+    align-items: center !important;
+}
+
+.hero-copy {
+    min-width: 0;
+}
+
+.hero-title {
+    overflow-wrap: normal;
+    word-break: normal;
+    hyphens: none;
+}
+
+/* Stable robot composition. Floating chips stay outside the message box. */
+.hero-visual,
+.robot-stage {
+    overflow: visible;
+}
+
+.robot-stage {
+    min-height: 590px !important;
+    padding: 44px 52px 38px !important;
+}
+
+.robot-card {
+    width: min(100%, 440px) !important;
+    min-height: 500px !important;
+    padding: 32px 30px 26px !important;
+    overflow: visible !important;
+}
+
+.robot-avatar {
+    width: 236px !important;
+    height: 236px !important;
+    margin: 22px auto 18px !important;
+}
+
+.hero-mascot-image {
+    width: 214px !important;
+    height: 214px !important;
+}
+
+.tutor-message-inline {
+    position: relative;
+    z-index: 8;
+    width: min(100%, 340px) !important;
+    max-width: 340px !important;
+    min-height: 118px;
+    margin: 0 auto 18px !important;
+    padding: 17px 20px !important;
+    align-content: center;
+    line-height: 1.55;
+}
+
+.tutor-message-inline strong,
+.tutor-message-inline span {
+    position: relative;
+    z-index: 2;
+    display: block;
+}
+
+.floating-card {
+    z-index: 12 !important;
+    max-width: 210px;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.floating-card-one {
+    top: 13% !important;
+    left: -3% !important;
+    right: auto !important;
+}
+
+.floating-card-two {
+    top: 27% !important;
+    right: -7% !important;
+    bottom: auto !important;
+    left: auto !important;
+}
+
+.floating-card-three {
+    bottom: 8% !important;
+    left: -5% !important;
+    right: auto !important;
+}
+
+/* Tablet navigation and hero. */
+@media (max-width: 1100px) and (min-width: 921px) {
+    .site-header .header-container {
+        width: min(calc(100% - 24px), var(--container-width)) !important;
+        gap: 14px !important;
+    }
+
+    .site-header .navigation-links {
+        gap: 14px !important;
+    }
+
+    .site-header .navigation-link {
+        font-size: 13px;
+    }
+
+    .robot-stage {
+        padding-inline: 34px !important;
+    }
+
+    .floating-card-one {
+        left: 0 !important;
+    }
+
+    .floating-card-two {
+        right: -1% !important;
+    }
+
+    .floating-card-three {
+        left: 0 !important;
+    }
+}
+
+/* Mobile menu remains fixed below the compact header. */
+@media (max-width: 920px) {
+    .site-header,
+    .site-header .header-container {
+        min-height: 70px !important;
+        height: 70px !important;
+    }
+
+    .site-header .header-container {
+        width: min(calc(100% - 24px), var(--container-width)) !important;
+    }
+
+    .site-header .main-navigation {
+        position: fixed !important;
+        top: 78px !important;
+        right: 12px !important;
+        left: 12px !important;
+        width: auto !important;
+        max-height: calc(100dvh - 92px) !important;
+        padding: 16px !important;
+        overflow-y: auto;
+    }
+
+    .hero {
+        min-height: auto !important;
+        padding-top: 44px !important;
+    }
+
+    .robot-stage {
+        min-height: auto !important;
+        padding: 24px 18px 12px !important;
+    }
+
+    .robot-card {
+        min-height: 460px !important;
+        overflow: hidden !important;
+    }
+
+    .floating-card {
+        position: relative !important;
+        inset: auto !important;
+        display: inline-flex;
+        width: auto;
+        max-width: 100%;
+        margin: 8px 5px 0 !important;
+        animation: none !important;
+        white-space: normal;
+        text-align: center;
+    }
+
+    .robot-stage {
+        display: block !important;
+        text-align: center;
+    }
+}
+
+@media (max-width: 620px) {
+    .site-header .brand-text {
+        font-size: 18px !important;
+    }
+
+    .site-header .brand-mascot {
+        width: 38px !important;
+        height: 38px !important;
+    }
+
+    .robot-card {
+        min-height: 420px !important;
+        padding: 24px 18px 20px !important;
+    }
+
+    .robot-avatar {
+        width: 188px !important;
+        height: 188px !important;
+        margin-top: 10px !important;
+    }
+
+    .hero-mascot-image {
+        width: 174px !important;
+        height: 174px !important;
+    }
+
+    .tutor-message-inline {
+        min-height: 0;
+        padding: 15px 16px !important;
+    }
+}
