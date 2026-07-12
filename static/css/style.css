@@ -5119,3 +5119,279 @@ body.page-leaving { opacity: .6; transform: scale(.995); transition: opacity 180
         align-self: auto;
     }
 }
+
+/* ========================================================================== 
+   EasyNMT v0.9.7.6 Full-width Dashboard layout
+   Sidebar remains separate; every content block uses the full main width.
+   ========================================================================== */
+
+body.dashboard-app .navigation-links {
+    display: none;
+}
+
+body.dashboard-app .main-navigation {
+    flex: 0 0 auto;
+}
+
+body.dashboard-app .header-container {
+    justify-content: space-between;
+}
+
+body.dashboard-app .brand-version::after {
+    content: "";
+}
+
+@media (min-width: 921px) {
+    body.dashboard-app .site-header {
+        min-height: 68px;
+    }
+
+    body.dashboard-app .header-container {
+        min-height: 68px;
+    }
+
+    body.dashboard-app .dashboard-v2 {
+        padding-bottom: 40px;
+    }
+
+    body.dashboard-app .dashboard-v2 .dashboard-shell-v2 {
+        grid-template-columns: 248px minmax(0, 1fr);
+    }
+
+    body.dashboard-app .dashboard-sidebar-v3 {
+        top: 68px;
+        height: calc(100vh - 68px);
+    }
+
+    body.dashboard-app .dashboard-main-v0976 {
+        display: grid;
+        width: 100%;
+        max-width: none;
+        gap: 20px;
+        margin: 0;
+        padding: 28px clamp(24px, 3vw, 52px) 48px;
+    }
+
+    body.dashboard-app .dashboard-wide-card {
+        width: 100%;
+        min-width: 0;
+        margin: 0;
+    }
+
+    body.dashboard-app .dashboard-welcome {
+        grid-template-columns: minmax(0, 1.35fr) minmax(280px, .65fr);
+        min-height: 330px;
+        padding: 38px 44px;
+    }
+
+    body.dashboard-app .dashboard-welcome-copy {
+        max-width: 760px;
+    }
+
+    body.dashboard-app .dashboard-welcome .dashboard-title {
+        max-width: 760px;
+        font-size: clamp(42px, 4vw, 62px);
+    }
+
+    body.dashboard-app .dashboard-welcome-visual {
+        min-height: 260px;
+    }
+
+    body.dashboard-app img.dashboard-mascot {
+        width: min(100%, 250px) !important;
+        max-width: 250px !important;
+        max-height: 260px !important;
+    }
+
+    body.dashboard-app .dashboard-stats-strip {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        width: 100%;
+        padding: 18px 22px;
+        border-radius: 24px;
+        overflow: hidden;
+    }
+
+    body.dashboard-app .dashboard-stat-item {
+        position: relative;
+        display: grid;
+        min-width: 0;
+        min-height: 105px;
+        padding: 12px 24px;
+        grid-template-columns: 50px minmax(0, 1fr);
+        align-items: center;
+        gap: 14px;
+    }
+
+    body.dashboard-app .dashboard-stat-item + .dashboard-stat-item {
+        border-left: 1px solid rgba(255, 255, 255, 0.09);
+    }
+
+    body.dashboard-app .dashboard-stat-copy {
+        display: grid;
+        min-width: 0;
+        gap: 2px;
+    }
+
+    body.dashboard-app .dashboard-stat-copy span {
+        color: var(--color-text-soft);
+        font-size: 12px;
+        font-weight: 650;
+    }
+
+    body.dashboard-app .dashboard-stat-copy strong {
+        font-family: "Space Grotesk", sans-serif;
+        font-size: 30px;
+        line-height: 1.05;
+    }
+
+    body.dashboard-app .dashboard-stat-copy small {
+        color: var(--color-text-muted);
+        font-size: 10px;
+    }
+
+    body.dashboard-app .dashboard-stat-progress {
+        position: absolute;
+        right: 24px;
+        bottom: 12px;
+        left: 88px;
+        margin: 0;
+    }
+
+    body.dashboard-app .dashboard-roadmap-card,
+    body.dashboard-app .dashboard-lessons-card,
+    body.dashboard-app .dashboard-ai-card {
+        display: block;
+        min-height: 0;
+        padding: 28px 30px;
+        border-radius: 26px;
+    }
+
+    body.dashboard-app .dashboard-roadmap-card .cosmic-progress-v2 {
+        width: 100%;
+        min-height: 128px;
+        margin-top: 8px;
+        padding-inline: 10px;
+        overflow: visible;
+    }
+
+    body.dashboard-app .lesson-list-horizontal {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    body.dashboard-app .lesson-list-horizontal .lesson-item-v2 {
+        min-height: 92px;
+        height: 100%;
+        padding: 16px;
+    }
+
+    body.dashboard-app .dashboard-ai-wide {
+        display: grid;
+        grid-template-columns: 64px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 20px;
+    }
+
+    body.dashboard-app .dashboard-ai-copy {
+        min-width: 0;
+    }
+
+    body.dashboard-app .dashboard-ai-wide .button {
+        min-width: 160px;
+        white-space: nowrap;
+    }
+}
+
+@media (min-width: 921px) and (max-width: 1180px) {
+    body.dashboard-app .dashboard-v2 .dashboard-shell-v2 {
+        grid-template-columns: 220px minmax(0, 1fr);
+    }
+
+    body.dashboard-app .dashboard-main-v0976 {
+        padding-inline: 22px;
+    }
+
+    body.dashboard-app .dashboard-welcome {
+        grid-template-columns: minmax(0, 1fr) 220px;
+        padding: 32px;
+    }
+
+    body.dashboard-app .dashboard-stats-strip {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+
+    body.dashboard-app .dashboard-stat-item + .dashboard-stat-item {
+        border-top: 1px solid rgba(255, 255, 255, 0.09);
+        border-left: 0;
+    }
+
+    body.dashboard-app .lesson-list-horizontal {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 920px) {
+    body.dashboard-app .navigation-links {
+        display: none;
+    }
+
+    body.dashboard-app .dashboard-main-v0976 {
+        display: grid;
+        gap: 16px;
+    }
+
+    body.dashboard-app .dashboard-stats-strip {
+        display: grid;
+        gap: 12px;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+        backdrop-filter: none;
+    }
+
+    body.dashboard-app .dashboard-stat-item {
+        display: grid;
+        min-height: 96px;
+        padding: 17px;
+        grid-template-columns: 48px 1fr;
+        gap: 13px;
+        border: 1px solid var(--color-border);
+        border-radius: 20px;
+        background: rgba(13, 18, 42, 0.62);
+        box-shadow: var(--shadow-soft);
+    }
+
+    body.dashboard-app .dashboard-stat-progress {
+        grid-column: 1 / -1;
+        margin: 0;
+    }
+
+    body.dashboard-app .dashboard-stat-copy {
+        display: grid;
+        gap: 2px;
+    }
+
+    body.dashboard-app .dashboard-stat-copy strong {
+        font-size: 25px;
+    }
+
+    body.dashboard-app .lesson-list-horizontal {
+        display: grid;
+        gap: 10px;
+    }
+
+    body.dashboard-app .dashboard-ai-wide {
+        display: grid;
+        grid-template-columns: 56px 1fr;
+        gap: 14px;
+    }
+
+    body.dashboard-app .dashboard-ai-wide .button {
+        grid-column: 1 / -1;
+        width: 100%;
+    }
+}

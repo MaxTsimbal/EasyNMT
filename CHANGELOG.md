@@ -1,4 +1,4 @@
-# EasyNMT v0.9.7 Compact Dashboard Hotfix
+# EasyNMT v0.9.7.6 Compact Dashboard Hotfix
 
 - Dashboard cards made compact on desktop.
 - Mascot size constrained to prevent layout overflow.
@@ -6,14 +6,14 @@
 - Text wrapping and spacing improved.
 - Mobile layout preserved.
 
-# EasyNMT v0.9.7 Stable Hotfix
+# EasyNMT v0.9.7.6 Stable Hotfix
 
 - Fixed dashboard 500 error caused by an incorrect Flask endpoint.
 - Replaced `url_for("achievements")` with `url_for("achievements_page")`.
 - Rechecked every `url_for()` reference in all templates against registered Flask endpoints.
 - Verified Python syntax and core route responses with Flask test client.
 
-# EasyNMT v0.9.7.2
+# EasyNMT v0.9.7.6.2
 
 - Dashboard navigation moved into a separate full-height desktop sidebar.
 - Added grouped learning, tools, profile, and settings navigation.
@@ -21,7 +21,7 @@
 
 # EasyNMT Changelog
 
-## v0.9.7.1 Stable — Dashboard repair and stability pass
+## v0.9.7.6.1 Stable — Dashboard repair and stability pass
 - Fixed the `/dashboard` 500 error caused by an invalid Jinja endpoint name.
 - Replaced `url_for("progress")` with the real Flask endpoint `url_for("progress_page")`.
 - Verified every template `url_for()` target against the Flask URL map.
