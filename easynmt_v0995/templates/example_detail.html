@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Пояснення на аркуші: {{ lesson.title }} | EasyNMT{% endblock %}
+{% block content %}
+<div class="container lesson-detail-page notebook-lesson-page">
+    <div class="lesson-topline"><span>{{ lesson.badge }}</span><span>Тема {{ lesson.id }}</span><span>Пояснення на аркуші</span></div>
+
+    <header class="lesson-rich-hero glass-card notebook-hero">
+        <div>
+            <span class="pill">Почнемо з самого початку</span>
+            <h1>{{ lesson.title }}</h1>
+            <p>{{ board.intro }}</p>
+        </div>
+        <div class="lesson-rich-target"><small>Приклад, який розберемо</small><p>{{ board.task }}</p></div>
+    </header>
+
+    <section class="notebook-workspace" data-notebook>
+        <div class="notebook-tutor-panel glass-card">
+            <span class="pill">Репетитор поруч</span>
+            <h2 id="notebook-step-title">{{ board.steps[0].title }}</h2>
+            <p id="notebook-step-note">{{ board.steps[0].note }}</p>
+            <div class="notebook-progress"><span id="notebook-current">1</span> / {{ board.steps|length }}</div>
+            <div class="notebook-controls">
+                <button type="button" class="secondary-action" id="notebook-prev" disabled>← Попередній крок</button>
+                <button type="button" class="primary-action" id="notebook-next">Наступний крок →</button>
+            </div>
+        </div>
+
+        <div class="notebook-paper-wrap">
+            <div class="notebook-paper">
+                <div class="notebook-margin"></div>
+                <div class="notebook-paper-content">
+                    <div class="notebook-task-label">Розв’язуємо:</div>
+                    <div class="notebook-task">{{ board.task }}</div>
+                    {% for step in board.steps %}
+                    <article class="notebook-step {% if loop.first %}is-visible{% endif %}" data-step="{{ loop.index0 }}">
+                        <div class="notebook-step-number">{{ loop.index }}</div>
+                        <div>
+                            <h3>{{ step.title }}</h3>
+                            {% for line in step.lines %}<p class="notebook-line">{{ line }}</p>{% endfor %}
+                            <div class="notebook-note">Зверни увагу: {{ step.note }}</div>
+                        </div>
+                    </article>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="lesson-rich-two-col">
+        <article class="lesson-rich-section warning-card glass-card">
+            <div class="lesson-rich-heading compact"><span>!</span><div><h2>Не просто дивись</h2><p>Після кожного кроку спробуй пояснити вголос, чому ми зробили саме так.</p></div></div>
+        </article>
+        <article class="lesson-rich-section human-note glass-card">
+            <div class="lesson-rich-heading compact"><span>✓</span><div><h2>Перевір себе</h2><p>Коли дійдеш до кінця, закрий пояснення й повтори розв’язання на власному аркуші.</p></div></div>
+        </article>
+    </section>
+
+    <div class="goal-grid compact-actions">
+        <a href="{{ url_for('quiz', lesson_id=lesson.id) }}" class="goal-link"><button class="primary-action">Перейти до тесту</button></a>
+        <a href="{{ url_for('theory_detail', lesson_id=lesson.id) }}" class="goal-link"><button class="secondary-action">Повернутися до пояснення</button></a>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='js/lesson_board.js') }}"></script>
+{% endblock %}

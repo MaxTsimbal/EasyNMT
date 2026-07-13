@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}
+Вхід | EasyNMT
+{% endblock %}
+
+{% block content %}
+
+<div class="auth-shell">
+
+    <a href="/" class="auth-logo">EasyNMT</a>
+
+    <div class="auth-card">
+
+        <div class="auth-badge">🔐 Вхід</div>
+
+        <h1>Повертаємось до плану</h1>
+
+        <p>Увійди, щоб продовжити підготовку з того місця, де зупинився.</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-list">
+                    {% for category, message in messages %}
+                        <div class="flash-message {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" class="auth-form">
+            <label>
+                Email
+                <input type="email" name="email" placeholder="you@example.com" required>
+            </label>
+
+            <label>
+                Пароль
+                <input type="password" name="password" placeholder="Твій пароль" required>
+            </label>
+
+            <label class="auth-remember">
+                <input type="checkbox" name="remember" checked>
+                <span>Не виходити з акаунта на цьому пристрої</span>
+            </label>
+
+            <button type="submit" class="primary-action auth-button">
+                Увійти
+            </button>
+        </form>
+
+        <div class="auth-divider">або</div>
+
+        <a href="/login/google" class="google-button">
+            <span>G</span>
+            Продовжити через Google
+        </a>
+
+        <p class="auth-footer-text">
+            Ще немає акаунта? <a href="/register">Створити</a>
+        </p>
+
+    </div>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+
+{% block title %}AI-репетитор | EasyNMT{% endblock %}
+{% block body_class %}tutor-chat-page{% endblock %}
+
+{% block content %}
+<div class="ai-chat-shell" data-ai-mode="{{ ai_mode }}">
+    <aside class="ai-chat-sidebar" id="chatSidebar" aria-label="Історія розмов">
+        <div class="ai-chat-sidebar-head">
+            <a href="{{ url_for('dashboard') }}" class="ai-chat-brand" aria-label="Повернутися в кабінет">
+                <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
+                <span>EasyNMT</span>
+            </a>
+            <button class="ai-icon-button ai-sidebar-close" id="chatSidebarClose" type="button" aria-label="Закрити історію">×</button>
+        </div>
+
+        <form method="GET" action="{{ url_for('tutor') }}">
+            <button class="ai-new-chat" type="submit">
+                <span class="ai-new-chat-icon">＋</span>
+                <span>Нова розмова</span>
+            </button>
+        </form>
+
+        <div class="ai-chat-history">
+            <p class="ai-history-label">Сьогодні</p>
+            <button class="ai-history-item is-active" type="button">
+                <span>Питання про «{{ lesson.title }}»</span>
+                <small>Поточна розмова</small>
+            </button>
+
+            <p class="ai-history-label">Швидкий доступ</p>
+            <form method="POST">
+                <input type="hidden" name="question" value="Поясни цю тему з самого початку простими словами">
+                <button class="ai-history-item" type="submit"><span>Пояснення з нуля</span></button>
+            </form>
+            <form method="POST">
+                <input type="hidden" name="question" value="Дай простий приклад і розв’яжи його крок за кроком">
+                <button class="ai-history-item" type="submit"><span>Приклад із розв’язанням</span></button>
+            </form>
+            <form method="POST">
+                <input type="hidden" name="question" value="Які помилки найчастіше роблять у цій темі?">
+                <button class="ai-history-item" type="submit"><span>Типові помилки</span></button>
+            </form>
+        </div>
+
+        <div class="ai-sidebar-footer">
+            <div class="ai-status-card">
+                <span class="ai-status-dot {{ ai_mode }}"></span>
+                <div>
+                    <strong>{% if ai_mode == "openai" %}AI підключено{% elif ai_mode == "limit" %}Ліміт вичерпано{% else %}Демо-режим{% endif %}</strong>
+                    <small>{{ ai_used }}/{{ ai_limit }} запитів сьогодні</small>
+                </div>
+            </div>
+            <a href="{{ url_for('lesson') }}" class="ai-sidebar-link">← Повернутися до уроку</a>
+        </div>
+    </aside>
+
+    <div class="ai-chat-overlay" id="chatSidebarOverlay"></div>
+
+    <section class="ai-chat-main">
+        <header class="ai-chat-topbar">
+            <div class="ai-chat-topbar-left">
+                <button class="ai-icon-button ai-sidebar-open" id="chatSidebarOpen" type="button" aria-label="Відкрити історію">
+                    <span></span><span></span><span></span>
+                </button>
+                <div>
+                    <strong>AI-репетитор</strong>
+                    <small>{{ lesson.badge }} {{ lesson.title }}</small>
+                </div>
+            </div>
+            <div class="ai-topbar-actions">
+                <span class="ai-mode-pill {{ ai_mode }}">
+                    {% if ai_mode == "openai" %}Онлайн{% elif ai_mode == "limit" %}Ліміт{% else %}Демо{% endif %}
+                </span>
+                <a href="{{ url_for('lesson') }}" class="ai-icon-button ai-close-chat" aria-label="Закрити чат">×</a>
+            </div>
+        </header>
+
+        <div class="ai-chat-scroll" id="chatScroll">
+            <div class="ai-chat-thread">
+                {% if not question and not answer %}
+                <section class="ai-empty-state">
+                    <div class="ai-empty-logo">
+                        <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="Easy">
+                    </div>
+                    <h1>Що розберемо?</h1>
+                    <p>Запитай про тему «{{ lesson.title }}». Можеш написати своїми словами, навіть якщо поки не знаєш, як правильно сформулювати питання.</p>
+
+                    <div class="ai-starter-grid">
+                        <form method="POST">
+                            <input type="hidden" name="question" value="Поясни цю тему з самого початку так, ніби я бачу її вперше">
+                            <button type="submit" class="ai-starter-card">
+                                <span class="ai-starter-icon">🧩</span>
+                                <strong>Поясни з нуля</strong>
+                                <small>Почнемо з найпростішого</small>
+                            </button>
+                        </form>
+                        <form method="POST">
+                            <input type="hidden" name="question" value="Покажи простий приклад і поясни кожен крок">
+                            <button type="submit" class="ai-starter-card">
+                                <span class="ai-starter-icon">✍️</span>
+                                <strong>Покажи приклад</strong>
+                                <small>Розберемо крок за кроком</small>
+                            </button>
+                        </form>
+                        <form method="POST">
+                            <input type="hidden" name="question" value="Поясни, навіщо ця тема потрібна на НМТ">
+                            <button type="submit" class="ai-starter-card">
+                                <span class="ai-starter-icon">🎯</span>
+                                <strong>Навіщо це на НМТ?</strong>
+                                <small>Побачимо, де тема трапляється</small>
+                            </button>
+                        </form>
+                        <form method="POST">
+                            <input type="hidden" name="question" value="Дай мені одну просту задачу для тренування">
+                            <button type="submit" class="ai-starter-card">
+                                <span class="ai-starter-icon">📝</span>
+                                <strong>Дай задачу</strong>
+                                <small>Спробуй розв’язати сам</small>
+                            </button>
+                        </form>
+                    </div>
+                </section>
+                {% endif %}
+
+                {% if question %}
+                <article class="ai-message ai-message-user">
+                    <div class="ai-message-content">{{ question }}</div>
+                </article>
+                {% endif %}
+
+                {% if answer %}
+                <article class="ai-message ai-message-assistant">
+                    <div class="ai-message-avatar">
+                        <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
+                    </div>
+                    <div class="ai-message-body">
+                        <div class="ai-message-name">Easy</div>
+                        <div class="ai-message-content ai-answer-text">{{ answer }}</div>
+                        <div class="ai-message-tools" aria-label="Дії з відповіддю">
+                            <button type="button" class="ai-tool-button" data-copy-answer title="Скопіювати">⧉</button>
+                            <form method="POST">
+                                <input type="hidden" name="question" value="Поясни попередню відповідь ще простіше">
+                                <button type="submit" class="ai-tool-text">Поясни простіше</button>
+                            </form>
+                            <form method="POST">
+                                <input type="hidden" name="question" value="Покажи це на простому прикладі крок за кроком">
+                                <button type="submit" class="ai-tool-text">Дай приклад</button>
+                            </form>
+                        </div>
+                    </div>
+                </article>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="ai-composer-wrap">
+            <form method="POST" class="ai-composer" id="aiComposer">
+                <div class="ai-composer-input-row">
+                    <button class="ai-attach-button" type="button" aria-label="Додати файл" title="Додавання фото запрацює після підключення AI">＋</button>
+                    <textarea
+                        id="aiQuestion"
+                        name="question"
+                        maxlength="1500"
+                        rows="1"
+                        placeholder="Запитай про тему..."
+                        aria-label="Твоє питання"
+                    ></textarea>
+                    <button class="ai-send-button" id="aiSendButton" type="submit" aria-label="Надіслати питання" disabled>↑</button>
+                </div>
+                <div class="ai-composer-footer">
+                    <span>EasyNMT може помилятися. Перевіряй важливі обчислення.</span>
+                    <span id="aiCharCount">0 / 1500</span>
+                </div>
+            </form>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/tutor_chat.js') }}" defer></script>
+{% endblock %}

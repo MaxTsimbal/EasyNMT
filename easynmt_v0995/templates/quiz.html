@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Тест: {{ lesson.title }} | EasyNMT<script>
+document.querySelectorAll('.solution-upload input[type="file"]').forEach((input) => {
+  input.addEventListener('change', () => {
+    const name = input.closest('.solution-upload')?.querySelector('.solution-upload-name');
+    if (name) name.textContent = input.files?.[0]?.name || 'Фото ще не вибрано';
+  });
+});
+</script>
+{% endblock %}
+{% block content %}
+<div class="quiz-page expanded-quiz-page">
+    <div class="lesson-header fade-up">
+        <span class="pill">12 питань · максимум {{ max_score }} балів</span>
+        <h1>Тест: {{ lesson.title }}</h1>
+        <p>Перші чотири питання перевіряють основу. Далі потрібно писати відповідь самостійно. Для переходу до наступної теми набери щонайменше {{ pass_score }} балів.</p>
+    </div>
+
+    <div class="quiz-levels-legend">
+        <span><b>1–4</b> База · 1 бал</span>
+        <span><b>5–8</b> Коротка відповідь · 2 бали</span>
+        <span><b>9–12</b> Повна задача · 3 бали</span>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" class="quiz-form" data-validate>
+        {% for question in questions %}
+        <input type="hidden" name="question_ids" value="{{ question.id }}">
+        <div class="goal-card quiz-question {% if loop.index <= 4 %}quiz-basic{% elif loop.index <= 8 %}quiz-middle{% else %}quiz-advanced{% endif %}">
+            <div class="quiz-question-head">
+                <span class="quiz-badge">{{ loop.index }} / {{ questions|length }}</span>
+                <span class="quiz-points">{{ question.points }} {% if question.points == 1 %}бал{% else %}бали{% endif %}</span>
+            </div>
+            <span class="score">{{ question.question }}</span>
+
+            {% if question.type == 'choice' %}
+            <div class="quiz-options">
+                {% for option in question.options %}
+                <label class="quiz-option">
+                    <input type="radio" name="answer_{{ question.id }}" value="{{ option }}" required>
+                    <span>{{ ['A','Б','В','Г'][loop.index0] }}. {{ option }}</span>
+                </label>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="written-answer-wrap">
+                {% if loop.index >= 9 %}
+                <div class="paper-task-box">
+                    <div class="paper-task-icon">📄</div>
+                    <div>
+                        <b>Розв’яжи це завдання на папері</b>
+                        <p>Запиши всі кроки окремими рядками, зроби чітке фото й додай його нижче. EasyNMT перевірить хід розв’язання, а не лише відповідь.</p>
+                    </div>
+                </div>
+                <label class="solution-upload">
+                    <input type="file" name="photo_{{ question.id }}" accept="image/png,image/jpeg,image/webp" capture="environment" required>
+                    <span class="solution-upload-button">📷 Зробити або вибрати фото</span>
+                    <span class="solution-upload-name">Фото ще не вибрано</span>
+                </label>
+                <p class="answer-hint">У кадрі має бути вся робота. Уникай тіней, нахилу та розмитих цифр.</p>
+                {% else %}
+                <input type="text" name="answer_{{ question.id }}" class="written-answer" placeholder="{{ question.placeholder }}" required>
+                <p class="answer-hint">Пиши коротко, але так, щоб було зрозуміло, як ти отримав відповідь.</p>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        <div class="quiz-submit-panel goal-card premium">
+            <div><b>Перевір перед відправленням</b><p>Особливо знаки, одиниці вимірювання й останній крок у задачах 9–12.</p></div>
+            <button class="primary-action" type="submit">Завершити тест</button>
+        </div>
+    </form>
+</div>
+<script>
+document.querySelectorAll('.solution-upload input[type="file"]').forEach((input) => {
+  input.addEventListener('change', () => {
+    const name = input.closest('.solution-upload')?.querySelector('.solution-upload-name');
+    if (name) name.textContent = input.files?.[0]?.name || 'Фото ще не вибрано';
+  });
+});
+</script>
+{% endblock %}

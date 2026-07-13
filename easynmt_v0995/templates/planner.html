@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Мій план | EasyNMT{% endblock %}
+{% block content %}
+<div class="lesson-page">
+    <div class="logo">EasyNMT</div>
+    <div class="lesson-header fade-up"><span class="pill">📅 Study Planner</span><h1>Твій план підготовки</h1><p>{{ subject }} · ціль {{ goal }} · режим {{ daily_time }}</p></div>
+    <div class="goal-card premium"><span class="score">🧭 План на найближчий етап</span><span class="desc">Рухайся урок за уроком: теорія → приклади → тест → повторення помилок.</span></div><br>
+    {% for row in plan_rows %}
+    <div class="goal-card planner-row {% if row.status == 'Сьогодні' %}premium{% endif %}">
+        <span class="score">Тиждень {{ row.week }} · {{ row.lesson.title }}</span>
+        <span class="desc">Статус: <b>{{ row.status }}</b><br>{% for task in row.tasks %}✅ {{ task }}{% if not loop.last %}<br>{% endif %}{% endfor %}</span>
+        <br><a href="/lesson/{{ row.lesson.id }}"><button>Відкрити урок</button></a>
+    </div><br>
+    {% endfor %}
+</div>
+{% endblock %}

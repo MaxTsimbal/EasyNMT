@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Уроки | EasyNMT{% endblock %}
+{% block content %}
+<div class="today-page learning-path-page">
+    <div class="lesson-header fade-up">
+        <span class="pill">Твій маршрут</span>
+        <h1>Проходь теми по черзі</h1>
+        <p>Спочатку заверши поточну тему. Після цього відкриється наступна, а в знаннях не залишатиметься прогалин.</p>
+    </div>
+
+    <div class="goal-card premium lesson-hero">
+        <div>
+            <span class="score">{{ subject }}</span>
+            <span class="desc">Пройдено {{ completed_count }} з {{ lessons_total }} · {{ xp }} XP · {{ streak }} дн. поспіль</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width: {{ progress }}%;"></div></div>
+    </div>
+
+    <div class="level-path">
+        {% for lesson in lessons %}
+            {% set completed = lesson.id in completed_lessons %}
+            {% set unlocked = lesson.id in unlocked_lessons %}
+            {% if unlocked %}
+            <a href="{{ url_for('lesson', lesson_id=lesson.id) }}" class="level-card {% if completed %}is-complete{% elif not completed %}is-current{% endif %}">
+            {% else %}
+            <div class="level-card is-locked" aria-disabled="true">
+            {% endif %}
+                <div class="level-number">{% if completed %}✓{% elif unlocked %}{{ lesson.id }}{% else %}🔒{% endif %}</div>
+                <div class="level-copy">
+                    <span class="level-kicker">Тема {{ lesson.id }}</span>
+                    <h2>{{ lesson.title }}</h2>
+                    <p>{% if completed %}Тему завершено. Можеш повторити її будь-коли.{% elif unlocked %}Спочатку пояснення, потім повний приклад і тест із 12 питань.{% else %}Спочатку заверши попередню тему.{% endif %}</p>
+                </div>
+                <span class="level-action">{% if completed %}Повторити{% elif unlocked %}Почати тему →{% else %}Ще закрито{% endif %}</span>
+            {% if unlocked %}</a>{% else %}</div>{% endif %}
+        {% endfor %}
+    </div>
+
+    <div class="goal-grid compact-actions">
+        <a href="{{ url_for('progress_page') }}" class="goal-link"><button class="secondary-action">Переглянути прогрес</button></a>
+        <a href="{{ url_for('dashboard') }}" class="goal-link"><button class="secondary-action">Повернутися на головну</button></a>
+    </div>
+</div>
+{% endblock %}

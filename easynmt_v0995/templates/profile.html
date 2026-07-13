@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Профіль | EasyNMT{% endblock %}
+{% block content %}
+<div class="lesson-page">
+    <div class="logo">EasyNMT</div>
+    <div class="lesson-header fade-up"><span class="pill">👤 Student Profile</span><h1>{{ user_name }}</h1><p>{{ user_email }}</p></div>
+    <div class="goal-grid">
+        <div class="goal-card premium"><span class="score">🎯 {{ goal }}</span><span class="desc">Ціль на НМТ</span></div>
+        <div class="goal-card"><span class="score">📚 {{ subject }}</span><span class="desc">Поточний предмет</span><a href="/change-subject" class="inline-action-link" style="margin-top:16px;">🔁 Змінити предмет</a></div>
+        <div class="goal-card"><span class="score">⭐ {{ xp }}</span><span class="desc">XP</span></div>
+        <div class="goal-card"><span class="score">🔥 {{ streak }}</span><span class="desc">Днів серії</span></div>
+        <div class="goal-card"><span class="score">✅ {{ completed_count }}</span><span class="desc">Пройдено уроків</span></div>
+        <div class="goal-card"><span class="score">🏆 {{ all_achievements|length }}</span><span class="desc">Досягнень</span></div>
+    </div><br>
+    <div class="subject-actions">
+        <a href="/change-subject" class="inline-action-link">🔁 Змінити предмет</a>
+        <a href="/settings"><button>Налаштування профілю</button></a>
+        <a href="/dashboard" class="inline-action-link">← Назад у кабінет</a>
+    </div>
+</div>
+{% endblock %}

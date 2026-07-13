@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}
+Досягнення | EasyNMT
+{% endblock %}
+
+{% block content %}
+
+<div class="achievements-page dashboard-shell">
+    <div class="logo">EasyNMT</div>
+
+    <section class="dashboard-hero fade-up">
+        <span class="pill">🏆 Achievements</span>
+        <h1>Твої досягнення</h1>
+        <p>Нагороди відкриваються автоматично за уроки, XP, серії та сильні результати в тестах.</p>
+    </section>
+
+    <div class="goal-card premium">
+        <span class="score">🏆 Відкрито: {{ all_achievements|length }}</span>
+        <span class="desc">Кожне досягнення — маленький доказ того, що ти рухаєшся вперед.</span>
+    </div>
+
+    <br>
+
+    {% if all_achievements %}
+    <div class="achievement-grid">
+        {% for achievement in all_achievements %}
+        <div class="goal-card achievement-card unlocked">
+            <span class="score">{{ achievement.icon }}</span>
+            <span class="desc"><b>{{ achievement.title }}</b><br>{{ achievement.description }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="goal-card">
+        <span class="score">🔒 Поки що порожньо</span>
+        <span class="desc">Заверши перший урок або пройди тест без помилок, і тут зʼявиться перша нагорода.</span>
+    </div>
+    {% endif %}
+
+    <br>
+    <a href="/dashboard" class="goal-link"><button class="secondary-action">Назад у кабінет</button></a>
+</div>
+
+{% endblock %}

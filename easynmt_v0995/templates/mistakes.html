@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Мої помилки | EasyNMT{% endblock %}
+{% block content %}
+<div class="lesson-page">
+    <div class="logo">EasyNMT</div>
+    <div class="lesson-header fade-up"><span class="pill">🔁 Mistake Review</span><h1>Мої помилки</h1><p>Тут Easy збирає помилки з останнього тесту, щоб ти міг повторити саме слабкі місця.</p></div>
+    {% if mistakes %}
+        {% for item in mistakes %}
+        <div class="goal-card mistake-card">
+            <span class="score">❌ {{ item.question }}</span>
+            <span class="desc">Твоя відповідь: <b>{{ item.user_answer }}</b><br>Правильно: <b>{{ item.correct_answer }}</b><br><br>💡 {{ item.explanation }}</span>
+        </div><br>
+        {% endfor %}
+        <a href="/quiz/{{ first_lesson_id }}"><button>Спробувати тест ще раз</button></a>
+    {% else %}
+        <div class="goal-card premium"><span class="score">✨ Помилок поки немає</span><span class="desc">Пройди тест або повернися після наступного уроку. Якщо останній тест був без помилок, це чудовий знак.</span></div><br>
+        <a href="/today"><button>Повернутися до уроків</button></a>
+    {% endif %}
+</div>
+{% endblock %}
