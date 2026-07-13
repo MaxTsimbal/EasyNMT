@@ -1,4 +1,14 @@
-## v0.9.9.2 — Google OAuth Reliability Fix
+# EasyNMT v0.9.9.3 — Authentication Core
+
+- Google OpenID Connect винесено в окремий `auth_service.py`.
+- Додано незалежний маршрут `/health` для Railway Healthcheck.
+- OAuth більше не може зламати запуск основного сайту.
+- Callback завжди формується як HTTPS.
+- Додано безпечну діагностику `/auth/google/status`.
+- Додано режим «не виходити з акаунта».
+- Секрети не виводяться в логи або інтерфейс.
+
+## v0.9.9.3 — Google OAuth Reliability Fix
 
 - Google OAuth now imports Authlib as a required dependency instead of silently disabling login.
 - OAuth configuration is validated with safe logs that never print secret values.
@@ -169,7 +179,7 @@
 - Додано бічну панель, швидкі навчальні дії, адаптивне поле введення та мобільний режим.
 - Поточну серверну логіку й демо-відповіді збережено без змін.
 
-## v0.9.9.1 — Complete Learning Journey
+## v0.9.9.3 — Complete Learning Journey
 - Added a five-question starting diagnostic for every subject.
 - Added level-based recommendations and a personal focus block on the dashboard.
 - Connected lesson reading to test access through a readiness checkpoint.

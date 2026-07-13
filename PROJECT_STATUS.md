@@ -1,4 +1,4 @@
-# EasyNMT v0.9.9.2
+# EasyNMT v0.9.9.3
 
 ## Implemented
 - Flask application and Railway deployment structure
