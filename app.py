@@ -1,6 +1,5 @@
 import os
 import random
-import secrets
 import sqlite3
 import uuid
 from datetime import date as dt_date, datetime, timedelta
@@ -21,7 +20,7 @@ from vision_grading_engine import VisionGradingEngine
 
 load_dotenv()
 
-from auth_service import GoogleAuthError, GoogleAuthService
+from google_oauth import build_authorization_url, credentials_status, exchange_callback
 from easynmt_core.health import health_bp
 
 
@@ -219,8 +218,6 @@ def init_db():
 
 init_db()
 
-
-google_auth = GoogleAuthService()
 
 def current_user_name():
     return session.get("user_name")
@@ -1341,63 +1338,75 @@ def logout():
 
 @app.route("/auth/google/status")
 def google_auth_status():
-    """Безпечна діагностика без показу значень ключів."""
-    status = google_auth.safe_status()
-    status["callback_url"] = url_for("google_callback", _external=True, _scheme="https")
+    """Safe diagnostics. It never returns credential values."""
+    status = credentials_status()
+    status.update(
+        {
+            "callback_url": url_for("google_callback", _external=True, _scheme="https"),
+            "implementation": "oauth2_pkce_requests",
+            "version": "0.9.9.5",
+        }
+    )
     return status
 
 
 @app.route("/login/google")
 def google_login():
-    if not google_auth.is_ready():
+    status = credentials_status()
+    if not status["google_client_ready"]:
+        app.logger.warning(
+            "Google OAuth unavailable: client_id_present=%s client_secret_present=%s",
+            status["client_id_present"],
+            status["client_secret_present"],
+        )
         flash(
-            "Вхід через Google ще не підключений. Поки можеш увійти за email.",
+            "Вхід через Google зараз недоступний. Спробуй увійти за email або трохи пізніше.",
             "error",
         )
         return redirect(url_for("login"))
 
-    redirect_uri = url_for("google_callback", _external=True, _scheme="https")
-    state = google_auth.create_state()
-    session["google_oauth_state"] = state
-    session["google_oauth_started_at"] = datetime.utcnow().isoformat()
-
+    callback_url = url_for("google_callback", _external=True, _scheme="https")
     try:
-        return redirect(google_auth.authorization_url(redirect_uri, state))
-    except GoogleAuthError:
+        return redirect(build_authorization_url(callback_url))
+    except Exception:
         app.logger.exception("Could not start Google OAuth")
-        flash("Не вдалося відкрити вхід через Google. Спробуй ще раз трохи пізніше.", "error")
+        flash("Не вдалося відкрити вхід через Google. Спробуй ще раз.", "error")
         return redirect(url_for("login"))
 
 
 @app.route("/auth/google/callback")
 def google_callback():
-    oauth_error = request.args.get("error")
-    if oauth_error:
-        app.logger.warning("Google OAuth returned error=%s", oauth_error)
-        flash("Вхід через Google було скасовано або не підтверджено.", "error")
+    if request.args.get("error"):
+        app.logger.warning("Google OAuth was cancelled: %s", request.args.get("error"))
+        flash("Вхід через Google скасовано.", "error")
         return redirect(url_for("login"))
 
-    expected_state = session.pop("google_oauth_state", None)
-    received_state = request.args.get("state")
-    if not expected_state or not received_state or not secrets.compare_digest(expected_state, received_state):
-        app.logger.warning("Google OAuth state validation failed")
-        flash("Сесію входу не вдалося підтвердити. Натисни Google-вхід ще раз.", "error")
-        return redirect(url_for("login"))
-
-    redirect_uri = url_for("google_callback", _external=True, _scheme="https")
+    callback_url = url_for("google_callback", _external=True, _scheme="https")
     try:
-        profile = google_auth.exchange_code(request.args.get("code", ""), redirect_uri)
-    except GoogleAuthError as exc:
-        app.logger.warning("Google OAuth callback failed: %s", exc)
-        flash("Не вдалося завершити вхід через Google. Спробуй ще раз.", "error")
+        user_info = exchange_callback(
+            code=request.args.get("code", ""),
+            state=request.args.get("state", ""),
+            callback_url=callback_url,
+        )
+    except Exception:
+        app.logger.exception("Google OAuth callback failed")
+        flash(
+            "Не вдалося завершити вхід через Google. Спробуй ще раз через кілька секунд.",
+            "error",
+        )
         return redirect(url_for("login"))
 
-    email = profile.email
-    name = profile.name
-    google_sub = profile.sub
-    avatar_url = profile.picture
+    email = (user_info.get("email") or "").strip().lower()
+    name = (user_info.get("name") or "").strip() or (email.split("@")[0] if email else "Учень")
+    google_sub = (user_info.get("sub") or "").strip()
+    avatar_url = (user_info.get("picture") or "").strip()
+    email_verified = user_info.get("email_verified")
 
-    if not profile.email_verified:
+    if not email or not google_sub:
+        flash("Google не передав потрібні дані акаунта. Спробуй інший акаунт.", "error")
+        return redirect(url_for("login"))
+
+    if email_verified is not True:
         flash("Спочатку підтвердь email у своєму Google-акаунті.", "error")
         return redirect(url_for("login"))
 
@@ -1426,9 +1435,8 @@ def google_callback():
                 """
                 UPDATE users
                 SET google_sub = COALESCE(google_sub, ?),
-                    provider = CASE WHEN provider IS NULL OR provider = '' THEN 'google' ELSE provider END,
                     avatar_url = CASE WHEN ? <> '' THEN ? ELSE avatar_url END,
-                    name = CASE WHEN name IS NULL OR name = '' THEN ? ELSE name END
+                    name = CASE WHEN name = '' THEN ? ELSE name END
                 WHERE id = ?
                 """,
                 (google_sub, avatar_url, avatar_url, name, user["id"]),
