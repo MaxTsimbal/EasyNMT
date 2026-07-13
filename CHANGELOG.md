@@ -1,3 +1,12 @@
+## v0.9.9.2 — Google OAuth Reliability Fix
+
+- Google OAuth now imports Authlib as a required dependency instead of silently disabling login.
+- OAuth configuration is validated with safe logs that never print secret values.
+- Callback URL is generated automatically from the Railway HTTPS host.
+- Added `/auth/google/status` for safe deployment diagnostics.
+- Added `cryptography` explicitly for OpenID Connect token validation.
+- Technical environment-variable names are no longer shown to users.
+
 # EasyNMT v0.9.9
 
 - Додано інтерактивний «розумний зошит» із покроковим поясненням на аркуші.

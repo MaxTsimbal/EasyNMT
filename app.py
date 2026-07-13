@@ -20,10 +20,7 @@ from vision_grading_engine import VisionGradingEngine
 
 load_dotenv()
 
-try:
-    from authlib.integrations.flask_client import OAuth
-except ImportError:
-    OAuth = None
+from authlib.integrations.flask_client import OAuth
 
 
 app = Flask(__name__)
@@ -220,21 +217,47 @@ def init_db():
 init_db()
 
 
-oauth = None
+oauth = OAuth(app)
 google = None
-if OAuth is not None:
-    oauth = OAuth(app)
-    google_client_id = os.environ.get("GOOGLE_CLIENT_ID")
-    google_client_secret = os.environ.get("GOOGLE_CLIENT_SECRET")
 
-    if google_client_id and google_client_secret:
-        google = oauth.register(
-            name="google",
-            client_id=google_client_id,
-            client_secret=google_client_secret,
-            server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
-            client_kwargs={"scope": "openid email profile"},
+
+def configure_google_oauth():
+    """Configure Google OpenID Connect once, without exposing secrets.
+
+    Returns True when both Railway variables are present and the client is ready.
+    """
+    global google
+
+    if google is not None:
+        return True
+
+    google_client_id = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
+    google_client_secret = os.environ.get("GOOGLE_CLIENT_SECRET", "").strip()
+
+    if not google_client_id or not google_client_secret:
+        app.logger.warning(
+            "Google OAuth is disabled: GOOGLE_CLIENT_ID present=%s, "
+            "GOOGLE_CLIENT_SECRET present=%s",
+            bool(google_client_id),
+            bool(google_client_secret),
         )
+        return False
+
+    google = oauth.register(
+        name="google",
+        client_id=google_client_id,
+        client_secret=google_client_secret,
+        server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+        client_kwargs={
+            "scope": "openid email profile",
+            "prompt": "select_account",
+        },
+    )
+    app.logger.info("Google OAuth client configured successfully")
+    return True
+
+
+configure_google_oauth()
 
 
 def current_user_name():
@@ -1353,28 +1376,39 @@ def logout():
     return redirect(url_for("home"))
 
 
+@app.route("/auth/google/status")
+def google_auth_status():
+    """Safe diagnostics: reports presence only, never variable values."""
+    client_id_present = bool(os.environ.get("GOOGLE_CLIENT_ID", "").strip())
+    client_secret_present = bool(os.environ.get("GOOGLE_CLIENT_SECRET", "").strip())
+    return {
+        "authlib_loaded": True,
+        "client_id_present": client_id_present,
+        "client_secret_present": client_secret_present,
+        "google_client_ready": configure_google_oauth(),
+        "callback_url": url_for("google_callback", _external=True),
+    }
+
+
 @app.route("/login/google")
 def google_login():
-    if google is None:
+    if not configure_google_oauth():
         flash(
-            "Вхід через Google ще не налаштований. Додай GOOGLE_CLIENT_ID і "
-            "GOOGLE_CLIENT_SECRET у Railway Variables.",
+            "Вхід через Google зараз недоступний. Спробуй увійти за email або трохи пізніше.",
             "error",
         )
         return redirect(url_for("login"))
 
-    redirect_uri = os.environ.get("GOOGLE_REDIRECT_URI", "").strip()
-    if not redirect_uri:
-        redirect_uri = url_for("google_callback", _external=True, _scheme="https" if not app.debug else None)
-
-    session["google_oauth_redirect_uri"] = redirect_uri
+    # ProxyFix makes this an https:// Railway URL in production.
+    redirect_uri = url_for("google_callback", _external=True)
+    app.logger.info("Starting Google OAuth flow with callback host=%s", request.host)
     return google.authorize_redirect(redirect_uri)
 
 
 @app.route("/auth/google/callback")
 def google_callback():
-    if google is None:
-        flash("Вхід через Google ще не налаштований.", "error")
+    if not configure_google_oauth():
+        flash("Вхід через Google зараз недоступний.", "error")
         return redirect(url_for("login"))
 
     try:
