@@ -1,6 +1,6 @@
 # EasyNMT Project Status
 
-Version: v0.9.8 Stable
+Version: v0.9.8.2 Stable
 
 ## Working
 - Persistent registration and login with SQLite

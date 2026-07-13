@@ -14,7 +14,7 @@ def normalize_text(value: str | None) -> str:
 
 def _written(question: str, answer: str, explanation: str, points: int = 2,
              accepted: list[str] | None = None, keywords: list[str] | None = None,
-             placeholder: str = "Напиши відповідь") -> dict[str, Any]:
+             placeholder: str = "Напиши свою відповідь") -> dict[str, Any]:
     return {
         "type": "written",
         "question": question,
@@ -45,10 +45,10 @@ WRITTEN_BANK: dict[str, dict[int, list[dict[str, Any]]]] = {
             _written("Запиши корені рівняння x² - 5x + 6 = 0.", "2; 3", "Після D = 1 отримуємо x₁ = 2, x₂ = 3.", accepted=["2;3", "3;2", "2 3", "3 2", "x1=2 x2=3", "x₁=2 x₂=3"]),
             _written("Скільки дійсних коренів має x² + 4x + 5 = 0?", "0", "D = 16 - 20 = -4, тому дійсних коренів немає.", accepted=["0", "немає", "жодного"]),
             _written("Розв’яжи x² - 9 = 0.", "-3; 3", "x² = 9, тому x = -3 або x = 3.", accepted=["-3;3", "3;-3", "-3 3", "3 -3"]),
-            _written("Розв’яжи 2x² - 8x + 6 = 0. Запиши хід розв’язання.", "x = 1; x = 3", "Поділимо на 2: x² - 4x + 3 = 0. D = 4, тому x = 1 і x = 3.", points=3, keywords=["1", "3", "d", "4"], placeholder="Запиши розв’язання і відповідь"),
-            _written("Для яких x вираз x² - 6x + 9 дорівнює нулю? Поясни коротко.", "x = 3", "x² - 6x + 9 = (x - 3)², квадрат дорівнює нулю лише при x = 3.", points=3, keywords=["3", "(x-3)", "квадрат"], placeholder="Поясни одним-двома реченнями"),
+            _written("Розв’яжи 2x² - 8x + 6 = 0. Запиши хід розв’язання.", "x = 1; x = 3", "Поділимо на 2: x² - 4x + 3 = 0. D = 4, тому x = 1 і x = 3.", points=3, keywords=["1", "3", "d", "4"], placeholder="Запиши всі кроки та остаточну відповідь"),
+            _written("Для яких x вираз x² - 6x + 9 дорівнює нулю? Поясни коротко.", "x = 3", "x² - 6x + 9 = (x - 3)², квадрат дорівнює нулю лише при x = 3.", points=3, keywords=["3", "(x-3)", "квадрат"], placeholder="Коротко поясни, як ти це зрозумів"),
             _written("Склади квадратне рівняння, корені якого 2 і 5.", "x² - 7x + 10 = 0", "(x - 2)(x - 5) = 0, після розкриття дужок маємо x² - 7x + 10 = 0.", points=3, keywords=["x", "7", "10", "0"], placeholder="Запиши рівняння"),
-            _written("Розв’яжи x(x - 4) = 5 і запиши основні кроки.", "x = -1; x = 5", "x² - 4x - 5 = 0. D = 36, тому x = -1 і x = 5.", points=3, keywords=["-1", "5", "36"], placeholder="Запиши повне розв’язання"),
+            _written("Розв’яжи x(x - 4) = 5 і запиши основні кроки.", "x = -1; x = 5", "x² - 4x - 5 = 0. D = 36, тому x = -1 і x = 5.", points=3, keywords=["-1", "5", "36"], placeholder="Запиши розв’язання крок за кроком"),
         ],
         2: [
             _written("Розв’яжи 3x + 7 = 22.", "5", "3x = 15, тому x = 5."),
@@ -122,9 +122,9 @@ GENERIC_WRITTEN = {
 def build_quiz(subject: str, lesson_id: int, choice_questions: list[dict[str, Any]]) -> list[dict[str, Any]]:
     choices = []
     for q in choice_questions[:4]:
-        choices.append(_mc(q["question"], list(q["options"]), q["answer"], q.get("explanation", f"Правильна відповідь: {q['answer']}.")))
+        choices.append(_mc(q["question"], list(q["options"]), q["answer"], q.get("explanation", f"Зверни увагу: правильна відповідь — {q['answer']}.")))
     while len(choices) < 4:
-        choices.append(_mc("Який крок варто зробити після пояснення?", ["Спробувати завдання самостійно", "Пропустити тему", "Вгадати відповідь"], "Спробувати завдання самостійно", "Після пояснення важливо одразу перевірити себе на практиці."))
+        choices.append(_mc("Що найкраще зробити після пояснення теми?", ["Спробувати завдання самостійно", "Пропустити тему", "Вгадати відповідь"], "Спробувати завдання самостійно", "Після пояснення спробуй виконати завдання самостійно. Так ти одразу побачиш, що вже зрозумів."))
 
     written = WRITTEN_BANK.get(subject, {}).get(lesson_id)
     if not written:
@@ -132,7 +132,7 @@ def build_quiz(subject: str, lesson_id: int, choice_questions: list[dict[str, An
         written = []
         for index, (question, answer, keywords) in enumerate(generic):
             points = 2 if index < 4 else 3
-            written.append(_written(question, answer, "Перевір, чи відповідь конкретна й спирається на правило з уроку.", points=points, keywords=keywords, placeholder="Напиши відповідь своїми словами"))
+            written.append(_written(question, answer, "Перевір, чи відповідь конкретна й спирається на правило з уроку.", points=points, keywords=keywords, placeholder="Напиши свою відповідь своїми словами"))
     return choices + written[:8]
 
 

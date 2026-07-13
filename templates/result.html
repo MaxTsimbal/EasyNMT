@@ -4,8 +4,8 @@
 <div class="result-page human-result-page">
     <div class="lesson-header fade-up">
         <span class="pill">Результат тесту</span>
-        <h1>{% if passed %}Тему пройдено{% else %}Ще одна спроба піде на користь{% endif %}</h1>
-        <p>{% if passed %}Ти набрав {{ score }} з {{ total }} балів. Наступна тема вже відкрита.{% else %}Ти набрав {{ score }} з {{ total }}. Для переходу потрібно {{ pass_score }}. Подивись розбір нижче й виправ саме ті кроки, де втратив бали.{% endif %}</p>
+        <h1>{% if passed %}Тему завершено{% else %}Цю тему варто закріпити ще раз{% endif %}</h1>
+        <p>{% if passed %}Ти набрав {{ score }} з {{ total }} балів. Наступна тема вже відкрита. Можеш переходити до неї, коли будеш готовий.{% else %}Ти набрав {{ score }} з {{ total }}. Для переходу потрібно {{ pass_score }}. Подивись розбір нижче. Зверни увагу саме на ті кроки, де ти втратив бали.{% endif %}</p>
     </div>
 
     <div class="result-summary-grid">
@@ -15,25 +15,25 @@
     </div>
 
     <div class="goal-card easy-recommend human-note">
-        <span class="score">Коротко про результат</span>
+        <span class="score">Що показав цей тест</span>
         <span class="desc">
-            {% if passed and score == total %}Усе чисто: і базові питання, і письмові задачі виконані без втрат. Можеш рухатися далі.
-            {% elif passed %}Основу ти знаєш. Перед наступною темою переглянь завдання, де втратив бали, щоб помилка не повторилася.
-            {% else %}Не потрібно перечитувати весь урок. Знайди в розборі першу помилку й повтори саме відповідний крок прикладу.
+            {% if passed and score == total %}Усі завдання виконано правильно. Ти добре зрозумів тему й можеш переходити далі.
+            {% elif passed %}Основу ти вже розумієш. Перед наступною темою переглянь завдання, де втратив бали, і зверни увагу на пояснення.
+            {% else %}Не треба перечитувати весь урок. Знайди першу помилку в розборі та повтори лише той крок, який викликав труднощі.
             {% endif %}
         </span>
     </div>
 
     {% if review %}
     <div class="review-panel goal-card">
-        <div class="review-heading"><span class="score">Розбір відповідей</span><span class="desc">Оцінюємо не лише фінальне число, а й хід розв’язання.</span></div>
+        <div class="review-heading"><span class="score">Розбір відповідей</span><span class="desc">Тут важлива не лише кінцева відповідь, а й те, як ти до неї дійшов.</span></div>
         <div class="review-list">
             {% for item in review %}
             <div class="review-item {% if item.earned == item.points %}correct{% elif item.earned > 0 %}partial{% else %}wrong{% endif %}">
                 <div class="review-question"><span>{{ loop.index }}.</span> {{ item.question }}</div>
                 <div class="review-score">{{ item.earned }} / {{ item.points }} балів</div>
                 <div class="review-answer">Твоя відповідь: <b>{{ item.user_answer }}</b></div>
-                {% if item.earned < item.points %}<div class="review-answer">Орієнтир: <b>{{ item.correct_answer }}</b></div>{% endif %}
+                {% if item.earned < item.points %}<div class="review-answer">Правильний варіант: <b>{{ item.correct_answer }}</b></div>{% endif %}
                 <div class="review-explanation">{{ item.explanation }}</div>
             </div>
             {% endfor %}
@@ -43,8 +43,8 @@
 
     <div class="goal-grid compact-actions">
         {% if passed and has_next_lesson %}<a href="{{ url_for('lesson', lesson_id=next_lesson_id) }}" class="goal-link"><button class="primary-action">Наступна тема</button></a>{% endif %}
-        <a href="{{ url_for('quiz', lesson_id=lesson.id) }}" class="goal-link"><button class="secondary-action">Пройти ще раз</button></a>
-        <a href="{{ url_for('today') }}" class="goal-link"><button class="secondary-action">До уроків</button></a>
+        <a href="{{ url_for('quiz', lesson_id=lesson.id) }}" class="goal-link"><button class="secondary-action">Спробувати тест ще раз</button></a>
+        <a href="{{ url_for('today') }}" class="goal-link"><button class="secondary-action">Повернутися до уроків</button></a>
     </div>
 </div>
 {% endblock %}

@@ -1,39 +1,39 @@
 {% extends "base.html" %}
 {% block title %}Приклад: {{ lesson.title }} | EasyNMT{% endblock %}
 {% block content %}
-<div class="container lesson-detail-page rich-lesson-page">
+<div class="container lesson-detail-page rich-lesson-page lesson-rich-v2">
     <div class="lesson-topline"><span>{{ lesson.badge }}</span><span>Тема {{ lesson.id }}</span><span>Повний розбір</span></div>
-    <div class="lesson-header">
-        <span class="pill">Один приклад, але до кінця</span>
-        <h1>Розберімо задачу крок за кроком</h1>
-        <p>Не просто дивись на відповідь. Після кожного кроку перевіряй, чи розумієш, навіщо ми його зробили.</p>
-    </div>
 
-    <div class="goal-card premium detail-card worked-example">
-        <span class="score">Умова</span>
-        <span class="desc">{{ lesson.example }}</span>
-    </div>
+    <header class="lesson-rich-hero glass-card">
+        <div>
+            <span class="pill">Один приклад, але до кінця</span>
+            <h1>Розберімо задачу без пропущених кроків</h1>
+            <p>Мета не в тому, щоб просто побачити відповідь. Після розбору ти маєш уміти повторити цей шлях самостійно.</p>
+        </div>
+        <div class="lesson-rich-target"><small>Умова</small><p>{{ lesson.example }}</p></div>
+    </header>
 
-    <div class="worked-steps">
-        <div class="worked-step"><span>1</span><div><h2>Визнач, що відомо</h2><p>{{ details.theory_points[0] }}</p></div></div>
-        <div class="worked-step"><span>2</span><div><h2>Обери правило</h2><p>{{ details.formulas[0] if details.formulas else lesson.theory }}</p></div></div>
-        <div class="worked-step"><span>3</span><div><h2>Виконай дію без стрибків</h2><p>{{ details.extra_examples[0] if details.extra_examples else lesson.example }}</p></div></div>
-        <div class="worked-step"><span>4</span><div><h2>Перевір відповідь</h2><p>Поверни результат в умову або поясни собі, чому він підходить. Саме ця перевірка ловить більшість помилок зі знаком чи формою відповіді.</p></div></div>
-    </div>
+    <section class="worked-steps worked-steps-v2 glass-card">
+        <div class="worked-step"><span>1</span><div><h2>Розпізнай тип завдання</h2><p>{{ details.simple_explanation }}</p><small>Перш ніж рахувати, назви правило, яке тут працює.</small></div></div>
+        <div class="worked-step"><span>2</span><div><h2>Випиши відомі дані</h2><p>{{ details.theory_points[0] }}</p><small>Це захищає від помилок зі знаком, коефіцієнтом або датою.</small></div></div>
+        <div class="worked-step"><span>3</span><div><h2>Обери потрібне правило</h2><p>{{ details.formulas[0] if details.formulas else lesson.theory }}</p><small>Не підставляй значення, поки не впевнишся, що формула підходить.</small></div></div>
+        <div class="worked-step"><span>4</span><div><h2>Виконай розв’язання по діях</h2><p>{{ details.extra_examples[0] if details.extra_examples else lesson.example }}</p><small>Кожна нова дія має бути в окремому рядку. Так легше знайти помилку.</small></div></div>
+        <div class="worked-step"><span>5</span><div><h2>Перевір результат</h2><p>{{ details.self_check[0] if details.self_check else 'Поверни відповідь в умову та перевір, чи вона справді підходить.' }}</p><small>На НМТ саме коротка перевірка часто рятує один бал.</small></div></div>
+        <div class="worked-step"><span>6</span><div><h2>Запиши відповідь так, як просить умова</h2><p>Не залишай лише обчислення. Запиши кінцеве число, корені, дату або речення у потрібному форматі.</p><small>У письмових питаннях 5–12 важливий не тільки результат, а й зрозумілий хід думок.</small></div></div>
+    </section>
 
-    <div class="goal-card warning-card detail-card">
-        <span class="score">Зверни увагу</span>
-        <span class="desc">{{ details.mistakes[0] if details.mistakes else 'Не пропускай проміжні кроки.' }}</span>
-    </div>
-
-    <div class="goal-card detail-card human-note">
-        <span class="score">Тепер спробуй сам</span>
-        <span class="desc">Закрий розбір і повтори його на чернетці. Якщо застрягнеш, повернися лише до того кроку, де виникла проблема.</span>
-    </div>
+    <section class="lesson-rich-two-col">
+        <article class="lesson-rich-section warning-card glass-card">
+            <div class="lesson-rich-heading compact"><span>!</span><div><h2>Зупинись на секунду</h2><p>{{ details.mistakes[0] if details.mistakes else 'Не пропускай проміжні кроки.' }}</p></div></div>
+        </article>
+        <article class="lesson-rich-section human-note glass-card">
+            <div class="lesson-rich-heading compact"><span>✓</span><div><h2>Перед тестом</h2><p>Закрий цей розбір і повтори його на чернетці. Якщо зміг пройти всі кроки без підказки, ти готовий.</p></div></div>
+        </article>
+    </section>
 
     <div class="goal-grid compact-actions">
-        <a href="{{ url_for('quiz', lesson_id=lesson.id) }}" class="goal-link"><button class="primary-action">Почати тест</button></a>
-        <a href="{{ url_for('theory_detail', lesson_id=lesson.id) }}" class="goal-link"><button class="secondary-action">Ще раз пояснення</button></a>
+        <a href="{{ url_for('quiz', lesson_id=lesson.id) }}" class="goal-link"><button class="primary-action">Почати тест із 12 питань</button></a>
+        <a href="{{ url_for('theory_detail', lesson_id=lesson.id) }}" class="goal-link"><button class="secondary-action">Повернутися до пояснення</button></a>
     </div>
 </div>
 {% endblock %}

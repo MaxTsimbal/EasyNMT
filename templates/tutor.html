@@ -14,7 +14,7 @@
 
     <div class="lesson-topline">
         <span>{{ lesson.badge }}</span>
-        <span>Easy помічник</span>
+        <span>Easy, твій помічник</span>
         <span>💭 Мені цікаво...</span>
     </div>
 
@@ -23,27 +23,27 @@
     </h1>
 
     <p>
-        Запитай Easy про тему «{{ lesson.title }}». Можеш написати: “поясни простіше”, “дай приклад” або своє питання.
+        Напиши Easy запитання про тему «{{ lesson.title }}». Можеш написати: “поясни простіше”, “дай приклад” або своє питання.
     </p>
 
     <div class="goal-card premium tutor-panel">
-        <span class="score">Easy готовий пояснити</span>
+        <span class="score">Easy готовий допомогти</span>
         <span class="ai-status {{ ai_mode }}">
             {% if ai_mode == "openai" %}🟢 OpenAI · {{ ai_model }}{% elif ai_mode == "limit" %}🟠 Денний ліміт{% else %}🟣 Демо-режим{% endif %}
         </span>
         <span class="desc">
-            Не треба формулювати ідеально. Напиши як думаєш, а Easy розкладе тему по поличках.
+            Не шукай ідеальних слів. Напиши запитання так, як думаєш, а Easy допоможе розібратися крок за кроком.
         </span>
     </div>
 
     <br>
 
     <form method="POST" class="tutor-form">
-        <textarea name="question" maxlength="1500" placeholder="Наприклад: поясни простіше або дай приклад...">{{ question }}</textarea>
+        <textarea name="question" maxlength="1500" placeholder="Наприклад: поясни простіше, покажи приклад або перевір мій крок...">{{ question }}</textarea>
         <div class="tutor-meta">AI-запити сьогодні: {{ ai_used }}/{{ ai_limit }}</div>
 
         <button type="submit" class="primary-action">
-            Запитати Easy
+            Надіслати запитання
         </button>
     </form>
 
@@ -51,7 +51,7 @@
         <br>
 
         <div class="goal-card tutor-answer">
-            <span class="score">✨ Відповідь Easy</span>
+            <span class="score">✨ Пояснення від Easy</span>
             <span class="desc">{{ answer }}</span>
         </div>
     {% endif %}

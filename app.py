@@ -473,13 +473,13 @@ def complete_lesson(lesson_id, score, total):
     if len(completed_after) >= 3:
         add_achievement("three_lessons", "📚", "Перший маршрут", "Ти завершив 3 уроки з одного предмета.")
     if score == total and total > 0:
-        add_achievement("perfect_quiz", "💯", "Без помилок", "Тест пройдено на максимальний результат.")
+        add_achievement("perfect_quiz", "💯", "Без помилок", "Усі відповіді правильні. Ти набрав максимальні 24 бали.")
     if session.get("xp", 0) >= 100:
         add_achievement("xp_100", "⭐", "100 XP", "Ти набрав перші 100 XP.")
     if session.get("xp", 0) >= 250:
-        add_achievement("xp_250", "⚡", "250 XP", "Твій навчальний двигун уже розганяється.")
+        add_achievement("xp_250", "⚡", "250 XP", "Ти вже набрав 250 XP. Видно, що навчання стало регулярним.")
     if streak >= 3:
-        add_achievement("streak_3", "🔥", "3 дні серії", "Ти тримаєш навчальний ритм 3 дні.")
+        add_achievement("streak_3", "🔥", "3 дні серії", "Ти займаєшся вже 3 дні поспіль. Продовжуй у такому ж темпі.")
 
     return {"first_completion": first_completion, "new_achievements": new_achievements}
 
@@ -493,7 +493,7 @@ def get_next_unfinished_lesson_id():
     return get_lessons_for_subject(subject_key)[0]["id"]
 
 def get_user_data():
-    goal = session.get("goal", "Не вибрано")
+    goal = session.get("goal", "Ще не вибрано")
     subject_key = session.get("subject", "none")
     time_key = session.get("time_left", "none")
 
@@ -502,7 +502,7 @@ def get_user_data():
         "ukrainian": "🇺🇦 Українська мова",
         "history": "📜 Історія України",
         "english": "🇬🇧 Англійська мова",
-        "none": "Не вибрано",
+        "none": "Ще не вибрано",
     }
 
     time_names = {
@@ -510,7 +510,7 @@ def get_user_data():
         "2-months": "2 місяці",
         "3-plus": "3+ місяці",
         "6-plus": "6+ місяців",
-        "none": "Не вибрано",
+        "none": "Ще не вибрано",
     }
 
     daily_time = {
@@ -539,7 +539,7 @@ def get_user_data():
     return {
         "goal": goal,
         "subject_key": subject_key,
-        "subject": subject_names.get(subject_key, "Не вибрано"),
+        "subject": subject_names.get(subject_key, "Ще не вибрано"),
         "lessons": lessons,
         "completed_lessons": completed_lessons,
         "unlocked_lessons": unlocked_lessons,
@@ -548,7 +548,7 @@ def get_user_data():
         "first_topic": first_lesson["title"],
         "first_lesson_id": first_lesson["id"],
         "lesson_goal": first_lesson["goal"],
-        "time_left": time_names.get(time_key, "Не вибрано"),
+        "time_left": time_names.get(time_key, "Ще не вибрано"),
         "daily_time": daily_time.get(time_key, "25 хв сьогодні"),
         "progress": progress,
         "xp": session.get("xp", 0),
@@ -671,9 +671,9 @@ LESSON_CATALOG = {
             "id": 1,
             "title": "Стартовий урок",
             "badge": "🧠 EasyNMT",
-            "theory": "Почнемо з короткої діагностики і першої базової теми.",
-            "example": "Приклад: спочатку коротка теорія, потім міні-тест і оновлення прогресу.",
-            "goal": "Почати навчання без хаосу і зробити перший маленький крок.",
+            "theory": "Спочатку з’ясуємо, що ти вже знаєш, а потім спокійно розберемо першу тему.",
+            "example": "Спочатку прочитай пояснення, потім виконай короткий тест. Після цього побачиш свій результат і прогрес.",
+            "goal": "Зрозуміти, з чого почати, і пройти першу тему без поспіху.",
         }
     ],
 }
@@ -1680,7 +1680,7 @@ def mistakes():
     mistakes_only = [
         {
             "question": row["question"],
-            "user_answer": row["user_answer"] or "Не вибрано",
+            "user_answer": row["user_answer"] or "Ще не вибрано",
             "correct_answer": row["correct_answer"],
             "explanation": row["explanation"],
             "lesson_id": row["lesson_id"],

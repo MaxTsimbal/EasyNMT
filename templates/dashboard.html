@@ -1,58 +1,44 @@
 {% extends "base.html" %}
 
 {% block title %}Кабінет | EasyNMT{% endblock %}
-{% block body_class %}dashboard-app{% endblock %}
+{% block body_class %}dashboard-app dashboard-v0981{% endblock %}
 
 {% block content %}
-<section class="dashboard-page dashboard-v2">
-    <div class="container dashboard-shell-v2">
-        <button class="dashboard-mobile-sidebar-toggle" id="dashboardSidebarToggle" type="button" aria-controls="dashboardSidebar" aria-expanded="false">
-            <span aria-hidden="true">☰</span>
-            <span>Меню кабінету</span>
+<section class="dashboard-page dashboard-clean-page">
+    <div class="container dashboard-clean-shell">
+        <button class="dashboard-mobile-sidebar-toggle liquid-circle" id="dashboardSidebarToggle" type="button" aria-controls="dashboardSidebar" aria-expanded="false" aria-label="Відкрити меню кабінету">
+            <span class="hamburger-icon" aria-hidden="true"><i></i><i></i><i></i></span>
         </button>
 
         <div class="dashboard-sidebar-overlay" id="dashboardSidebarOverlay" aria-hidden="true"></div>
 
-        <aside class="dashboard-sidebar dashboard-sidebar-v3" id="dashboardSidebar" aria-label="Навігація кабінету">
+        <aside class="dashboard-sidebar dashboard-clean-sidebar" id="dashboardSidebar" aria-label="Навігація кабінету">
             <div class="dashboard-sidebar-inner">
-                <div class="dashboard-user dashboard-user-v3">
+                <div class="dashboard-user dashboard-clean-user">
                     <span class="dashboard-avatar">{{ (user_name or 'E')[0]|upper }}</span>
                     <span class="dashboard-user-copy">
                         <b class="dashboard-user-name">{{ user_name or 'Учень' }}</b>
-                        <small class="dashboard-user-level">Космічний курсант</small>
+                        <small class="dashboard-user-level">Твій кабінет</small>
                     </span>
                 </div>
 
                 <div class="dashboard-sidebar-section">
                     <span class="dashboard-sidebar-label">Навчання</span>
-                    <nav class="dashboard-nav dashboard-nav-v3" aria-label="Навчальні розділи">
+                    <nav class="dashboard-nav dashboard-clean-nav" aria-label="Навчальні розділи">
                         <a class="dashboard-nav-link active" href="{{ url_for('dashboard') }}"><span>🏠</span><b>Огляд</b></a>
                         <a class="dashboard-nav-link" href="{{ url_for('today') }}"><span>📅</span><b>Сьогодні</b></a>
-                        <a class="dashboard-nav-link" href="{{ url_for('library') }}"><span>📚</span><b>Бібліотека</b></a>
+                        <a class="dashboard-nav-link" href="{{ url_for('library') }}"><span>📚</span><b>Уроки</b></a>
                         <a class="dashboard-nav-link" href="{{ url_for('progress_page') }}"><span>📊</span><b>Прогрес</b></a>
-                        <a class="dashboard-nav-link" href="{{ url_for('mistakes') }}"><span>🔁</span><b>Помилки</b></a>
-                        <a class="dashboard-nav-link" href="{{ url_for('tutor') }}"><span>🤖</span><b>AI-викладач</b></a>
+                        <a class="dashboard-nav-link" href="{{ url_for('mistakes') }}"><span>↻</span><b>Помилки</b></a>
+                        <a class="dashboard-nav-link" href="{{ url_for('tutor') }}"><span>✦</span><b>Чат з Easy</b></a>
                     </nav>
                 </div>
 
                 <div class="dashboard-sidebar-section dashboard-sidebar-secondary">
-                    <span class="dashboard-sidebar-label">Інструменти</span>
-                    <nav class="dashboard-nav dashboard-nav-v3" aria-label="Інструменти">
+                    <span class="dashboard-sidebar-label">Ще</span>
+                    <nav class="dashboard-nav dashboard-clean-nav" aria-label="Інші розділи">
                         <a class="dashboard-nav-link" href="{{ url_for('planner') }}"><span>🗓️</span><b>Планер</b></a>
                         <a class="dashboard-nav-link" href="{{ url_for('achievements_page') }}"><span>🏆</span><b>Досягнення</b></a>
-                    </nav>
-                </div>
-
-                <div class="dashboard-sidebar-bottom">
-                    <div class="dashboard-sidebar-tip">
-                        <span class="dashboard-sidebar-tip-icon">✨</span>
-                        <div>
-                            <strong>Малий крок щодня</strong>
-                            <small>Стабільність сильніша за ривок.</small>
-                        </div>
-                    </div>
-
-                    <nav class="dashboard-nav dashboard-nav-v3 dashboard-account-nav" aria-label="Налаштування акаунта">
                         <a class="dashboard-nav-link" href="{{ url_for('profile') }}"><span>👤</span><b>Профіль</b></a>
                         <a class="dashboard-nav-link" href="{{ url_for('settings') }}"><span>⚙️</span><b>Налаштування</b></a>
                     </nav>
@@ -60,76 +46,78 @@
             </div>
         </aside>
 
-        <main class="dashboard-main dashboard-main-v2 dashboard-main-v0976">
-            <section class="dashboard-welcome dashboard-wide-card glass-card">
-                <div class="dashboard-welcome-copy">
-                    <span class="eyebrow">Космічна академія</span>
-                    <h1 class="dashboard-title">Привіт, {{ user_name or 'друже' }}! 👋</h1>
-                    <p class="dashboard-subtitle">Твій наступний навчальний крок уже підготовлений.</p>
+        <main class="dashboard-clean-main">
+            <section class="dashboard-clean-hero glass-card">
+                <div class="dashboard-clean-hero-copy">
+                    <span class="eyebrow">Сьогодні</span>
+                    <h1>Привіт, {{ user_name or 'друже' }}!</h1>
+                    <p>Почнемо з теми, яка зараз дасть найбільше користі.</p>
 
-                    <div class="dashboard-next-lesson">
-                        <span class="dashboard-next-icon">📘</span>
+                    <div class="dashboard-clean-next">
+                        <span class="dashboard-clean-next-icon">📘</span>
                         <div>
-                            <small>Наступна тема</small>
+                            <small>Наступний урок</small>
                             <strong>{{ first_topic }}</strong>
                             <span>{{ subject }} · {{ daily_time }}</span>
                         </div>
-                    </div>
-
-                    <div class="dashboard-welcome-actions">
-                        <a class="button button-primary button-large" href="{{ url_for('lesson', lesson_id=first_lesson_id) }}">Продовжити урок <span>→</span></a>
-                        <a class="button button-ghost button-large" href="{{ url_for('today') }}">План на сьогодні</a>
+                        <a class="button button-primary" href="{{ url_for('lesson', lesson_id=first_lesson_id) }}">Почати <span>→</span></a>
                     </div>
                 </div>
 
-                <div class="dashboard-welcome-visual" aria-hidden="true">
-                    <div class="dashboard-mascot-glow"></div>
-                    <img class="dashboard-mascot" src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
-                    <div class="dashboard-mascot-bubble">Я поруч. Рушаємо? 🚀</div>
+                <div class="dashboard-clean-hero-visual" aria-hidden="true">
+                    <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
+                    <span>Поясню, якщо десь застрягнеш.</span>
                 </div>
             </section>
 
-            <section class="dashboard-stats-strip glass-card" aria-label="Коротка статистика">
-                <article class="dashboard-stat-item">
-                    <div class="dashboard-metric-icon metric-purple">📈</div>
-                    <div class="dashboard-stat-copy">
-                        <span>Загальний прогрес</span>
-                        <strong>{{ progress }}%</strong>
-                        <small>{{ completed_count }} з {{ lessons_total }} уроків</small>
-                    </div>
-                    <div class="progress-track dashboard-stat-progress">
-                        <div class="progress-bar" data-progress="{{ progress }}"></div>
-                    </div>
+            <section class="dashboard-clean-stats" aria-label="Коротка статистика">
+                <article class="glass-card dashboard-clean-stat">
+                    <span class="dashboard-clean-stat-icon">📈</span>
+                    <div><small>Прогрес</small><strong>{{ progress }}%</strong><span>{{ completed_count }} з {{ lessons_total }} уроків</span></div>
+                    <div class="progress-track"><div class="progress-bar" data-progress="{{ progress }}"></div></div>
                 </article>
-
-                <article class="dashboard-stat-item">
-                    <div class="dashboard-metric-icon metric-blue">⭐</div>
-                    <div class="dashboard-stat-copy">
-                        <span>Навчальна енергія</span>
-                        <strong>{{ xp }} XP</strong>
-                        <small>За уроки та тести</small>
-                    </div>
+                <article class="glass-card dashboard-clean-stat">
+                    <span class="dashboard-clean-stat-icon">⭐</span>
+                    <div><small>Досвід</small><strong>{{ xp }} XP</strong><span>За уроки й тести</span></div>
                 </article>
-
-                <article class="dashboard-stat-item">
-                    <div class="dashboard-metric-icon metric-orange">🔥</div>
-                    <div class="dashboard-stat-copy">
-                        <span>Поточна серія</span>
-                        <strong>{{ streak }} дн.</strong>
-                        <small>Тримай стабільну орбіту</small>
-                    </div>
+                <article class="glass-card dashboard-clean-stat">
+                    <span class="dashboard-clean-stat-icon">🔥</span>
+                    <div><small>Днів поспіль</small><strong>{{ streak }}</strong><span>Повернися завтра</span></div>
                 </article>
             </section>
 
-            <article class="dashboard-card dashboard-wide-card glass-card dashboard-roadmap-card">
-                <div class="dashboard-card-header">
-                    <div>
-                        <h2 class="dashboard-card-title">Космічний маршрут</h2>
-                        <p class="dashboard-card-subtitle">Шлях від старту до 200 балів</p>
-                    </div>
-                    <span class="dashboard-progress-pill">{{ progress }}%</span>
+            <section class="dashboard-clean-section glass-card">
+                <div class="dashboard-clean-section-head">
+                    <div><span class="section-kicker">Твій маршрут</span><h2>Уроки відкриваються по черзі</h2><p>Пройди поточний урок і тест, щоб відкрити наступний.</p></div>
+                    <a class="text-link" href="{{ url_for('library') }}">Усі уроки →</a>
                 </div>
+                <div class="dashboard-levels-row">
+                    {% for lesson in lessons %}
+                    {% set is_completed = lesson.id in completed_lessons %}
+                    {% set is_unlocked = lesson.id == first_lesson_id or is_completed or (lesson.id - 1) in completed_lessons %}
+                    {% if is_unlocked %}
+                    <a class="dashboard-level-card {% if is_completed %}completed{% elif lesson.id == first_lesson_id %}current{% endif %}" href="{{ url_for('lesson', lesson_id=lesson.id) }}">
+                        <span class="dashboard-level-number">{{ loop.index }}</span>
+                        <div><small>{% if is_completed %}Пройдено{% elif lesson.id == first_lesson_id %}Зараз{% else %}Відкрито{% endif %}</small><strong>{{ lesson.title }}</strong><span>{{ lesson.badge }} · 25 хв</span></div>
+                        <span class="dashboard-level-state">{% if is_completed %}✓{% else %}→{% endif %}</span>
+                    </a>
+                    {% else %}
+                    <div class="dashboard-level-card locked" aria-label="Урок закритий">
+                        <span class="dashboard-level-number">{{ loop.index }}</span>
+                        <div><small>Ще закрито</small><strong>{{ lesson.title }}</strong><span>Спочатку пройди попередній урок</span></div>
+                        <span class="dashboard-level-state">🔒</span>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </section>
 
+            <section class="dashboard-clean-section dashboard-clean-route glass-card">
+                <div>
+                    <span class="section-kicker">До цілі</span>
+                    <h2>Космічний маршрут</h2>
+                    <p>Кожен завершений урок рухає тебе далі.</p>
+                </div>
                 <div class="cosmic-progress cosmic-progress-v2">
                     <div class="cosmic-progress-step completed"><span class="cosmic-progress-icon">🌍</span><span>Старт</span></div>
                     <div class="cosmic-progress-step {% if progress >= 20 %}completed{% endif %}"><span class="cosmic-progress-icon">🌙</span><span>Місяць</span></div>
@@ -138,43 +126,10 @@
                     <div class="cosmic-progress-step {% if progress >= 80 %}completed{% endif %}"><span class="cosmic-progress-icon">⭐</span><span>190+</span></div>
                     <div class="cosmic-progress-step {% if progress >= 100 %}completed{% endif %}"><span class="cosmic-progress-icon">🌌</span><span>200</span></div>
                 </div>
-            </article>
-
-            <article class="dashboard-card dashboard-wide-card glass-card dashboard-lessons-card dashboard-lessons-wide">
-                <div class="dashboard-card-header">
-                    <div>
-                        <h2 class="dashboard-card-title">Найближчі уроки</h2>
-                        <p class="dashboard-card-subtitle">Твій короткий маршрут на найближчі заняття</p>
-                    </div>
-                    <a class="text-link" href="{{ url_for('library') }}">Усі уроки</a>
-                </div>
-
-                <div class="lesson-list lesson-list-v2 lesson-list-horizontal">
-                    {% for lesson in lessons[:3] %}
-                    <a class="lesson-item lesson-item-v2" href="{{ url_for('lesson', lesson_id=lesson.id) }}">
-                        <span class="lesson-icon">{% if lesson.id in completed_lessons %}✅{% else %}📘{% endif %}</span>
-                        <span class="lesson-info">
-                            <b class="lesson-title">{{ lesson.title }}</b>
-                            <small class="lesson-meta">{{ lesson.badge }} · 25 хв</small>
-                        </span>
-                        <span class="lesson-arrow">→</span>
-                    </a>
-                    {% else %}
-                    <p class="dashboard-empty-state">Уроки з’являться після формування плану.</p>
-                    {% endfor %}
-                </div>
-            </article>
-
-            <article class="dashboard-card dashboard-wide-card glass-card dashboard-ai-card dashboard-ai-wide">
-                <div class="dashboard-ai-icon">🤖</div>
-                <div class="dashboard-ai-copy">
-                    <span class="dashboard-ai-label">AI-викладач</span>
-                    <h2 class="dashboard-card-title">Потрібне пояснення?</h2>
-                    <p class="dashboard-card-subtitle">Постав запитання, розбери помилку або попроси простіший приклад.</p>
-                </div>
-                <a class="button button-secondary" href="{{ url_for('tutor') }}">Відкрити чат</a>
-            </article>
+            </section>
         </main>
     </div>
 </section>
+
+<a class="dashboard-floating-chat liquid-circle" href="{{ url_for('tutor') }}" aria-label="Відкрити чат з Easy"><span>✦</span></a>
 {% endblock %}
