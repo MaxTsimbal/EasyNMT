@@ -1,27 +1,18 @@
-# EasyNMT v0.9.9 Stable
+# EasyNMT v0.9.9.1
 
-Поточний фокус: покрокові уроки у форматі зошита та перевірка фото письмових розв’язань.
+## Implemented
+- Flask application and Railway deployment structure
+- Email and Google authentication
+- Goal, subject, and preparation-time onboarding
+- Subject diagnostic with beginner/foundation/confident levels
+- Personalized dashboard recommendations based on diagnostic and saved mistakes
+- Locked lesson progression
+- Beginner-first lesson structure
+- Lesson readiness checkpoint before tests
+- 12-question tests and partial scoring
+- Progress, XP, streaks, achievements, and mistake history
+- Professional tutor chat interface
+- About, pricing, and privacy pages
 
-# EasyNMT Project Status
-
-Version: v0.9.9 Stable
-
-## Working
-- Persistent registration and login with SQLite
-- 30-day login session
-- Automatic account and plan restore after restart
-- Separate XP and progress for each subject
-- Completed lessons, achievements and quiz mistakes stored in SQLite
-- Subject switching without losing previous progress
-- OpenAI-ready assistant with demo fallback and request limits
-
-## Database
-The database is created automatically at `instance/users.db`. Existing databases are migrated on launch.
-
-## Next
-- Connect and test a real OpenAI API key
-- Add password reset and email verification
-- Prepare deployment configuration
-
-SEO status: metadata, sitemap, robots.txt and Search Console verification support are ready.
-Next: connect Google Search Console, request indexing, then design the EasyNMT logo and favicon.
+## Future AI stage
+After OpenAI is connected, generated lessons, adaptive explanations, chat memory, and photo grading can use the same learning structure already present in the interface.

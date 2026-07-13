@@ -159,3 +159,10 @@
 - Повністю перероблено сторінку AI-репетитора у форматі сучасного повноекранного чату.
 - Додано бічну панель, швидкі навчальні дії, адаптивне поле введення та мобільний режим.
 - Поточну серверну логіку й демо-відповіді збережено без змін.
+
+## v0.9.9.1 — Complete Learning Journey
+- Added a five-question starting diagnostic for every subject.
+- Added level-based recommendations and a personal focus block on the dashboard.
+- Connected lesson reading to test access through a readiness checkpoint.
+- Rebuilt the lesson page for complete beginners with theory, examples, mistakes, and self-checks.
+- Added About, Pricing, and Privacy pages with footer navigation.

@@ -70,6 +70,12 @@
                 </div>
             </section>
 
+
+            <section class="dashboard-personal-panel glass-card">
+                <div><span class="section-kicker">Персональний фокус</span><h2>{{ diagnostic_level_name }}</h2><p>{{ personal_focus }}</p></div>
+                <div class="dashboard-personal-action"><small>Що робити сьогодні</small><strong>{{ personal_action }}</strong>{% if weak_topic %}<a href="{{ url_for('mistakes') }}">Переглянути помилки →</a>{% endif %}</div>
+            </section>
+
             <section class="dashboard-clean-stats" aria-label="Коротка статистика">
                 <article class="glass-card dashboard-clean-stat">
                     <span class="dashboard-clean-stat-icon">📈</span>

@@ -9,6 +9,7 @@ from flask import Flask, Response, abort, flash, redirect, render_template, requ
 from dotenv import load_dotenv
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config import Config
 from ai_service import EasyNMT_AI
@@ -27,6 +28,8 @@ except ImportError:
 
 app = Flask(__name__)
 app.config.from_object(Config)
+# Railway terminates HTTPS at its proxy. ProxyFix lets Flask build correct https:// callback URLs.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 app.secret_key = app.config["SECRET_KEY"]
 ai_service = EasyNMT_AI()
 vision_grader = VisionGradingEngine()
@@ -61,6 +64,8 @@ def init_db():
             email TEXT NOT NULL UNIQUE,
             password_hash TEXT,
             provider TEXT NOT NULL DEFAULT 'email',
+            google_sub TEXT UNIQUE,
+            avatar_url TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         """
@@ -161,14 +166,52 @@ def init_db():
         """
     )
 
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS diagnostic_results (
+            user_id INTEGER NOT NULL,
+            subject TEXT NOT NULL,
+            score INTEGER NOT NULL DEFAULT 0,
+            total INTEGER NOT NULL DEFAULT 5,
+            level TEXT NOT NULL DEFAULT 'beginner',
+            completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (user_id, subject),
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        )
+        """
+    )
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS lesson_readiness (
+            user_id INTEGER NOT NULL,
+            subject TEXT NOT NULL,
+            lesson_id INTEGER NOT NULL,
+            ready_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (user_id, subject, lesson_id),
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        )
+        """
+    )
+
     for column_sql in [
         "ALTER TABLE user_plans ADD COLUMN streak INTEGER NOT NULL DEFAULT 1",
         "ALTER TABLE user_plans ADD COLUMN last_activity_date TEXT",
+        "ALTER TABLE users ADD COLUMN google_sub TEXT",
+        "ALTER TABLE users ADD COLUMN avatar_url TEXT",
     ]:
         try:
             conn.execute(column_sql)
         except sqlite3.OperationalError:
             pass
+
+    try:
+        conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_sub "
+            "ON users(google_sub) WHERE google_sub IS NOT NULL"
+        )
+    except sqlite3.OperationalError:
+        pass
 
     conn.commit()
     conn.close()
@@ -330,7 +373,9 @@ def onboarding_complete():
 
 def redirect_after_auth():
     if onboarding_complete():
-        return redirect(url_for("dashboard"))
+        if diagnostic_complete():
+            return redirect(url_for("dashboard"))
+        return redirect(url_for("diagnostic"))
 
     return redirect(url_for("goal"))
 
@@ -502,6 +547,87 @@ def get_next_unfinished_lesson_id():
             return lesson_item["id"]
     return get_lessons_for_subject(subject_key)[0]["id"]
 
+def get_diagnostic_result(subject_key=None):
+    user_id = session.get("user_id")
+    subject_key = subject_key or session.get("subject")
+    if not user_id or not subject_key:
+        return None
+    conn = get_db_connection()
+    row = conn.execute(
+        "SELECT score, total, level, completed_at FROM diagnostic_results WHERE user_id = ? AND subject = ?",
+        (user_id, subject_key),
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def diagnostic_complete(subject_key=None):
+    return get_diagnostic_result(subject_key) is not None
+
+
+def get_personal_insights(subject_key=None):
+    user_id = session.get("user_id")
+    subject_key = subject_key or session.get("subject", "none")
+    diagnostic = get_diagnostic_result(subject_key)
+    level = diagnostic["level"] if diagnostic else "beginner"
+    level_names = {
+        "beginner": "Починаємо з основ",
+        "foundation": "Основа вже є",
+        "confident": "Можна рухатися швидше",
+    }
+    weak_topic = None
+    weak_count = 0
+    if user_id:
+        conn = get_db_connection()
+        row = conn.execute(
+            """SELECT lesson_id, COUNT(*) AS cnt FROM mistakes
+               WHERE user_id = ? AND subject = ?
+               GROUP BY lesson_id ORDER BY cnt DESC, lesson_id ASC LIMIT 1""",
+            (user_id, subject_key),
+        ).fetchone()
+        conn.close()
+        if row:
+            weak_count = int(row["cnt"] or 0)
+            try:
+                weak_topic = get_lesson_content(int(row["lesson_id"]))["title"]
+            except Exception:
+                weak_topic = None
+    if weak_topic:
+        focus = f"Найбільше уваги зараз потребує тема «{weak_topic}». У ній уже було {weak_count} помилок."
+        action = "Спочатку переглянь розбір помилок, а потім повтори короткий тест."
+    elif level == "beginner":
+        focus = "Почнемо без поспіху. Спочатку зрозуміємо головну ідею, потім розберемо приклад."
+        action = "Сьогодні достатньо пройти один урок і мініперевірку."
+    elif level == "foundation":
+        focus = "Базові знання вже є. Тепер важливо навчитися не губитися в типових завданнях НМТ."
+        action = "Пройди поточний урок і зверни увагу на типові помилки."
+    else:
+        focus = "Ти впевнено знаєш основу. Можна швидше переходити до практики та складніших завдань."
+        action = "Почни з прикладу, а потім одразу перевір себе тестом."
+    return {
+        "diagnostic_level": level,
+        "diagnostic_level_name": level_names.get(level, level_names["beginner"]),
+        "personal_focus": focus,
+        "personal_action": action,
+        "weak_topic": weak_topic,
+        "weak_count": weak_count,
+    }
+
+
+def is_lesson_ready(lesson_id, subject_key=None):
+    user_id = session.get("user_id")
+    subject_key = subject_key or session.get("subject", "none")
+    if not user_id:
+        return False
+    conn = get_db_connection()
+    row = conn.execute(
+        "SELECT 1 FROM lesson_readiness WHERE user_id = ? AND subject = ? AND lesson_id = ?",
+        (user_id, subject_key, lesson_id),
+    ).fetchone()
+    conn.close()
+    return row is not None
+
+
 def get_user_data():
     goal = session.get("goal", "Ще не вибрано")
     subject_key = session.get("subject", "none")
@@ -545,6 +671,7 @@ def get_user_data():
     session["progress"] = progress
 
     achievements = get_achievements(limit=4)
+    insights = get_personal_insights(subject_key)
 
     return {
         "goal": goal,
@@ -568,6 +695,8 @@ def get_user_data():
         "user_name": current_user_name(),
         "is_logged_in": is_logged_in(),
         "has_plan": onboarding_complete(),
+        "diagnostic_complete": diagnostic_complete(subject_key),
+        **insights,
     }
 
 
@@ -1227,43 +1356,103 @@ def logout():
 @app.route("/login/google")
 def google_login():
     if google is None:
-        flash("Google-вхід ще не налаштований. Додай GOOGLE_CLIENT_ID і GOOGLE_CLIENT_SECRET.", "error")
+        flash(
+            "Вхід через Google ще не налаштований. Додай GOOGLE_CLIENT_ID і "
+            "GOOGLE_CLIENT_SECRET у Railway Variables.",
+            "error",
+        )
         return redirect(url_for("login"))
 
-    redirect_uri = url_for("google_callback", _external=True)
+    redirect_uri = os.environ.get("GOOGLE_REDIRECT_URI", "").strip()
+    if not redirect_uri:
+        redirect_uri = url_for("google_callback", _external=True, _scheme="https" if not app.debug else None)
+
+    session["google_oauth_redirect_uri"] = redirect_uri
     return google.authorize_redirect(redirect_uri)
 
 
 @app.route("/auth/google/callback")
 def google_callback():
     if google is None:
-        flash("Google-вхід ще не налаштований.", "error")
+        flash("Вхід через Google ще не налаштований.", "error")
         return redirect(url_for("login"))
 
-    token = google.authorize_access_token()
-    user_info = token.get("userinfo") or google.userinfo()
+    try:
+        token = google.authorize_access_token()
+        user_info = token.get("userinfo")
+        if not user_info:
+            user_info = google.parse_id_token(token)
+    except Exception:
+        app.logger.exception("Google OAuth callback failed")
+        flash(
+            "Не вдалося завершити вхід через Google. Перевір налаштування "
+            "Google OAuth і спробуй ще раз.",
+            "error",
+        )
+        return redirect(url_for("login"))
 
-    email = user_info.get("email", "").lower()
-    name = user_info.get("name") or email.split("@")[0]
+    email = (user_info.get("email") or "").strip().lower()
+    name = (user_info.get("name") or "").strip() or (email.split("@")[0] if email else "Учень")
+    google_sub = (user_info.get("sub") or "").strip()
+    avatar_url = (user_info.get("picture") or "").strip()
+    email_verified = user_info.get("email_verified")
 
-    if not email:
-        flash("Google не повернув email. Спробуй інший акаунт.", "error")
+    if not email or not google_sub:
+        flash("Google не передав потрібні дані акаунта. Спробуй інший акаунт.", "error")
+        return redirect(url_for("login"))
+
+    if email_verified is False:
+        flash("Спочатку підтвердь email у своєму Google-акаунті.", "error")
         return redirect(url_for("login"))
 
     conn = get_db_connection()
-    user = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+    try:
+        user = conn.execute(
+            "SELECT * FROM users WHERE google_sub = ? OR email = ?",
+            (google_sub, email),
+        ).fetchone()
 
-    if user is None:
-        cursor = conn.execute(
-            "INSERT INTO users (name, email, password_hash, provider) VALUES (?, ?, ?, ?)",
-            (name, email, None, "google"),
+        if user is None:
+            cursor = conn.execute(
+                """
+                INSERT INTO users
+                    (name, email, password_hash, provider, google_sub, avatar_url)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (name, email, None, "google", google_sub, avatar_url),
+            )
+            conn.commit()
+            user = conn.execute(
+                "SELECT * FROM users WHERE id = ?", (cursor.lastrowid,)
+            ).fetchone()
+        else:
+            # If the email account already exists, safely link Google to it.
+            conn.execute(
+                """
+                UPDATE users
+                SET google_sub = COALESCE(google_sub, ?),
+                    avatar_url = CASE WHEN ? <> '' THEN ? ELSE avatar_url END,
+                    name = CASE WHEN name = '' THEN ? ELSE name END
+                WHERE id = ?
+                """,
+                (google_sub, avatar_url, avatar_url, name, user["id"]),
+            )
+            conn.commit()
+            user = conn.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
+    except sqlite3.IntegrityError:
+        conn.rollback()
+        app.logger.exception("Could not link Google account")
+        flash(
+            "Цей Google-акаунт уже прив’язаний до іншого профілю EasyNMT.",
+            "error",
         )
-        conn.commit()
-        user = conn.execute("SELECT * FROM users WHERE id = ?", (cursor.lastrowid,)).fetchone()
+        return redirect(url_for("login"))
+    finally:
+        conn.close()
 
-    conn.close()
     login_user(user)
-    flash("Вхід через Google успішний.", "success")
+    session["user_avatar"] = avatar_url
+    flash("Готово, ти увійшов через Google.", "success")
     return redirect_after_auth()
 
 
@@ -1348,11 +1537,93 @@ def loader():
     return render_template("loader.html")
 
 
+DIAGNOSTIC_BANK = {
+    "math": [
+        ("Скільки буде 3 · 4?", ["7", "12", "14"], "12"),
+        ("Яке число є розв’язком рівняння x + 5 = 9?", ["4", "5", "14"], "4"),
+        ("Що означає x²?", ["x · 2", "x · x", "2 + x"], "x · x"),
+        ("Скільки коренів може мати квадратне рівняння?", ["Тільки один", "Нуль, один або два", "Завжди два"], "Нуль, один або два"),
+        ("Якщо y = 2x і x = 3, то y дорівнює...", ["5", "6", "9"], "6"),
+    ],
+    "ukrainian": [
+        ("У якому слові потрібен апостроф?", ["буряк", "обєкт", "об’єкт"], "об’єкт"),
+        ("Скільки граматичних основ у складному реченні?", ["Одна", "Дві або більше", "Жодної"], "Дві або більше"),
+        ("Правильний наголос:", ["вИпадок", "випАдок", "випадОк"], "вИпадок"),
+        ("Що таке підмет?", ["Головний член речення, що називає виконавця", "Розділовий знак", "Частина слова"], "Головний член речення, що називає виконавця"),
+        ("Орфографія вивчає...", ["Правопис слів", "Будову тексту", "Тільки наголос"], "Правопис слів"),
+    ],
+    "history": [
+        ("Хрещення Русі відбулося у...", ["988 році", "1240 році", "1648 році"], "988 році"),
+        ("Хто очолив Національно-визвольну війну 1648 року?", ["Володимир Великий", "Богдан Хмельницький", "Михайло Грушевський"], "Богдан Хмельницький"),
+        ("Що важливіше для НМТ з історії?", ["Лише дати", "Причини, події та наслідки", "Тільки портрети"], "Причини, події та наслідки"),
+        ("IV Універсал проголосив...", ["Незалежність УНР", "Хрещення Русі", "Створення Січі"], "Незалежність УНР"),
+        ("Київська Русь належить до...", ["Середньовіччя", "XX століття", "Сучасності"], "Середньовіччя"),
+    ],
+    "english": [
+        ("Choose the correct sentence:", ["She play every day.", "She plays every day.", "She playing every day."], "She plays every day."),
+        ("Past Simple of go:", ["goed", "went", "gone"], "went"),
+        ("Present Simple is used for...", ["habits and facts", "actions happening now only", "future plans only"], "habits and facts"),
+        ("Choose the correct negative:", ["He don't study.", "He doesn't study.", "He not study."], "He doesn't study."),
+        ("A synonym for job is...", ["work", "sleep", "weather"], "work"),
+    ],
+}
+
+@app.route("/diagnostic", methods=["GET", "POST"])
+@require_login
+def diagnostic():
+    if not onboarding_complete():
+        return redirect(url_for("goal"))
+    subject_key = session.get("subject", "math")
+    questions = DIAGNOSTIC_BANK.get(subject_key, DIAGNOSTIC_BANK["math"])
+    if request.method == "POST":
+        score = sum(1 for index, q in enumerate(questions, 1) if request.form.get(f"q{index}") == q[2])
+        level = "beginner" if score <= 2 else "foundation" if score <= 4 else "confident"
+        conn = get_db_connection()
+        conn.execute(
+            """INSERT INTO diagnostic_results (user_id, subject, score, total, level)
+               VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT(user_id, subject) DO UPDATE SET
+                 score=excluded.score, total=excluded.total, level=excluded.level, completed_at=CURRENT_TIMESTAMP""",
+            (session["user_id"], subject_key, score, len(questions), level),
+        )
+        conn.commit(); conn.close()
+        flash("Перевірку завершено. Тепер маршрут підлаштовано під твій рівень.", "success")
+        return redirect(url_for("dashboard"))
+    return render_template("diagnostic.html", **get_user_data(), questions=questions)
+
+@app.route("/lesson/<int:lesson_id>/ready", methods=["POST"])
+@require_login
+def mark_lesson_ready(lesson_id):
+    lesson_id = normalize_lesson_id(lesson_id)
+    conn = get_db_connection()
+    conn.execute(
+        "INSERT OR IGNORE INTO lesson_readiness (user_id, subject, lesson_id) VALUES (?, ?, ?)",
+        (session["user_id"], session.get("subject", "none"), lesson_id),
+    )
+    conn.commit(); conn.close()
+    flash("Пояснення пройдено. Тепер можна перевірити себе в тесті.", "success")
+    return redirect(url_for("quiz", lesson_id=lesson_id))
+
+@app.route("/about")
+def about():
+    return render_template("about.html", is_logged_in=is_logged_in())
+
+@app.route("/pricing")
+def pricing():
+    return render_template("pricing.html", is_logged_in=is_logged_in())
+
+@app.route("/privacy")
+def privacy():
+    return render_template("privacy.html", is_logged_in=is_logged_in())
+
+
 @app.route("/dashboard")
 @require_login
 def dashboard():
     if not onboarding_complete():
         return redirect(url_for("goal"))
+    if not diagnostic_complete():
+        return redirect(url_for("diagnostic"))
 
     return render_template("dashboard.html", **get_user_data())
 
@@ -1379,7 +1650,12 @@ def lesson(lesson_id=1):
         return redirect(url_for("today"))
 
     session["current_lesson_id"] = lesson_id
-    return render_template("lesson.html", **get_user_data(), lesson=get_lesson_content(lesson_id))
+    lesson_content = get_lesson_content(lesson_id)
+    return render_template(
+        "lesson.html", **get_user_data(), lesson=lesson_content,
+        details=get_lesson_details(lesson_id),
+        lesson_ready=is_lesson_ready(lesson_id),
+    )
 
 
 def _save_solution_photo(file_storage, user_id, lesson_id, question_id):
@@ -1417,6 +1693,9 @@ def quiz(lesson_id=None):
     if not is_lesson_unlocked(lesson_id):
         flash("Цей урок ще закритий. Заверши попередній, і він відкриється автоматично.", "error")
         return redirect(url_for("today"))
+    if request.method == "GET" and not is_lesson_ready(lesson_id):
+        flash("Спочатку пройди пояснення й познач, що готовий перевірити себе.", "error")
+        return redirect(url_for("lesson", lesson_id=lesson_id))
 
     session["current_lesson_id"] = lesson_id
 
