@@ -35,6 +35,20 @@
                 <div class="review-answer">Твоя відповідь: <b>{{ item.user_answer }}</b></div>
                 {% if item.earned < item.points %}<div class="review-answer">Правильний варіант: <b>{{ item.correct_answer }}</b></div>{% endif %}
                 <div class="review-explanation">{{ item.explanation }}</div>
+                {% if item.photo_url %}
+                <div class="solution-review-images">
+                    <a href="{{ item.photo_url }}" target="_blank" class="solution-image-card">
+                        <span>Твоя робота</span>
+                        <img src="{{ item.photo_url }}" alt="Фото письмового розв’язання">
+                    </a>
+                    {% if item.annotated_url and item.earned < item.points %}
+                    <a href="{{ item.annotated_url }}" target="_blank" class="solution-image-card annotated">
+                        <span>Де помилка і як виправити</span>
+                        <img src="{{ item.annotated_url }}" alt="Розв’язання з позначеною помилкою">
+                    </a>
+                    {% endif %}
+                </div>
+                {% endif %}
             </div>
             {% endfor %}
         </div>

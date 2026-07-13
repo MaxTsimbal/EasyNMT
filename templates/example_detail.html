@@ -1,39 +1,64 @@
 {% extends "base.html" %}
-{% block title %}Приклад: {{ lesson.title }} | EasyNMT{% endblock %}
+{% block title %}Пояснення на аркуші: {{ lesson.title }} | EasyNMT{% endblock %}
 {% block content %}
-<div class="container lesson-detail-page rich-lesson-page lesson-rich-v2">
-    <div class="lesson-topline"><span>{{ lesson.badge }}</span><span>Тема {{ lesson.id }}</span><span>Повний розбір</span></div>
+<div class="container lesson-detail-page notebook-lesson-page">
+    <div class="lesson-topline"><span>{{ lesson.badge }}</span><span>Тема {{ lesson.id }}</span><span>Пояснення на аркуші</span></div>
 
-    <header class="lesson-rich-hero glass-card">
+    <header class="lesson-rich-hero glass-card notebook-hero">
         <div>
-            <span class="pill">Один приклад, але до кінця</span>
-            <h1>Розберімо задачу без пропущених кроків</h1>
-            <p>Мета не в тому, щоб просто побачити відповідь. Після розбору ти маєш уміти повторити цей шлях самостійно.</p>
+            <span class="pill">Почнемо з самого початку</span>
+            <h1>{{ lesson.title }}</h1>
+            <p>{{ board.intro }}</p>
         </div>
-        <div class="lesson-rich-target"><small>Умова</small><p>{{ lesson.example }}</p></div>
+        <div class="lesson-rich-target"><small>Приклад, який розберемо</small><p>{{ board.task }}</p></div>
     </header>
 
-    <section class="worked-steps worked-steps-v2 glass-card">
-        <div class="worked-step"><span>1</span><div><h2>Розпізнай тип завдання</h2><p>{{ details.simple_explanation }}</p><small>Перш ніж рахувати, назви правило, яке тут працює.</small></div></div>
-        <div class="worked-step"><span>2</span><div><h2>Випиши відомі дані</h2><p>{{ details.theory_points[0] }}</p><small>Це захищає від помилок зі знаком, коефіцієнтом або датою.</small></div></div>
-        <div class="worked-step"><span>3</span><div><h2>Обери потрібне правило</h2><p>{{ details.formulas[0] if details.formulas else lesson.theory }}</p><small>Не підставляй значення, поки не впевнишся, що формула підходить.</small></div></div>
-        <div class="worked-step"><span>4</span><div><h2>Виконай розв’язання по діях</h2><p>{{ details.extra_examples[0] if details.extra_examples else lesson.example }}</p><small>Кожна нова дія має бути в окремому рядку. Так легше знайти помилку.</small></div></div>
-        <div class="worked-step"><span>5</span><div><h2>Перевір результат</h2><p>{{ details.self_check[0] if details.self_check else 'Поверни відповідь в умову та перевір, чи вона справді підходить.' }}</p><small>На НМТ саме коротка перевірка часто рятує один бал.</small></div></div>
-        <div class="worked-step"><span>6</span><div><h2>Запиши відповідь так, як просить умова</h2><p>Не залишай лише обчислення. Запиши кінцеве число, корені, дату або речення у потрібному форматі.</p><small>У письмових питаннях 5–12 важливий не тільки результат, а й зрозумілий хід думок.</small></div></div>
+    <section class="notebook-workspace" data-notebook>
+        <div class="notebook-tutor-panel glass-card">
+            <span class="pill">Репетитор поруч</span>
+            <h2 id="notebook-step-title">{{ board.steps[0].title }}</h2>
+            <p id="notebook-step-note">{{ board.steps[0].note }}</p>
+            <div class="notebook-progress"><span id="notebook-current">1</span> / {{ board.steps|length }}</div>
+            <div class="notebook-controls">
+                <button type="button" class="secondary-action" id="notebook-prev" disabled>← Попередній крок</button>
+                <button type="button" class="primary-action" id="notebook-next">Наступний крок →</button>
+            </div>
+        </div>
+
+        <div class="notebook-paper-wrap">
+            <div class="notebook-paper">
+                <div class="notebook-margin"></div>
+                <div class="notebook-paper-content">
+                    <div class="notebook-task-label">Розв’язуємо:</div>
+                    <div class="notebook-task">{{ board.task }}</div>
+                    {% for step in board.steps %}
+                    <article class="notebook-step {% if loop.first %}is-visible{% endif %}" data-step="{{ loop.index0 }}">
+                        <div class="notebook-step-number">{{ loop.index }}</div>
+                        <div>
+                            <h3>{{ step.title }}</h3>
+                            {% for line in step.lines %}<p class="notebook-line">{{ line }}</p>{% endfor %}
+                            <div class="notebook-note">Зверни увагу: {{ step.note }}</div>
+                        </div>
+                    </article>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
     </section>
 
     <section class="lesson-rich-two-col">
         <article class="lesson-rich-section warning-card glass-card">
-            <div class="lesson-rich-heading compact"><span>!</span><div><h2>Зупинись на секунду</h2><p>{{ details.mistakes[0] if details.mistakes else 'Не пропускай проміжні кроки.' }}</p></div></div>
+            <div class="lesson-rich-heading compact"><span>!</span><div><h2>Не просто дивись</h2><p>Після кожного кроку спробуй пояснити вголос, чому ми зробили саме так.</p></div></div>
         </article>
         <article class="lesson-rich-section human-note glass-card">
-            <div class="lesson-rich-heading compact"><span>✓</span><div><h2>Перед тестом</h2><p>Закрий цей розбір і повтори його на чернетці. Якщо зміг пройти всі кроки без підказки, ти готовий.</p></div></div>
+            <div class="lesson-rich-heading compact"><span>✓</span><div><h2>Перевір себе</h2><p>Коли дійдеш до кінця, закрий пояснення й повтори розв’язання на власному аркуші.</p></div></div>
         </article>
     </section>
 
     <div class="goal-grid compact-actions">
-        <a href="{{ url_for('quiz', lesson_id=lesson.id) }}" class="goal-link"><button class="primary-action">Почати тест із 12 питань</button></a>
+        <a href="{{ url_for('quiz', lesson_id=lesson.id) }}" class="goal-link"><button class="primary-action">Перейти до тесту</button></a>
         <a href="{{ url_for('theory_detail', lesson_id=lesson.id) }}" class="goal-link"><button class="secondary-action">Повернутися до пояснення</button></a>
     </div>
 </div>
+<script src="{{ url_for('static', filename='js/lesson_board.js') }}"></script>
 {% endblock %}

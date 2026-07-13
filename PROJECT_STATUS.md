@@ -1,6 +1,10 @@
+# EasyNMT v0.9.9 Stable
+
+Поточний фокус: покрокові уроки у форматі зошита та перевірка фото письмових розв’язань.
+
 # EasyNMT Project Status
 
-Version: v0.9.8.2 Stable
+Version: v0.9.9 Stable
 
 ## Working
 - Persistent registration and login with SQLite

@@ -1,16 +1,21 @@
 import os
 import random
 import sqlite3
+import uuid
 from datetime import date as dt_date, datetime, timedelta
 from functools import wraps
 
-from flask import Flask, Response, flash, redirect, render_template, request, session, url_for
+from flask import Flask, Response, abort, flash, redirect, render_template, request, send_file, session, url_for
 from dotenv import load_dotenv
 from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.utils import secure_filename
 
 from config import Config
 from ai_service import EasyNMT_AI
 from learning_engine import MAX_SCORE, PASS_SCORE, build_quiz, grade_question
+from lesson_board_engine import build_lesson_board
+from solution_annotation_engine import create_annotated_solution
+from vision_grading_engine import VisionGradingEngine
 
 load_dotenv()
 
@@ -24,6 +29,7 @@ app = Flask(__name__)
 app.config.from_object(Config)
 app.secret_key = app.config["SECRET_KEY"]
 ai_service = EasyNMT_AI()
+vision_grader = VisionGradingEngine()
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 INSTANCE_DIR = os.path.join(BASE_DIR, "instance")
@@ -32,6 +38,10 @@ INSTANCE_DIR = os.path.join(BASE_DIR, "instance")
 PERSISTENT_DIR = os.environ.get("RAILWAY_VOLUME_MOUNT_PATH", INSTANCE_DIR)
 DB_PATH = os.environ.get("EASYNMT_DB_PATH", os.path.join(PERSISTENT_DIR, "users.db"))
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+UPLOAD_DIR = os.path.join(PERSISTENT_DIR, "solution_uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024
+ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
 
 
 def get_db_connection():
@@ -1372,6 +1382,30 @@ def lesson(lesson_id=1):
     return render_template("lesson.html", **get_user_data(), lesson=get_lesson_content(lesson_id))
 
 
+def _save_solution_photo(file_storage, user_id, lesson_id, question_id):
+    filename = secure_filename(file_storage.filename or "")
+    extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if extension not in ALLOWED_IMAGE_EXTENSIONS:
+        raise ValueError("Додай фото у форматі JPG, PNG або WEBP.")
+    token = uuid.uuid4().hex
+    safe_name = f"u{user_id}_l{lesson_id}_{question_id}_{token}.{extension}"
+    path = os.path.join(UPLOAD_DIR, safe_name)
+    file_storage.save(path)
+    return safe_name, path
+
+
+@app.route("/solution-file/<path:filename>")
+@require_login
+def solution_file(filename):
+    safe = secure_filename(filename)
+    if safe != filename or not filename.startswith(f"u{session['user_id']}_"):
+        abort(404)
+    path = os.path.join(UPLOAD_DIR, safe)
+    if not os.path.isfile(path):
+        abort(404)
+    return send_file(path)
+
+
 @app.route("/quiz", methods=["GET", "POST"])
 @app.route("/quiz/<int:lesson_id>", methods=["GET", "POST"])
 @require_login
@@ -1397,19 +1431,57 @@ def quiz(lesson_id=None):
             question = active_quiz_map.get(qid)
             if not question:
                 continue
-            user_answer = request.form.get(f"answer_{qid}", "").strip()
-            earned, is_correct, feedback = grade_question(question, user_answer)
+            points = int(question.get("points", 1))
+            annotated_url = None
+            photo_url = None
+            if points == 3:
+                photo = request.files.get(f"photo_{qid}")
+                if photo and photo.filename:
+                    try:
+                        original_name, original_path = _save_solution_photo(photo, session["user_id"], lesson_id, qid)
+                        analysis = vision_grader.grade(
+                            image_path=original_path,
+                            question=question.get("question", "Письмове завдання"),
+                            correct_answer=question.get("answer", ""),
+                            reference_solution=question.get("explanation", ""),
+                        )
+                        earned = int(analysis.get("score", 0))
+                        is_correct = earned == points
+                        feedback = analysis.get("message", "Перевір позначений крок.")
+                        user_answer = "Розв’язання на фото"
+                        photo_url = url_for("solution_file", filename=original_name)
+                        annotated_name = f"u{session['user_id']}_annotated_{original_name.rsplit('.', 1)[0]}.jpg"
+                        annotated_path = os.path.join(UPLOAD_DIR, annotated_name)
+                        create_annotated_solution(original_path, annotated_path, analysis)
+                        annotated_url = url_for("solution_file", filename=annotated_name)
+                    except ValueError as exc:
+                        earned, is_correct, feedback = 0, False, str(exc)
+                        user_answer = "Фото не прийнято"
+                    except Exception:
+                        earned, is_correct = 0, False
+                        feedback = "Не вдалося прочитати фото. Зроби новий знімок при хорошому освітленні."
+                        user_answer = "Фото не перевірено"
+                else:
+                    earned, is_correct = 0, False
+                    feedback = "Для цього завдання потрібно додати фото повного розв’язання на папері."
+                    user_answer = "Фото не додано"
+            else:
+                user_answer = request.form.get(f"answer_{qid}", "").strip()
+                earned, is_correct, feedback = grade_question(question, user_answer)
+
             score += earned
-            total += int(question.get("points", 1))
+            total += points
             review.append({
                 "question": question.get("question", "Питання"),
                 "user_answer": user_answer or "Відповіді немає",
                 "correct_answer": question.get("answer", "Переглянь матеріал уроку"),
                 "is_correct": is_correct,
                 "earned": earned,
-                "points": int(question.get("points", 1)),
+                "points": points,
                 "explanation": feedback,
                 "type": question.get("type", "choice"),
+                "photo_url": photo_url,
+                "annotated_url": annotated_url,
             })
 
         conn = get_db_connection()
@@ -1520,11 +1592,14 @@ def example_detail(lesson_id):
     lesson_id = normalize_lesson_id(lesson_id)
     session["current_lesson_id"] = lesson_id
 
+    lesson_data = get_lesson_content(lesson_id)
+    details = get_lesson_details(lesson_id)
     return render_template(
         "example_detail.html",
         **get_user_data(),
-        lesson=get_lesson_content(lesson_id),
-        details=get_lesson_details(lesson_id),
+        lesson=lesson_data,
+        details=details,
+        board=build_lesson_board(get_subject_key(), lesson_data, details),
     )
 
 
