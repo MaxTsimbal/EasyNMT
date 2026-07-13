@@ -51,7 +51,7 @@
                 <div class="dashboard-clean-hero-copy">
                     <span class="eyebrow">Сьогодні</span>
                     <h1>Привіт, {{ user_name or 'друже' }}!</h1>
-                    <p>Почнемо з теми, яка зараз дасть найбільше користі.</p>
+                    <p>Сьогодні почнемо з теми, яка найкраще допоможе рухатися далі.</p>
 
                     <div class="dashboard-clean-next">
                         <span class="dashboard-clean-next-icon">📘</span>
@@ -66,7 +66,7 @@
 
                 <div class="dashboard-clean-hero-visual" aria-hidden="true">
                     <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
-                    <span>Поясню, якщо десь застрягнеш.</span>
+                    <span>Поясню ще раз, якщо щось буде незрозуміло.</span>
                 </div>
             </section>
 
@@ -82,13 +82,13 @@
                 </article>
                 <article class="glass-card dashboard-clean-stat">
                     <span class="dashboard-clean-stat-icon">🔥</span>
-                    <div><small>Днів поспіль</small><strong>{{ streak }}</strong><span>Повернися завтра</span></div>
+                    <div><small>Днів поспіль</small><strong>{{ streak }}</strong><span>Продовж завтра</span></div>
                 </article>
             </section>
 
             <section class="dashboard-clean-section glass-card">
                 <div class="dashboard-clean-section-head">
-                    <div><span class="section-kicker">Твій маршрут</span><h2>Уроки відкриваються по черзі</h2><p>Пройди поточний урок і тест, щоб відкрити наступний.</p></div>
+                    <div><span class="section-kicker">Твій маршрут</span><h2>Проходь теми по черзі</h2><p>Спочатку пройди поточний урок і тест. Після цього відкриється наступна тема.</p></div>
                     <a class="text-link" href="{{ url_for('library') }}">Усі уроки →</a>
                 </div>
                 <div class="dashboard-levels-row">

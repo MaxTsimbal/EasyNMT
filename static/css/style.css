@@ -6569,3 +6569,93 @@ body.dashboard-v0981 .hamburger-icon i {
         padding: 22px 18px;
     }
 }
+
+
+/* ========================================================================== 
+   EasyNMT v0.9.8.2 Desktop layout and natural-language hotfix
+   Desktop only: wider dashboard and tighter landing-page sections.
+   Mobile and tablet layouts remain unchanged.
+   ========================================================================== */
+
+@media (min-width: 921px) {
+    /* Remove the inherited 100vh container height that created giant gaps
+       between landing-page sections on desktop. */
+    .landing-home-section > .container {
+        width: min(calc(100% - 48px), 1380px);
+        min-height: 0;
+        padding: 0;
+        display: block;
+        text-align: initial;
+    }
+
+    .landing-home-section {
+        padding-top: 48px !important;
+        padding-bottom: 48px !important;
+    }
+
+    .landing-subjects-section {
+        padding-top: 34px !important;
+        padding-bottom: 42px !important;
+    }
+
+    .landing-home-section + .landing-home-section {
+        margin-top: 0;
+    }
+
+    /* Use almost all available desktop width in the cabinet. */
+    body.dashboard-v0981 .dashboard-clean-shell.container {
+        width: min(calc(100% - 48px), 1560px);
+        max-width: none;
+        min-height: 0;
+        padding: 0;
+        grid-template-columns: 270px minmax(0, 1fr);
+        gap: 28px;
+        align-items: start;
+        text-align: initial;
+    }
+
+    body.dashboard-v0981 .dashboard-clean-page {
+        padding: 24px 0 58px;
+    }
+
+    body.dashboard-v0981 .dashboard-clean-sidebar {
+        padding: 20px;
+    }
+
+    body.dashboard-v0981 .dashboard-clean-main {
+        gap: 20px;
+    }
+
+    body.dashboard-v0981 .dashboard-clean-hero {
+        min-height: 360px;
+        padding: 42px 48px;
+        gap: 42px;
+    }
+
+    body.dashboard-v0981 .dashboard-clean-hero-copy > p {
+        font-size: 19px;
+    }
+
+    body.dashboard-v0981 .dashboard-clean-next {
+        width: min(100%, 760px);
+        padding: 16px 17px;
+    }
+
+    body.dashboard-v0981 .dashboard-clean-stats {
+        gap: 16px;
+    }
+
+    body.dashboard-v0981 .dashboard-clean-stat {
+        min-height: 126px;
+        padding: 21px;
+    }
+
+    body.dashboard-v0981 .dashboard-clean-section {
+        padding: 32px 34px;
+    }
+
+    body.dashboard-v0981 .dashboard-level-card {
+        min-height: 114px;
+        padding: 17px;
+    }
+}
