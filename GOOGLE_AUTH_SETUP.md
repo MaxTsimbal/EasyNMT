@@ -1,41 +1,53 @@
-# Google Sign-In для EasyNMT
+# Google Sign-In для EasyNMT v0.9.9.5
 
-## 1. Створи OAuth-клієнт у Google Cloud
+## Google Cloud
 
-1. Відкрий Google Cloud Console.
-2. Створи або вибери проєкт EasyNMT.
-3. Налаштуй OAuth consent screen.
-4. Створи OAuth Client ID типу **Web application**.
-5. Додай дозволені redirect URI без зайвого слеша в кінці:
+OAuth Client має бути типу **Web application**.
 
-Локально:
-```
-http://127.0.0.1:5000/auth/google/callback
+Authorized JavaScript origin:
+
+```text
+https://easynmt.up.railway.app
 ```
 
-Для Railway:
-```
-https://ТВІЙ-ДОМЕН/auth/google/callback
+Authorized redirect URI:
+
+```text
+https://easynmt.up.railway.app/auth/google/callback
 ```
 
-## 2. Додай Railway Variables
+Адреса повинна збігатися символ у символ.
 
-```
+## Railway Variables
+
+Потрібні лише:
+
+```text
 GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
-GOOGLE_REDIRECT_URI=https://ТВІЙ-ДОМЕН/auth/google/callback
+SECRET_KEY=довгий-випадковий-рядок
 SESSION_COOKIE_SECURE=1
-SECRET_KEY=довгий-випадковий-секрет
 ```
 
-Client Secret не додавай у GitHub, `.env.example` або JavaScript.
+`GOOGLE_REDIRECT_URI` більше не потрібна: Flask автоматично створює HTTPS callback.
 
-## 3. Перезапусти deploy
+## Перевірка
 
-Після додавання Variables Railway виконає новий deploy. Потім відкрий сторінку входу та натисни «Увійти через Google».
+Безпечний статус:
 
-## Часті помилки
+```text
+https://easynmt.up.railway.app/auth/google/status
+```
 
-- `redirect_uri_mismatch`: адреса callback у Google Cloud не збігається символ у символ із `GOOGLE_REDIRECT_URI`.
-- Google-вхід не налаштований: у Railway немає Client ID або Client Secret.
-- Повернення на `http://`: перевір `GOOGLE_REDIRECT_URI` і `SESSION_COOKIE_SECURE=1`.
+Очікувано:
+
+```json
+{
+  "client_id_present": true,
+  "client_secret_present": true,
+  "google_client_ready": true,
+  "implementation": "oauth2_requests"
+}
+```
+
+Секрет, який потрапляв на скріншот, потрібно замінити в Google Cloud та Railway.

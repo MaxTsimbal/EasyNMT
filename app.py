@@ -1,5 +1,6 @@
 import os
 import random
+import secrets
 import sqlite3
 import uuid
 from datetime import date as dt_date, datetime, timedelta
@@ -20,7 +21,7 @@ from vision_grading_engine import VisionGradingEngine
 
 load_dotenv()
 
-from auth_service import GoogleAuthService
+from auth_service import GoogleAuthError, GoogleAuthService
 from easynmt_core.health import health_bp
 
 
@@ -219,7 +220,7 @@ def init_db():
 init_db()
 
 
-google_auth = GoogleAuthService(app)
+google_auth = GoogleAuthService()
 
 def current_user_name():
     return session.get("user_name")
@@ -1340,9 +1341,8 @@ def logout():
 
 @app.route("/auth/google/status")
 def google_auth_status():
-    """Safe diagnostics: reports presence only, never variable values."""
+    """Безпечна діагностика без показу значень ключів."""
     status = google_auth.safe_status()
-    status["authlib_loaded"] = True
     status["callback_url"] = url_for("google_callback", _external=True, _scheme="https")
     return status
 
@@ -1351,48 +1351,53 @@ def google_auth_status():
 def google_login():
     if not google_auth.is_ready():
         flash(
-            "Вхід через Google зараз недоступний. Спробуй увійти за email або трохи пізніше.",
+            "Вхід через Google ще не підключений. Поки можеш увійти за email.",
             "error",
         )
         return redirect(url_for("login"))
 
-    # ProxyFix makes this an https:// Railway URL in production.
     redirect_uri = url_for("google_callback", _external=True, _scheme="https")
-    app.logger.info("Starting Google OAuth flow with callback host=%s", request.host)
-    return google_auth.client.authorize_redirect(redirect_uri, prompt="select_account")
+    state = google_auth.create_state()
+    session["google_oauth_state"] = state
+    session["google_oauth_started_at"] = datetime.utcnow().isoformat()
+
+    try:
+        return redirect(google_auth.authorization_url(redirect_uri, state))
+    except GoogleAuthError:
+        app.logger.exception("Could not start Google OAuth")
+        flash("Не вдалося відкрити вхід через Google. Спробуй ще раз трохи пізніше.", "error")
+        return redirect(url_for("login"))
 
 
 @app.route("/auth/google/callback")
 def google_callback():
-    if not google_auth.is_ready():
-        flash("Вхід через Google зараз недоступний.", "error")
+    oauth_error = request.args.get("error")
+    if oauth_error:
+        app.logger.warning("Google OAuth returned error=%s", oauth_error)
+        flash("Вхід через Google було скасовано або не підтверджено.", "error")
         return redirect(url_for("login"))
 
+    expected_state = session.pop("google_oauth_state", None)
+    received_state = request.args.get("state")
+    if not expected_state or not received_state or not secrets.compare_digest(expected_state, received_state):
+        app.logger.warning("Google OAuth state validation failed")
+        flash("Сесію входу не вдалося підтвердити. Натисни Google-вхід ще раз.", "error")
+        return redirect(url_for("login"))
+
+    redirect_uri = url_for("google_callback", _external=True, _scheme="https")
     try:
-        token = google_auth.client.authorize_access_token()
-        user_info = token.get("userinfo")
-        if not user_info:
-            user_info = google_auth.client.parse_id_token(token)
-    except Exception:
-        app.logger.exception("Google OAuth callback failed")
-        flash(
-            "Не вдалося завершити вхід через Google. Перевір налаштування "
-            "Google OAuth і спробуй ще раз.",
-            "error",
-        )
+        profile = google_auth.exchange_code(request.args.get("code", ""), redirect_uri)
+    except GoogleAuthError as exc:
+        app.logger.warning("Google OAuth callback failed: %s", exc)
+        flash("Не вдалося завершити вхід через Google. Спробуй ще раз.", "error")
         return redirect(url_for("login"))
 
-    email = (user_info.get("email") or "").strip().lower()
-    name = (user_info.get("name") or "").strip() or (email.split("@")[0] if email else "Учень")
-    google_sub = (user_info.get("sub") or "").strip()
-    avatar_url = (user_info.get("picture") or "").strip()
-    email_verified = user_info.get("email_verified")
+    email = profile.email
+    name = profile.name
+    google_sub = profile.sub
+    avatar_url = profile.picture
 
-    if not email or not google_sub:
-        flash("Google не передав потрібні дані акаунта. Спробуй інший акаунт.", "error")
-        return redirect(url_for("login"))
-
-    if email_verified is False:
+    if not profile.email_verified:
         flash("Спочатку підтвердь email у своєму Google-акаунті.", "error")
         return redirect(url_for("login"))
 
@@ -1417,13 +1422,13 @@ def google_callback():
                 "SELECT * FROM users WHERE id = ?", (cursor.lastrowid,)
             ).fetchone()
         else:
-            # If the email account already exists, safely link Google to it.
             conn.execute(
                 """
                 UPDATE users
                 SET google_sub = COALESCE(google_sub, ?),
+                    provider = CASE WHEN provider IS NULL OR provider = '' THEN 'google' ELSE provider END,
                     avatar_url = CASE WHEN ? <> '' THEN ? ELSE avatar_url END,
-                    name = CASE WHEN name = '' THEN ? ELSE name END
+                    name = CASE WHEN name IS NULL OR name = '' THEN ? ELSE name END
                 WHERE id = ?
                 """,
                 (google_sub, avatar_url, avatar_url, name, user["id"]),
@@ -1433,10 +1438,7 @@ def google_callback():
     except sqlite3.IntegrityError:
         conn.rollback()
         app.logger.exception("Could not link Google account")
-        flash(
-            "Цей Google-акаунт уже прив’язаний до іншого профілю EasyNMT.",
-            "error",
-        )
+        flash("Цей Google-акаунт уже прив’язаний до іншого профілю EasyNMT.", "error")
         return redirect(url_for("login"))
     finally:
         conn.close()
