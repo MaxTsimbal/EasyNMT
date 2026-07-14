@@ -54,11 +54,11 @@
                             <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
                         </span>
                         <div>
-                            <small>Наступний урок</small>
+                            <small>{% if journey_complete %}Маршрут завершено{% else %}Наступний урок{% endif %}</small>
                             <strong>{{ first_topic }}</strong>
                             <span>{{ subject }} · {{ daily_time }}</span>
                         </div>
-                        <a class="button button-primary" href="{{ url_for('lesson', lesson_id=first_lesson_id) }}">Почати <span>→</span></a>
+                        <a class="button button-primary" href="{{ url_for('lesson', lesson_id=first_lesson_id) }}">{% if journey_complete %}Повторити{% else %}Продовжити{% endif %} <span>→</span></a>
                     </div>
                 </div>
 
@@ -98,7 +98,7 @@
                 <div class="dashboard-levels-row">
                     {% for lesson in lessons %}
                     {% set is_completed = lesson.id in completed_lessons %}
-                    {% set is_unlocked = lesson.id == first_lesson_id or is_completed or (lesson.id - 1) in completed_lessons %}
+                    {% set is_unlocked = lesson.id in unlocked_lessons %}
                     {% if is_unlocked %}
                     <a class="dashboard-level-card {% if is_completed %}completed{% elif lesson.id == first_lesson_id %}current{% endif %}" href="{{ url_for('lesson', lesson_id=lesson.id) }}">
                         <span class="dashboard-level-number">{{ loop.index }}</span>

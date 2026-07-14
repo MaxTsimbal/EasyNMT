@@ -33,13 +33,15 @@
         <span class="desc">Зелений статус означає, що урок уже зарахований.</span>
         <div class="progress-lesson-list">
             {% for lesson in lessons %}
-            <a href="/lesson/{{ lesson.id }}" class="mini-lesson-row {% if lesson.id in completed_lessons %}completed-row{% endif %}">
+            {% set unlocked = lesson.id in unlocked_lessons %}
+            {% set attempt = quiz_attempts.get(lesson.id) %}
+            {% if unlocked %}<a href="{{ url_for('lesson', lesson_id=lesson.id) }}" class="mini-lesson-row {% if lesson.id in completed_lessons %}completed-row{% endif %}">{% else %}<div class="mini-lesson-row is-locked" aria-disabled="true">{% endif %}
                 <div>
-                    <div class="mini-lesson-title">{% if lesson.id in completed_lessons %}✅{% else %}○{% endif %} Урок {{ lesson.id }}: {{ lesson.title }}</div>
-                    <div class="mini-lesson-meta">{{ lesson.badge }} · {% if lesson.id in completed_lessons %}пройдено{% else %}очікує{% endif %}</div>
+                    <div class="mini-lesson-title">{% if lesson.id in completed_lessons %}✅{% elif unlocked %}○{% else %}🔒{% endif %} Урок {{ lesson.id }}: {{ lesson.title }}</div>
+                    <div class="mini-lesson-meta">{{ lesson.badge }} · {% if lesson.id in completed_lessons %}пройдено{% elif unlocked %}відкрито{% else %}ще закрито{% endif %}{% if attempt %} · найкраще {{ attempt.best_score }}/{{ attempt.total }} · спроб {{ attempt.attempts }}{% endif %}</div>
                 </div>
-                <span>→</span>
-            </a>
+                <span>{% if unlocked %}→{% else %}🔒{% endif %}</span>
+            {% if unlocked %}</a>{% else %}</div>{% endif %}
             {% endfor %}
         </div>
     </div>

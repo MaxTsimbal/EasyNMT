@@ -1,4 +1,5 @@
 import os
+import json
 import random
 import sqlite3
 import uuid
@@ -194,12 +195,69 @@ def init_db():
         """
     )
 
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS quiz_attempts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            attempt_token TEXT NOT NULL UNIQUE,
+            user_id INTEGER NOT NULL,
+            subject TEXT NOT NULL,
+            lesson_id INTEGER NOT NULL,
+            score INTEGER NOT NULL DEFAULT 0,
+            total INTEGER NOT NULL DEFAULT 24,
+            passed INTEGER NOT NULL DEFAULT 0,
+            xp_awarded INTEGER NOT NULL DEFAULT 0,
+            review_json TEXT NOT NULL DEFAULT '[]',
+            submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        )
+        """
+    )
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS quiz_drafts (
+            user_id INTEGER NOT NULL,
+            subject TEXT NOT NULL,
+            lesson_id INTEGER NOT NULL,
+            answers_json TEXT NOT NULL DEFAULT '{}',
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (user_id, subject, lesson_id),
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        )
+        """
+    )
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS quiz_sessions (
+            attempt_token TEXT PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            subject TEXT NOT NULL,
+            lesson_id INTEGER NOT NULL,
+            quiz_json TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+        )
+        """
+    )
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_quiz_attempts_user_subject_lesson "
+        "ON quiz_attempts(user_id, subject, lesson_id, submitted_at DESC)"
+    )
+
+    conn.execute("DELETE FROM quiz_sessions WHERE created_at < datetime('now', '-1 day')")
+
     for column_sql in [
         "ALTER TABLE user_plans ADD COLUMN streak INTEGER NOT NULL DEFAULT 1",
         "ALTER TABLE user_plans ADD COLUMN last_activity_date TEXT",
         "ALTER TABLE user_plans ADD COLUMN diagnostic_required INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE users ADD COLUMN google_sub TEXT",
         "ALTER TABLE users ADD COLUMN avatar_url TEXT",
+        "ALTER TABLE user_subject_progress ADD COLUMN last_lesson_id INTEGER",
+        "ALTER TABLE user_subject_progress ADD COLUMN last_quiz_score INTEGER",
+        "ALTER TABLE user_subject_progress ADD COLUMN last_quiz_total INTEGER",
     ]:
         try:
             conn.execute(column_sql)
@@ -213,6 +271,18 @@ def init_db():
         )
     except sqlite3.OperationalError:
         pass
+
+    # Migrate existing plans into per-subject progress without deleting old data.
+    conn.execute(
+        """
+        INSERT INTO user_subject_progress
+            (user_id, subject, progress, xp, streak, last_activity_date)
+        SELECT user_id, subject, progress, xp, streak, last_activity_date
+        FROM user_plans
+        WHERE subject IS NOT NULL AND TRIM(subject) <> ''
+        ON CONFLICT(user_id, subject) DO NOTHING
+        """
+    )
 
     conn.commit()
     conn.close()
@@ -237,6 +307,13 @@ def clear_plan_session():
     session.pop("xp", None)
     session.pop("last_score", None)
     session.pop("last_total", None)
+    session.pop("last_review", None)
+    session.pop("last_passed", None)
+    session.pop("last_attempt_token", None)
+    session.pop("last_lesson_id", None)
+    session.pop("last_quiz_score", None)
+    session.pop("last_quiz_total", None)
+    session.pop("current_lesson_id", None)
     session.pop("diagnostic_required", None)
 
 
@@ -259,6 +336,18 @@ def load_subject_progress_to_session(user_id, subject):
     session["xp"] = int(row["xp"] or 0) if row else 0
     session["streak"] = int(row["streak"] or 1) if row else 1
     session["last_activity_date"] = row["last_activity_date"] if row else None
+    session["current_lesson_id"] = int(row["last_lesson_id"] or 1) if row and "last_lesson_id" in row.keys() else 1
+    session["last_quiz_score"] = int(row["last_quiz_score"] or 0) if row and "last_quiz_score" in row.keys() else 0
+    session["last_quiz_total"] = int(row["last_quiz_total"] or 0) if row and "last_quiz_total" in row.keys() else 0
+
+    # completed_lessons is the source of truth for route completion.
+    try:
+        lesson_total = len(get_lessons_for_subject(subject))
+        completed_total = len(get_completed_lessons(subject))
+        session["progress"] = round((completed_total / max(1, lesson_total)) * 100)
+    except NameError:
+        # During module startup these helpers are not yet defined; later calls reconcile it.
+        pass
 
 
 def load_plan_to_session(user_id):
@@ -316,17 +405,23 @@ def save_plan_to_db():
         conn.execute(
             """
             INSERT INTO user_subject_progress
-                (user_id, subject, progress, xp, streak, last_activity_date)
-            VALUES (?, ?, ?, ?, ?, ?)
+                (user_id, subject, progress, xp, streak, last_activity_date,
+                 last_lesson_id, last_quiz_score, last_quiz_total)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(user_id, subject) DO UPDATE SET
                 progress = excluded.progress,
                 xp = excluded.xp,
                 streak = excluded.streak,
                 last_activity_date = excluded.last_activity_date,
+                last_lesson_id = excluded.last_lesson_id,
+                last_quiz_score = excluded.last_quiz_score,
+                last_quiz_total = excluded.last_quiz_total,
                 updated_at = CURRENT_TIMESTAMP
             """,
             (user_id, subject, session.get("progress", 0), session.get("xp", 0),
-             session.get("streak", 1), session.get("last_activity_date")),
+             session.get("streak", 1), session.get("last_activity_date"),
+             session.get("current_lesson_id", 1), session.get("last_quiz_score", 0),
+             session.get("last_quiz_total", 0)),
         )
     conn.commit()
     conn.close()
@@ -340,6 +435,12 @@ def reset_user_plan_in_db():
     conn.execute("DELETE FROM user_plans WHERE user_id = ?", (user_id,))
     conn.execute("DELETE FROM completed_lessons WHERE user_id = ?", (user_id,))
     conn.execute("DELETE FROM achievements WHERE user_id = ?", (user_id,))
+    conn.execute("DELETE FROM quiz_attempts WHERE user_id = ?", (user_id,))
+    conn.execute("DELETE FROM quiz_drafts WHERE user_id = ?", (user_id,))
+    conn.execute("DELETE FROM quiz_sessions WHERE user_id = ?", (user_id,))
+    conn.execute("DELETE FROM lesson_readiness WHERE user_id = ?", (user_id,))
+    conn.execute("DELETE FROM mistakes WHERE user_id = ?", (user_id,))
+    conn.execute("DELETE FROM user_subject_progress WHERE user_id = ?", (user_id,))
     conn.commit()
     conn.close()
 
@@ -532,13 +633,159 @@ def complete_lesson(lesson_id, score, total):
     return {"first_completion": first_completion, "new_achievements": new_achievements}
 
 
-def get_next_unfinished_lesson_id():
-    subject_key = session.get("subject", "none")
+
+def get_quiz_attempts(lesson_id=None, subject_key=None):
+    user_id = session.get("user_id")
+    if not user_id:
+        return []
+    subject_key = subject_key or session.get("subject", "none")
+    query = """
+        SELECT attempt_token, lesson_id, score, total, passed, xp_awarded, review_json, submitted_at
+        FROM quiz_attempts
+        WHERE user_id = ? AND subject = ?
+    """
+    params = [user_id, subject_key]
+    if lesson_id is not None:
+        query += " AND lesson_id = ?"
+        params.append(int(lesson_id))
+    query += " ORDER BY submitted_at DESC, id DESC"
+    conn = get_db_connection()
+    rows = conn.execute(query, params).fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+def get_quiz_attempt_summary(subject_key=None):
+    user_id = session.get("user_id")
+    if not user_id:
+        return {}
+    subject_key = subject_key or session.get("subject", "none")
+    conn = get_db_connection()
+    rows = conn.execute(
+        """
+        SELECT lesson_id, COUNT(*) AS attempts, MAX(score) AS best_score,
+               MAX(total) AS total, MAX(passed) AS passed, MAX(submitted_at) AS last_attempt_at
+        FROM quiz_attempts
+        WHERE user_id = ? AND subject = ?
+        GROUP BY lesson_id
+        """,
+        (user_id, subject_key),
+    ).fetchall()
+    conn.close()
+    return {int(row["lesson_id"]): dict(row) for row in rows}
+
+
+def get_quiz_draft(lesson_id, subject_key=None):
+    user_id = session.get("user_id")
+    if not user_id:
+        return {}
+    subject_key = subject_key or session.get("subject", "none")
+    conn = get_db_connection()
+    row = conn.execute(
+        "SELECT answers_json FROM quiz_drafts WHERE user_id = ? AND subject = ? AND lesson_id = ?",
+        (user_id, subject_key, int(lesson_id)),
+    ).fetchone()
+    conn.close()
+    if not row:
+        return {}
+    try:
+        data = json.loads(row["answers_json"] or "{}")
+        return data if isinstance(data, dict) else {}
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {}
+
+
+def save_quiz_draft(lesson_id, answers, subject_key=None):
+    user_id = session.get("user_id")
+    if not user_id:
+        return
+    subject_key = subject_key or session.get("subject", "none")
+    safe_answers = {
+        str(key)[:120]: str(value)[:4000]
+        for key, value in (answers or {}).items()
+        if isinstance(key, str) and isinstance(value, (str, int, float))
+    }
+    conn = get_db_connection()
+    conn.execute(
+        """
+        INSERT INTO quiz_drafts (user_id, subject, lesson_id, answers_json)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(user_id, subject, lesson_id) DO UPDATE SET
+            answers_json = excluded.answers_json,
+            updated_at = CURRENT_TIMESTAMP
+        """,
+        (user_id, subject_key, int(lesson_id), json.dumps(safe_answers, ensure_ascii=False)),
+    )
+    conn.commit()
+    conn.close()
+
+
+def delete_quiz_draft(lesson_id, subject_key=None):
+    user_id = session.get("user_id")
+    if not user_id:
+        return
+    subject_key = subject_key or session.get("subject", "none")
+    conn = get_db_connection()
+    conn.execute(
+        "DELETE FROM quiz_drafts WHERE user_id = ? AND subject = ? AND lesson_id = ?",
+        (user_id, subject_key, int(lesson_id)),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_resume_lesson_id(subject_key=None):
+    subject_key = subject_key or session.get("subject", "none")
+    lessons = get_lessons_for_subject(subject_key)
     completed = get_completed_lessons(subject_key)
-    for lesson_item in get_lessons_for_subject(subject_key):
+    unlocked_ids = [
+        item["id"] for index, item in enumerate(lessons)
+        if index == 0 or lessons[index - 1]["id"] in completed
+    ]
+
+    user_id = session.get("user_id")
+    if user_id:
+        conn = get_db_connection()
+        draft = conn.execute(
+            """
+            SELECT lesson_id FROM quiz_drafts
+            WHERE user_id = ? AND subject = ?
+            ORDER BY updated_at DESC LIMIT 1
+            """,
+            (user_id, subject_key),
+        ).fetchone()
+        conn.close()
+        if draft and int(draft["lesson_id"]) in unlocked_ids and int(draft["lesson_id"]) not in completed:
+            return int(draft["lesson_id"])
+
+    last_open = session.get("current_lesson_id")
+    try:
+        last_open = int(last_open)
+    except (TypeError, ValueError):
+        last_open = None
+    if last_open in unlocked_ids and last_open not in completed:
+        return last_open
+
+    for lesson_item in lessons:
         if lesson_item["id"] not in completed:
             return lesson_item["id"]
-    return get_lessons_for_subject(subject_key)[0]["id"]
+    return lessons[-1]["id"]
+
+
+def restore_attempt_to_session(attempt):
+    session.update({
+        "last_score": int(attempt.get("score") or 0),
+        "last_total": int(attempt.get("total") or MAX_SCORE),
+        "last_lesson_id": int(attempt.get("lesson_id") or 1),
+        "last_passed": bool(attempt.get("passed")),
+        "xp_gain": int(attempt.get("xp_awarded") or 0),
+        "new_achievements": [],
+        "last_attempt_token": attempt.get("attempt_token"),
+    })
+
+
+def get_next_unfinished_lesson_id():
+    return get_resume_lesson_id(session.get("subject", "none"))
 
 def get_diagnostic_result(subject_key=None):
     user_id = session.get("user_id")
@@ -652,7 +899,8 @@ def get_user_data():
 
     lessons = get_lessons_for_subject(subject_key)
     completed_lessons = get_completed_lessons(subject_key)
-    first_lesson = next((lesson for lesson in lessons if lesson["id"] not in completed_lessons), lessons[0])
+    resume_lesson_id = get_resume_lesson_id(subject_key)
+    first_lesson = next((lesson for lesson in lessons if lesson["id"] == resume_lesson_id), lessons[0])
     completed_count = len(completed_lessons)
     lessons_total = len(lessons)
     unlocked_lessons = {
@@ -665,6 +913,8 @@ def get_user_data():
 
     achievements = get_achievements(limit=4)
     insights = get_personal_insights(subject_key)
+    attempt_summary = get_quiz_attempt_summary(subject_key)
+    journey_complete = completed_count >= lessons_total and lessons_total > 0
 
     return {
         "goal": goal,
@@ -685,6 +935,9 @@ def get_user_data():
         "streak": session.get("streak", 1),
         "achievements": achievements,
         "achievement_count": len(get_achievements()),
+        "attempt_summary": attempt_summary,
+        "journey_complete": journey_complete,
+        "resume_lesson_id": resume_lesson_id,
         "user_name": current_user_name(),
         "is_logged_in": is_logged_in(),
         "has_plan": onboarding_complete(),
@@ -1530,12 +1783,17 @@ def change_subject():
 def switch_subject(subject):
     save_plan_to_db()
     session["subject"] = subject
-    session["current_lesson_id"] = 1
+    requested_lesson = request.args.get("lesson", type=int)
+    session["current_lesson_id"] = requested_lesson or 1
     load_subject_progress_to_session(session["user_id"], subject)
+    if requested_lesson:
+        session["current_lesson_id"] = normalize_lesson_id(requested_lesson)
     session.pop("last_score", None)
     session.pop("last_total", None)
     save_plan_to_db()
     flash("Предмет змінено. EasyNMT перебудував стартові уроки.", "success")
+    if requested_lesson and is_lesson_unlocked(session["current_lesson_id"], subject):
+        return redirect(url_for("lesson", lesson_id=session["current_lesson_id"]))
     return redirect(url_for("dashboard"))
 
 
@@ -1681,6 +1939,7 @@ def lesson(lesson_id=1):
         return redirect(url_for("today"))
 
     session["current_lesson_id"] = lesson_id
+    save_plan_to_db()
     lesson_content = get_lesson_content(lesson_id)
     return render_template(
         "lesson.html", **get_user_data(), lesson=lesson_content,
@@ -1713,6 +1972,25 @@ def solution_file(filename):
     return send_file(path)
 
 
+
+@app.route("/api/quiz-draft/<int:lesson_id>", methods=["POST", "DELETE"])
+@require_login
+def quiz_draft_api(lesson_id):
+    if not onboarding_complete():
+        return {"ok": False, "error": "onboarding_required"}, 403
+    lesson_id = normalize_lesson_id(lesson_id)
+    if not is_lesson_unlocked(lesson_id):
+        return {"ok": False, "error": "lesson_locked"}, 403
+    if request.method == "DELETE":
+        delete_quiz_draft(lesson_id)
+        return {"ok": True}
+    payload = request.get_json(silent=True) or {}
+    answers = payload.get("answers") if isinstance(payload, dict) else {}
+    if not isinstance(answers, dict):
+        return {"ok": False, "error": "invalid_answers"}, 400
+    save_quiz_draft(lesson_id, answers)
+    return {"ok": True}
+
 @app.route("/quiz", methods=["GET", "POST"])
 @app.route("/quiz/<int:lesson_id>", methods=["GET", "POST"])
 @require_login
@@ -1729,9 +2007,49 @@ def quiz(lesson_id=None):
         return redirect(url_for("lesson", lesson_id=lesson_id))
 
     session["current_lesson_id"] = lesson_id
+    save_plan_to_db()
 
     if request.method == "POST":
-        active_quiz_map = session.get("active_quiz_map", {})
+        attempt_token = (request.form.get("attempt_token") or "").strip()
+        if not attempt_token:
+            flash("Спроба тесту застаріла. Відкрий тест ще раз, відповіді збережено.", "error")
+            return redirect(url_for("quiz", lesson_id=lesson_id))
+
+        conn = get_db_connection()
+        existing = conn.execute(
+            """
+            SELECT attempt_token, lesson_id, score, total, passed, xp_awarded, review_json, submitted_at
+            FROM quiz_attempts
+            WHERE attempt_token = ? AND user_id = ?
+            """,
+            (attempt_token, session["user_id"]),
+        ).fetchone()
+        conn.close()
+        if existing:
+            restore_attempt_to_session(dict(existing))
+            flash("Цю спробу вже зараховано. Повторно XP не нараховується.", "info")
+            return redirect(url_for("result"))
+
+        conn = get_db_connection()
+        quiz_session = conn.execute(
+            """
+            SELECT quiz_json FROM quiz_sessions
+            WHERE attempt_token = ? AND user_id = ? AND subject = ? AND lesson_id = ?
+            """,
+            (attempt_token, session["user_id"], session.get("subject", "none"), lesson_id),
+        ).fetchone()
+        conn.close()
+        if not quiz_session:
+            flash("Сесія тесту оновилася. Текстові відповіді залишилися в чернетці.", "error")
+            return redirect(url_for("quiz", lesson_id=lesson_id))
+        try:
+            active_quiz_map = json.loads(quiz_session["quiz_json"] or "{}")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            active_quiz_map = {}
+        if not isinstance(active_quiz_map, dict) or not active_quiz_map:
+            flash("Не вдалося відновити питання тесту. Відкрий його ще раз.", "error")
+            return redirect(url_for("quiz", lesson_id=lesson_id))
+
         question_ids = request.form.getlist("question_ids")
         score = 0
         total = 0
@@ -1755,7 +2073,7 @@ def quiz(lesson_id=None):
                             correct_answer=question.get("answer", ""),
                             reference_solution=question.get("explanation", ""),
                         )
-                        earned = int(analysis.get("score", 0))
+                        earned = max(0, min(points, int(analysis.get("score", 0))))
                         is_correct = earned == points
                         feedback = analysis.get("message", "Перевір позначений крок.")
                         user_answer = "Розв’язання на фото"
@@ -1794,37 +2112,73 @@ def quiz(lesson_id=None):
                 "annotated_url": annotated_url,
             })
 
-        conn = get_db_connection()
-        for item in review:
-            if item["earned"] < item["points"]:
-                conn.execute(
-                    """INSERT INTO mistakes
-                    (user_id, subject, lesson_id, question, user_answer, correct_answer, explanation)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                    (session["user_id"], session.get("subject", "none"), lesson_id,
-                     item["question"], item["user_answer"], item["correct_answer"], item["explanation"]),
-                )
-        conn.commit()
-        conn.close()
-
         passed = score >= PASS_SCORE
-        completed_before = lesson_id in get_completed_lessons()
-        xp_gain = (60 if not completed_before else 20) if passed else (15 if not completed_before else 5)
-        session["xp"] = session.get("xp", 0) + xp_gain
-        lesson_update = complete_lesson(lesson_id, score, total) if passed else {"new_achievements": []}
-        if not passed:
-            update_streak_for_today()
+        previous_attempts = get_quiz_attempts(lesson_id)
+        passed_before = lesson_id in get_completed_lessons()
+        xp_gain = 0
+        if passed and not passed_before:
+            # A lesson gives at most 60 XP in total. If the first try failed,
+            # the 10 practice XP are deducted from the first-pass reward.
+            xp_gain = 50 if previous_attempts else 60
+        elif not passed and not previous_attempts:
+            xp_gain = 10
 
+        conn = get_db_connection()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            for item in review:
+                if item["earned"] < item["points"]:
+                    conn.execute(
+                        """INSERT INTO mistakes
+                        (user_id, subject, lesson_id, question, user_answer, correct_answer, explanation)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                        (session["user_id"], session.get("subject", "none"), lesson_id,
+                         item["question"], item["user_answer"], item["correct_answer"], item["explanation"]),
+                    )
+            conn.execute(
+                """
+                INSERT INTO quiz_attempts
+                    (attempt_token, user_id, subject, lesson_id, score, total, passed, xp_awarded, review_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (attempt_token, session["user_id"], session.get("subject", "none"), lesson_id,
+                 score, total, int(passed), xp_gain, json.dumps(review, ensure_ascii=False)),
+            )
+            conn.execute("DELETE FROM quiz_sessions WHERE attempt_token = ?", (attempt_token,))
+            conn.commit()
+        except sqlite3.IntegrityError:
+            conn.rollback()
+            existing = conn.execute(
+                """SELECT attempt_token, lesson_id, score, total, passed, xp_awarded, review_json, submitted_at
+                   FROM quiz_attempts WHERE attempt_token = ? AND user_id = ?""",
+                (attempt_token, session["user_id"]),
+            ).fetchone()
+            conn.close()
+            if existing:
+                restore_attempt_to_session(dict(existing))
+                return redirect(url_for("result"))
+            raise
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+        session["xp"] = max(0, int(session.get("xp", 0) or 0)) + xp_gain
+        lesson_update = complete_lesson(lesson_id, score, total) if passed else {"new_achievements": []}
+        update_streak_for_today()
         session.update({
             "last_score": score,
             "last_total": total,
+            "last_quiz_score": score,
+            "last_quiz_total": total,
             "last_lesson_id": lesson_id,
-            "last_review": review,
             "last_passed": passed,
             "xp_gain": xp_gain,
             "new_achievements": lesson_update.get("new_achievements", []),
+            "last_attempt_token": attempt_token,
         })
-        session.pop("active_quiz_map", None)
+        delete_quiz_draft(lesson_id)
         save_plan_to_db()
         return redirect(url_for("result"))
 
@@ -1842,10 +2196,29 @@ def quiz(lesson_id=None):
         prepared_questions.append(prepared)
         active_quiz_map[qid] = prepared
 
-    session["active_quiz_map"] = active_quiz_map
+    attempt_token = uuid.uuid4().hex
+    conn = get_db_connection()
+    # Keep only recent unfinished test sessions for this user and lesson.
+    conn.execute(
+        "DELETE FROM quiz_sessions WHERE user_id = ? AND subject = ? AND lesson_id = ?",
+        (session["user_id"], session.get("subject", "none"), lesson_id),
+    )
+    conn.execute(
+        """
+        INSERT INTO quiz_sessions (attempt_token, user_id, subject, lesson_id, quiz_json)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (attempt_token, session["user_id"], session.get("subject", "none"), lesson_id,
+         json.dumps(active_quiz_map, ensure_ascii=False)),
+    )
+    conn.commit()
+    conn.close()
+    draft_answers = get_quiz_draft(lesson_id)
+    attempt_count = len(get_quiz_attempts(lesson_id))
     return render_template(
         "quiz.html", **get_user_data(), lesson=get_lesson_content(lesson_id),
         questions=prepared_questions, pass_score=PASS_SCORE, max_score=MAX_SCORE,
+        attempt_token=attempt_token, draft_answers=draft_answers, attempt_count=attempt_count,
     )
 
 
@@ -1854,6 +2227,37 @@ def quiz(lesson_id=None):
 def result():
     if not onboarding_complete():
         return redirect(url_for("goal"))
+
+    attempt = None
+    token = session.get("last_attempt_token")
+    conn = get_db_connection()
+    if token:
+        row = conn.execute(
+            """SELECT attempt_token, lesson_id, score, total, passed, xp_awarded, review_json, submitted_at
+               FROM quiz_attempts WHERE attempt_token = ? AND user_id = ?""",
+            (token, session["user_id"]),
+        ).fetchone()
+        attempt = dict(row) if row else None
+    if attempt is None:
+        row = conn.execute(
+            """SELECT attempt_token, lesson_id, score, total, passed, xp_awarded, review_json, submitted_at
+               FROM quiz_attempts WHERE user_id = ? AND subject = ?
+               ORDER BY submitted_at DESC, id DESC LIMIT 1""",
+            (session["user_id"], session.get("subject", "none")),
+        ).fetchone()
+        attempt = dict(row) if row else None
+    conn.close()
+
+    if attempt:
+        restore_attempt_to_session(attempt)
+        try:
+            review = json.loads(attempt.get("review_json") or "[]")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            review = []
+    elif "last_score" in session:
+        review = session.get("last_review", [])
+    else:
+        return redirect(url_for("today"))
 
     lesson_id = normalize_lesson_id(session.get("last_lesson_id"))
     lessons = get_lessons_for_subject()
@@ -1868,7 +2272,7 @@ def result():
         has_next_lesson=next_lesson_id is not None,
         score=session.get("last_score", 0),
         total=session.get("last_total", 5),
-        review=session.get("last_review", []),
+        review=review,
         xp_gain=session.get("xp_gain", 0),
         new_achievements=session.get("new_achievements", []),
         passed=session.get("last_passed", False),
@@ -1924,6 +2328,7 @@ def progress_page():
         "progress.html",
         **get_user_data(),
         completed_stats=get_completed_lesson_stats(),
+        quiz_attempts=get_quiz_attempt_summary(),
     )
 
 

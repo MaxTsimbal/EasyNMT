@@ -1,17 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Тест: {{ lesson.title }} | EasyNMT<script>
-document.querySelectorAll('.solution-upload input[type="file"]').forEach((input) => {
-  input.addEventListener('change', () => {
-    const name = input.closest('.solution-upload')?.querySelector('.solution-upload-name');
-    if (name) name.textContent = input.files?.[0]?.name || 'Фото ще не вибрано';
-  });
-});
-</script>
-{% endblock %}
+{% block title %}Тест: {{ lesson.title }} | EasyNMT{% endblock %}
 {% block content %}
 <div class="quiz-page expanded-quiz-page">
     <div class="lesson-header fade-up">
-        <span class="pill">12 питань · максимум {{ max_score }} балів</span>
+        <span class="pill">12 питань · максимум {{ max_score }} балів{% if attempt_count %} · спроба {{ attempt_count + 1 }}{% endif %}</span>
         <h1>Тест: {{ lesson.title }}</h1>
         <p>Перші чотири питання перевіряють основу. Далі потрібно писати відповідь самостійно. Для переходу до наступної теми набери щонайменше {{ pass_score }} балів.</p>
     </div>
@@ -22,7 +14,8 @@ document.querySelectorAll('.solution-upload input[type="file"]').forEach((input)
         <span><b>9–12</b> Повна задача · 3 бали</span>
     </div>
 
-    <form method="post" enctype="multipart/form-data" class="quiz-form" data-validate>
+    <form method="post" enctype="multipart/form-data" class="quiz-form" data-validate data-quiz-draft-url="{{ url_for('quiz_draft_api', lesson_id=lesson.id) }}">
+        <input type="hidden" name="attempt_token" value="{{ attempt_token }}">
         {% for question in questions %}
         <input type="hidden" name="question_ids" value="{{ question.id }}">
         <div class="goal-card quiz-question {% if loop.index <= 4 %}quiz-basic{% elif loop.index <= 8 %}quiz-middle{% else %}quiz-advanced{% endif %}">
@@ -36,7 +29,7 @@ document.querySelectorAll('.solution-upload input[type="file"]').forEach((input)
             <div class="quiz-options">
                 {% for option in question.options %}
                 <label class="quiz-option">
-                    <input type="radio" name="answer_{{ question.id }}" value="{{ option }}" required>
+                    <input type="radio" name="answer_{{ question.id }}" value="{{ option }}" {% if draft_answers.get(question.id) == option %}checked{% endif %} required>
                     <span>{{ ['A','Б','В','Г'][loop.index0] }}. {{ option }}</span>
                 </label>
                 {% endfor %}
@@ -58,7 +51,7 @@ document.querySelectorAll('.solution-upload input[type="file"]').forEach((input)
                 </label>
                 <p class="answer-hint">У кадрі має бути вся робота. Уникай тіней, нахилу та розмитих цифр.</p>
                 {% else %}
-                <input type="text" name="answer_{{ question.id }}" class="written-answer" placeholder="{{ question.placeholder }}" required>
+                <input type="text" name="answer_{{ question.id }}" class="written-answer" placeholder="{{ question.placeholder }}" value="{{ draft_answers.get(question.id, '') }}" required>
                 <p class="answer-hint">Пиши коротко, але так, щоб було зрозуміло, як ти отримав відповідь.</p>
                 {% endif %}
             </div>
@@ -73,11 +66,53 @@ document.querySelectorAll('.solution-upload input[type="file"]').forEach((input)
     </form>
 </div>
 <script>
-document.querySelectorAll('.solution-upload input[type="file"]').forEach((input) => {
-  input.addEventListener('change', () => {
-    const name = input.closest('.solution-upload')?.querySelector('.solution-upload-name');
-    if (name) name.textContent = input.files?.[0]?.name || 'Фото ще не вибрано';
+(() => {
+  const form = document.querySelector('.quiz-form');
+  if (!form) return;
+
+  document.querySelectorAll('.solution-upload input[type="file"]').forEach((input) => {
+    input.addEventListener('change', () => {
+      const name = input.closest('.solution-upload')?.querySelector('.solution-upload-name');
+      if (name) name.textContent = input.files?.[0]?.name || 'Фото ще не вибрано';
+    });
   });
-});
+
+  const draftUrl = form.dataset.quizDraftUrl;
+  let saveTimer = null;
+  let submitting = false;
+  const collectAnswers = () => {
+    const answers = {};
+    form.querySelectorAll('input[name^="answer_"]').forEach((input) => {
+      const key = input.name.replace('answer_', '');
+      if (input.type === 'radio') {
+        if (input.checked) answers[key] = input.value;
+      } else if (input.value.trim()) {
+        answers[key] = input.value;
+      }
+    });
+    return answers;
+  };
+
+  const saveDraft = () => {
+    if (!draftUrl || submitting) return;
+    fetch(draftUrl, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({answers: collectAnswers()}),
+      keepalive: true,
+    }).catch(() => {});
+  };
+
+  form.addEventListener('input', () => {
+    window.clearTimeout(saveTimer);
+    saveTimer = window.setTimeout(saveDraft, 450);
+  });
+  form.addEventListener('change', () => {
+    window.clearTimeout(saveTimer);
+    saveTimer = window.setTimeout(saveDraft, 250);
+  });
+  window.addEventListener('pagehide', saveDraft);
+  form.addEventListener('submit', () => { submitting = true; window.clearTimeout(saveTimer); });
+})();
 </script>
 {% endblock %}

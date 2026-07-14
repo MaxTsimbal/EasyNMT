@@ -5,13 +5,13 @@
     <div class="lesson-header fade-up">
         <span class="pill">Результат тесту</span>
         <h1>{% if passed %}Тему завершено{% else %}Цю тему варто закріпити ще раз{% endif %}</h1>
-        <p>{% if passed %}Ти набрав {{ score }} з {{ total }} балів. Наступна тема вже відкрита. Можеш переходити до неї, коли будеш готовий.{% else %}Ти набрав {{ score }} з {{ total }}. Для переходу потрібно {{ pass_score }}. Подивись розбір нижче. Зверни увагу саме на ті кроки, де ти втратив бали.{% endif %}</p>
+        <p>{% if passed and has_next_lesson %}Ти набрав {{ score }} з {{ total }} балів. Наступна тема вже відкрита. Можеш переходити до неї, коли будеш готовий.{% elif passed %}Ти набрав {{ score }} з {{ total }} балів і завершив усі доступні теми цього маршруту. Можеш повторити урок або переглянути свій прогрес.{% else %}Ти набрав {{ score }} з {{ total }}. Для переходу потрібно {{ pass_score }}. Подивись розбір нижче. Зверни увагу саме на ті кроки, де ти втратив бали.{% endif %}</p>
     </div>
 
     <div class="result-summary-grid">
         <div class="goal-card premium"><span class="score">{{ score }}/{{ total }}</span><span class="desc">результат</span></div>
         <div class="goal-card"><span class="score">{{ progress }}%</span><span class="desc">маршруту пройдено</span></div>
-        <div class="goal-card"><span class="score">+{{ xp_gain }} XP</span><span class="desc">за цю спробу</span></div>
+        <div class="goal-card"><span class="score">{% if xp_gain %}+{{ xp_gain }} XP{% else %}0 XP{% endif %}</span><span class="desc">{% if xp_gain %}нараховано за цю спробу{% else %}повторна спроба без повторної нагороди{% endif %}</span></div>
     </div>
 
     <div class="goal-card easy-recommend human-note">

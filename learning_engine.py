@@ -8,6 +8,7 @@ MAX_SCORE = 24
 def normalize_text(value: str | None) -> str:
     text = (value or "").strip().lower().replace("−", "-").replace("–", "-")
     text = text.replace(",", ".")
+    text = re.sub(r"\s*([;=])\s*", r"\1", text)
     text = re.sub(r"\s+", " ", text)
     return text
 

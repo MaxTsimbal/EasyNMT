@@ -7412,3 +7412,20 @@ body.dashboard-v0981 .dashboard-floating-chat:active {
         max-width: 52vw;
     }
 }
+
+
+/* EasyNMT v0.9.9 · Виправлення 4 — Progress Foundation */
+.mini-lesson-row.is-locked {
+  opacity: .52;
+  cursor: not-allowed;
+  pointer-events: none;
+  filter: saturate(.65);
+}
+.quiz-form[data-quiz-draft-url]::before {
+  content: "Текстові відповіді зберігаються автоматично";
+  display: block;
+  margin: 0 0 14px;
+  color: rgba(232, 238, 255, .72);
+  font-size: .86rem;
+  text-align: right;
+}
