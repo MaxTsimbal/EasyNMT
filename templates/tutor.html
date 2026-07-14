@@ -11,7 +11,7 @@
     <aside class="ai-chat-sidebar" id="chatSidebar" aria-label="Історія розмов">
         <div class="ai-chat-sidebar-head">
             <a href="{{ url_for('dashboard') }}" class="ai-chat-brand" aria-label="Повернутися в кабінет">
-                <span class="ai-brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M13.5 4.2c2.8-1.2 5.1-1 6.3-.8.2 1.3.4 3.6-.8 6.4-1.2 2.8-3.7 5.3-7.5 7.3l-4.6-4.6c2-3.8 4.5-6.3 7.3-7.5Z"/><path d="m9.2 14.8-3.9.8-1.9 3.1 4.8-.6M14.8 9.2l.8-3.9 3.1-1.9-.6 4.8"/><circle cx="14.8" cy="8.8" r="1.7"/></svg></span>
+                <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
                 <span>EasyNMT</span>
             </a>
             <button class="ai-icon-button ai-sidebar-close" id="chatSidebarClose" type="button" aria-label="Закрити історію">×</button>
@@ -19,9 +19,7 @@
 
         <form method="GET" action="{{ url_for('tutor') }}">
             <button class="ai-new-chat" type="submit">
-                <span class="ai-new-chat-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14"/></svg>
-                </span>
+                <span class="ai-new-chat-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
                 <span>Нова розмова</span>
             </button>
         </form>
@@ -34,18 +32,18 @@
                 <small>Контекст уроку підключено</small>
                 {% else %}
                 <span>Загальна розмова</span>
-                <small>Окремий AI без прив’язки до уроку</small>
+                <small>Без прив’язки до уроку</small>
                 {% endif %}
             </button>
 
-            <p class="ai-history-label">Швидкі дії</p>
+            <p class="ai-history-label">Швидкий доступ</p>
             <form method="POST" action="{{ tutor_action }}">
                 <input type="hidden" name="question" value="{% if lesson_context %}Поясни цю тему з самого початку простими словами{% else %}Поясни простими словами тему, яку я зараз напишу{% endif %}">
-                <button class="ai-history-item" type="submit"><span>Пояснити з нуля</span></button>
+                <button class="ai-history-item" type="submit"><span>Пояснення з нуля</span></button>
             </form>
             <form method="POST" action="{{ tutor_action }}">
                 <input type="hidden" name="question" value="{% if lesson_context %}Дай простий приклад до цієї теми й розв’яжи його крок за кроком{% else %}Дай простий приклад до мого питання й поясни кожен крок{% endif %}">
-                <button class="ai-history-item" type="submit"><span>Показати приклад</span></button>
+                <button class="ai-history-item" type="submit"><span>Приклад із поясненням</span></button>
             </form>
             <form method="POST" action="{{ tutor_action }}">
                 <input type="hidden" name="question" value="{% if lesson_context %}Які помилки найчастіше роблять у цій темі?{% else %}Допоможи знайти помилку в моєму розв’язанні або відповіді{% endif %}">
@@ -78,9 +76,9 @@
                     <span></span><span></span><span></span>
                 </button>
                 <div>
-                    <strong>Easy AI</strong>
+                    <strong>Easy</strong>
                     {% if lesson_context and lesson %}
-                    <small>Контекст уроку: {{ lesson.title }}</small>
+                    <small>Працюємо з темою: {{ lesson.title }}</small>
                     {% else %}
                     <small>Запитай будь-що</small>
                     {% endif %}
@@ -98,54 +96,44 @@
         <div class="ai-chat-scroll" id="chatScroll">
             <div class="ai-chat-thread">
                 {% if not question and not answer %}
-                <section class="ai-empty-state ai-empty-state-pro">
-                    <div class="ai-empty-kicker">AI-репетитор</div>
-                    <h1>Професійний чат для пояснень і практики</h1>
+                <section class="ai-empty-state">
+                    <div class="ai-empty-logo" aria-hidden="true">
+                        <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
+                    </div>
+                    <h1>Запитай будь-що</h1>
                     {% if lesson_context and lesson %}
-                    <p>Easy бачить тему «{{ lesson.title }}» лише під час цього заняття. Можеш попросити просте пояснення, приклад, перевірку розв’язання або коротке тренування.</p>
+                    <p>Easy бачить тему «{{ lesson.title }}» лише під час цього заняття.</p>
                     {% else %}
-                    <p>Тут Easy працює як окремий AI-помічник. Запитай правило, приклад, типову помилку або задачу для практики.</p>
+                    <p>Поясню тему, розберу приклад або допоможу знайти помилку.</p>
                     {% endif %}
 
-                    <div class="ai-starter-grid ai-starter-grid-pro">
+                    <div class="ai-starter-grid">
                         <form method="POST" action="{{ tutor_action }}">
                             <input type="hidden" name="question" value="{% if lesson_context %}Поясни цю тему з самого початку так, ніби я бачу її вперше{% else %}Поясни простими словами тему, яку я зараз напишу{% endif %}">
-                            <button type="submit" class="ai-starter-card ai-starter-card-pro">
-                                <span class="ai-starter-icon" aria-hidden="true">
-                                    <svg viewBox="0 0 24 24" fill="none"><path d="M12 4 4 8l8 4 8-4-8-4Zm0 8-8-4v8l8 4 8-4V8l-8 4Z"/></svg>
-                                </span>
-                                <strong>Пояснити з нуля</strong>
-                                <small>Коротко і просто, без зайвої теорії.</small>
+                            <button type="submit" class="ai-starter-card">
+                                <span class="ai-starter-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 4 4 8l8 4 8-4-8-4Zm0 8-8-4v8l8 4 8-4V8l-8 4Z"/></svg></span>
+                                <strong>З нуля</strong>
                             </button>
                         </form>
                         <form method="POST" action="{{ tutor_action }}">
                             <input type="hidden" name="question" value="{% if lesson_context %}Покажи простий приклад до цієї теми й поясни кожен крок{% else %}Покажи простий приклад до мого питання й поясни кожен крок{% endif %}">
-                            <button type="submit" class="ai-starter-card ai-starter-card-pro">
-                                <span class="ai-starter-icon" aria-hidden="true">
-                                    <svg viewBox="0 0 24 24" fill="none"><path d="M5 19.5h14M7.5 15.5l8-8a1.4 1.4 0 0 1 2 2l-8 8-3.5 1 1-3.5Z"/></svg>
-                                </span>
-                                <strong>Показати приклад</strong>
-                                <small>Один приклад з покроковим розбором.</small>
+                            <button type="submit" class="ai-starter-card">
+                                <span class="ai-starter-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 19.5h14M7.5 15.5l8-8a1.4 1.4 0 0 1 2 2l-8 8-3.5 1 1-3.5Z"/></svg></span>
+                                <strong>Приклад</strong>
                             </button>
                         </form>
                         <form method="POST" action="{{ tutor_action }}">
                             <input type="hidden" name="question" value="Поясни, як це може трапитися на НМТ">
-                            <button type="submit" class="ai-starter-card ai-starter-card-pro">
-                                <span class="ai-starter-icon" aria-hidden="true">
-                                    <svg viewBox="0 0 24 24" fill="none"><path d="M12 3.5 5 7v5c0 4.4 2.9 7.8 7 8.9 4.1-1.1 7-4.5 7-8.9V7l-7-3.5Z"/><path d="m9.5 12 1.7 1.7L14.8 10"/></svg>
-                                </span>
-                                <strong>Підготувати до НМТ</strong>
-                                <small>Що важливо на тесті й де помиляються найчастіше.</small>
+                            <button type="submit" class="ai-starter-card">
+                                <span class="ai-starter-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="M12 4v2M20 12h-2M12 20v-2M4 12h2"/></svg></span>
+                                <strong>НМТ</strong>
                             </button>
                         </form>
                         <form method="POST" action="{{ tutor_action }}">
                             <input type="hidden" name="question" value="Дай одну коротку задачу або вправу для тренування">
-                            <button type="submit" class="ai-starter-card ai-starter-card-pro">
-                                <span class="ai-starter-icon" aria-hidden="true">
-                                    <svg viewBox="0 0 24 24" fill="none"><path d="M8 5.5h8M8 9.5h8M8 13.5h5M6.5 3.5h11A1.5 1.5 0 0 1 19 5v14a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19V5A1.5 1.5 0 0 1 6.5 3.5Z"/></svg>
-                                </span>
-                                <strong>Дати задачу</strong>
-                                <small>Коротка вправа, щоб відразу потренуватися.</small>
+                            <button type="submit" class="ai-starter-card">
+                                <span class="ai-starter-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 5h10M7 9h10M7 13h6M6 3.5h12A1.5 1.5 0 0 1 19.5 5v14A1.5 1.5 0 0 1 18 20.5H6A1.5 1.5 0 0 1 4.5 19V5A1.5 1.5 0 0 1 6 3.5Z"/></svg></span>
+                                <strong>Задача</strong>
                             </button>
                         </form>
                     </div>
@@ -160,11 +148,11 @@
 
                 {% if answer %}
                 <article class="ai-message ai-message-assistant">
-                    <div class="ai-message-avatar ai-message-avatar-pro" aria-hidden="true">
-                        <span class="ai-brand-mark ai-brand-mark-small"><svg viewBox="0 0 24 24"><path d="M13.5 4.2c2.8-1.2 5.1-1 6.3-.8.2 1.3.4 3.6-.8 6.4-1.2 2.8-3.7 5.3-7.5 7.3l-4.6-4.6c2-3.8 4.5-6.3 7.3-7.5Z"/><circle cx="14.8" cy="8.8" r="1.7"/></svg></span>
+                    <div class="ai-message-avatar">
+                        <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
                     </div>
                     <div class="ai-message-body">
-                        <div class="ai-message-name">Easy AI</div>
+                        <div class="ai-message-name">Easy</div>
                         <div class="ai-message-content ai-answer-text">{{ answer }}</div>
                         <div class="ai-message-tools" aria-label="Дії з відповіддю">
                             <button type="button" class="ai-tool-button" data-copy-answer title="Скопіювати">⧉</button>
