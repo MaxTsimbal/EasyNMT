@@ -30,3 +30,7 @@
 
 ## Future AI stage
 After OpenAI is connected, generated lessons, adaptive explanations, chat memory, and photo grading can use the same learning structure already present in the interface.
+
+## Поточний UI-етап
+
+EasyNMT v0.9.9 · Виправлення 6 — Product Redesign. Основний кабінет і Easy AI переведено на професійну дизайн-систему, натхненну фінальним баченням продукту. Наступний етап: тестування на ПК, телефоні та Railway перед OpenAI Foundation.

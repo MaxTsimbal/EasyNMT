@@ -1,139 +1,142 @@
 {% extends "base.html" %}
 
 {% block title %}Кабінет | EasyNMT{% endblock %}
-{% block body_class %}dashboard-app dashboard-v0981{% endblock %}
+{% block body_class %}dashboard-app dashboard-product-v1{% endblock %}
 
 {% block content %}
-<section class="dashboard-page dashboard-clean-page">
-    <div class="container dashboard-clean-shell">
-        <div class="dashboard-sidebar-overlay" id="dashboardSidebarOverlay" aria-hidden="true"></div>
+{% set user_level = (xp|int // 500) + 1 %}
+{% if subject_key == 'math' %}{% set current_subject_name = 'Математика' %}
+{% elif subject_key == 'ukrainian' %}{% set current_subject_name = 'Українська мова' %}
+{% elif subject_key == 'history' %}{% set current_subject_name = 'Історія України' %}
+{% elif subject_key == 'english' %}{% set current_subject_name = 'Англійська мова' %}
+{% else %}{% set current_subject_name = 'Предмет не вибрано' %}{% endif %}
 
-        <aside class="dashboard-sidebar dashboard-clean-sidebar" id="dashboardSidebar" aria-label="Навігація кабінету">
-            <div class="dashboard-sidebar-inner">
-                <div class="dashboard-user dashboard-clean-user">
-                    <span class="dashboard-avatar">{{ (user_name or 'E')[0]|upper }}</span>
-                    <span class="dashboard-user-copy">
-                        <b class="dashboard-user-name">{{ user_name or 'Учень' }}</b>
-                        <small class="dashboard-user-level">Твій кабінет</small>
-                    </span>
-                </div>
+<section class="product-dashboard">
+    <div class="dashboard-sidebar-overlay" id="dashboardSidebarOverlay" aria-hidden="true"></div>
 
-                <div class="dashboard-sidebar-section">
-                    <span class="dashboard-sidebar-label">Навчання</span>
-                    <nav class="dashboard-nav dashboard-clean-nav dashboard-nav-pro" aria-label="Навчальні розділи">
-                        <a class="dashboard-nav-link active" href="{{ url_for('dashboard') }}"><span class="dashboard-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 11.2 12 4l9 7.2v8.3a1.5 1.5 0 0 1-1.5 1.5H15v-6H9v6H4.5A1.5 1.5 0 0 1 3 19.5z"/></svg></span><b>Огляд</b></a>
-                        <a class="dashboard-nav-link" href="{{ url_for('today') }}"><span class="dashboard-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 8v4.3l2.8 2.1"/></svg></span><b>Сьогодні</b></a>
-                        <a class="dashboard-nav-link" href="{{ url_for('library') }}"><span class="dashboard-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5zM20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5z"/></svg></span><b>Уроки</b></a>
-                        <a class="dashboard-nav-link" href="{{ url_for('progress_page') }}"><span class="dashboard-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 19h14"/><path d="M7.5 15.5 11 12l2.5 2.5 4-5"/></svg></span><b>Прогрес</b></a>
-                        <a class="dashboard-nav-link" href="{{ url_for('mistakes') }}"><span class="dashboard-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4v7h-7"/></svg></span><b>Помилки</b></a>
-                        <a class="dashboard-nav-link" href="{{ url_for('tutor') }}"><span class="dashboard-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 6 6.3v5.4c0 3.8 2.6 7 6 7.9 3.4-.9 6-4.1 6-7.9V6.3L12 3Z"/><path d="M9.2 12.2h5.6M12 9.4v5.6"/></svg></span><b>Easy AI</b></a>
-                    </nav>
-                </div>
+    <aside class="product-sidebar" id="dashboardSidebar" aria-label="Навігація кабінету">
+        <div class="product-sidebar-brand">
+            <span class="product-logo-mark" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M13.5 4.2c2.8-1.2 5.1-1 6.3-.8.2 1.3.4 3.6-.8 6.4-1.2 2.8-3.7 5.3-7.5 7.3l-4.6-4.6c2-3.8 4.5-6.3 7.3-7.5Z"/><path d="m9.2 14.8-3.9.8-1.9 3.1 4.8-.6M14.8 9.2l.8-3.9 3.1-1.9-.6 4.8"/><circle cx="14.8" cy="8.8" r="1.7"/><path d="M7.6 16.4 5 19"/></svg>
+            </span>
+            <span>Easy<b>NMT</b></span>
+        </div>
 
-                <div class="dashboard-sidebar-section dashboard-sidebar-secondary">
-                    <span class="dashboard-sidebar-label">Ще</span>
-                    <nav class="dashboard-nav dashboard-clean-nav dashboard-nav-pro" aria-label="Інші розділи">
-                        <a class="dashboard-nav-link" href="{{ url_for('planner') }}"><span class="dashboard-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3.5v4M16 3.5v4M4 9.5h16"/></svg></span><b>Планер</b></a>
-                        <a class="dashboard-nav-link" href="{{ url_for('achievements_page') }}"><span class="dashboard-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 4 14.2 8.6l5 .7-3.6 3.5.9 4.9L12 15.8 7.5 17.7l.9-4.9L4.8 9.3l5-.7z"/></svg></span><b>Досягнення</b></a>
-                        <a class="dashboard-nav-link" href="{{ url_for('profile') }}"><span class="dashboard-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg></span><b>Профіль</b></a>
-                        <a class="dashboard-nav-link" href="{{ url_for('settings') }}"><span class="dashboard-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 8.3A3.7 3.7 0 1 0 12 15.7A3.7 3.7 0 1 0 12 8.3Z"/><path d="M19.4 15a1 1 0 0 0 .2 1.1l.1.1a1.2 1.2 0 0 1 0 1.7l-1.2 1.2a1.2 1.2 0 0 1-1.7 0l-.1-.1a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.9V20a1.2 1.2 0 0 1-1.2 1.2h-1.6A1.2 1.2 0 0 1 11 20v-.2a1 1 0 0 0-.6-.9 1 1 0 0 0-1.1.2l-.1.1a1.2 1.2 0 0 1-1.7 0l-1.2-1.2a1.2 1.2 0 0 1 0-1.7l.1-.1a1 1 0 0 0 .2-1.1 1 1 0 0 0-.9-.6H4a1.2 1.2 0 0 1-1.2-1.2v-1.6A1.2 1.2 0 0 1 4 10h.2a1 1 0 0 0 .9-.6 1 1 0 0 0-.2-1.1l-.1-.1a1.2 1.2 0 0 1 0-1.7l1.2-1.2a1.2 1.2 0 0 1 1.7 0l.1.1a1 1 0 0 0 1.1.2 1 1 0 0 0 .6-.9V4A1.2 1.2 0 0 1 10.7 2.8h1.6A1.2 1.2 0 0 1 13.5 4v.2a1 1 0 0 0 .6.9 1 1 0 0 0 1.1-.2l.1-.1a1.2 1.2 0 0 1 1.7 0l1.2 1.2a1.2 1.2 0 0 1 0 1.7l-.1.1a1 1 0 0 0-.2 1.1 1 1 0 0 0 .9.6h.2A1.2 1.2 0 0 1 21.2 10v1.6a1.2 1.2 0 0 1-1.2 1.2h-.2a1 1 0 0 0-.9.6Z"/></svg></span><b>Налаштування</b></a>
-                    </nav>
-                </div>
+        <nav class="product-nav" aria-label="Основні розділи">
+            <a class="active" href="{{ url_for('dashboard') }}"><span class="product-nav-icon"><svg viewBox="0 0 24 24"><path d="M3 11.2 12 4l9 7.2v8.3a1.5 1.5 0 0 1-1.5 1.5H15v-6H9v6H4.5A1.5 1.5 0 0 1 3 19.5z"/></svg></span><b>Огляд</b></a>
+            <a href="{{ url_for('today') }}"><span class="product-nav-icon"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3.5v4M16 3.5v4M4 9.5h16"/></svg></span><b>Сьогодні</b></a>
+            <a href="{{ url_for('library') }}"><span class="product-nav-icon"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5zM20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5z"/></svg></span><b>Уроки</b></a>
+            <a href="{{ url_for('progress_page') }}"><span class="product-nav-icon"><svg viewBox="0 0 24 24"><path d="M5 19h14"/><path d="M7.5 15.5 11 12l2.5 2.5 4-5"/></svg></span><b>Прогрес</b></a>
+            <a href="{{ url_for('mistakes') }}"><span class="product-nav-icon"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4v7h-7"/></svg></span><b>Помилки</b></a>
+            <a href="{{ url_for('tutor') }}"><span class="product-nav-icon"><svg viewBox="0 0 24 24"><path d="M12 3 6 6.3v5.4c0 3.8 2.6 7 6 7.9 3.4-.9 6-4.1 6-7.9V6.3L12 3Z"/><path d="M9.2 12.2h5.6M12 9.4v5.6"/></svg></span><b>Easy AI</b></a>
+        </nav>
+
+        <div class="product-sidebar-divider"></div>
+
+        <nav class="product-nav product-nav-secondary" aria-label="Додаткові розділи">
+            <a href="{{ url_for('achievements_page') }}"><span class="product-nav-icon"><svg viewBox="0 0 24 24"><path d="M12 4 14.2 8.6l5 .7-3.6 3.5.9 4.9L12 15.8 7.5 17.7l.9-4.9L4.8 9.3l5-.7z"/></svg></span><b>Досягнення</b></a>
+            <a href="{{ url_for('profile') }}"><span class="product-nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg></span><b>Профіль</b></a>
+            <a href="{{ url_for('settings') }}"><span class="product-nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4"/><path d="M12 3.2v2M12 18.8v2M3.2 12h2M18.8 12h2M5.8 5.8l1.4 1.4M16.8 16.8l1.4 1.4M18.2 5.8l-1.4 1.4M7.2 16.8l-1.4 1.4"/></svg></span><b>Налаштування</b></a>
+        </nav>
+
+        <div class="product-sidebar-account">
+            <span class="product-avatar">{{ (user_name or 'E')[0]|upper }}</span>
+            <span><b>{{ user_name or 'Учень' }}</b><small>Рівень {{ user_level }}</small></span>
+            <a href="{{ url_for('profile') }}" aria-label="Відкрити профіль">›</a>
+        </div>
+    </aside>
+
+    <main class="product-main">
+        <header class="product-topbar">
+            <div>
+                <span class="product-kicker">Персональний кабінет</span>
+                <h1>Привіт, {{ user_name or 'друже' }}!</h1>
             </div>
-        </aside>
+            <div class="product-topbar-actions">
+                <a class="product-icon-button" href="{{ url_for('today') }}" aria-label="План на сьогодні"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z"/><path d="M10 21h4"/></svg></a>
+                <a class="product-user-chip" href="{{ url_for('profile') }}"><span>{{ (user_name or 'E')[0]|upper }}</span><b>{{ user_name or 'Учень' }}</b><svg viewBox="0 0 24 24"><path d="m8 10 4 4 4-4"/></svg></a>
+            </div>
+        </header>
 
-        <main class="dashboard-clean-main">
-            <section class="dashboard-clean-hero glass-card dashboard-clean-hero-pro">
-                <div class="dashboard-clean-hero-copy">
-                    <span class="eyebrow">Сьогодні</span>
-                    <h1>Привіт, {{ user_name or 'друже' }}!</h1>
-                    <p>Сьогодні почнемо з теми, яка найкраще допоможе рухатися далі.</p>
+        <section class="product-hero">
+            <div class="product-hero-copy">
+                <span>Твій розумний маршрут до результату</span>
+                <h2>Готовий підкорювати НМТ сьогодні?</h2>
+                <p>{{ personal_focus }}</p>
+                <a class="product-primary-button" href="{{ url_for('lesson', lesson_id=first_lesson_id) }}">{% if journey_complete %}Повторити урок{% else %}Продовжити урок{% endif %}<svg viewBox="0 0 24 24"><path d="M5 12h14M14 7l5 5-5 5"/></svg></a>
+            </div>
+            <div class="product-hero-orbit" aria-hidden="true">
+                <span class="orbit-ring orbit-ring-one"></span>
+                <span class="orbit-ring orbit-ring-two"></span>
+                <span class="orbit-core"><svg viewBox="0 0 24 24"><path d="M13.5 4.2c2.8-1.2 5.1-1 6.3-.8.2 1.3.4 3.6-.8 6.4-1.2 2.8-3.7 5.3-7.5 7.3l-4.6-4.6c2-3.8 4.5-6.3 7.3-7.5Z"/><path d="m9.2 14.8-3.9.8-1.9 3.1 4.8-.6M14.8 9.2l.8-3.9 3.1-1.9-.6 4.8"/><circle cx="14.8" cy="8.8" r="1.7"/></svg></span>
+            </div>
+        </section>
 
-                    <div class="dashboard-clean-next">
-                        <span class="dashboard-clean-next-icon dashboard-next-brand" aria-hidden="true">
-                            <svg viewBox="0 0 24 24"><path d="M12 3 6 6.3v5.4c0 3.8 2.6 7 6 7.9 3.4-.9 6-4.1 6-7.9V6.3L12 3Z"/><path d="M12 8v8M8 12h8"/></svg>
-                        </span>
-                        <div>
-                            <small>{% if journey_complete %}Маршрут завершено{% else %}Наступний урок{% endif %}</small>
-                            <strong>{{ first_topic }}</strong>
-                            <span>{{ subject }} · {{ daily_time }}</span>
-                        </div>
-                        <a class="button button-primary" href="{{ url_for('lesson', lesson_id=first_lesson_id) }}">{% if journey_complete %}Повторити{% else %}Продовжити{% endif %} <span>→</span></a>
-                    </div>
-                </div>
+        <section class="product-stat-grid" aria-label="Статистика навчання">
+            <article class="product-stat-card product-progress-card">
+                <div class="product-progress-ring" style="--value: {{ progress|int }}"><span>{{ progress }}%</span></div>
+                <div><small>Прогрес навчання</small><strong>{{ completed_count }} з {{ lessons_total }}</strong><span>уроків завершено</span></div>
+            </article>
+            <article class="product-stat-card"><span class="product-stat-symbol"><svg viewBox="0 0 24 24"><path d="M12 3 7.5 9.3 10.7 10.3 8.7 21l7.8-10.2-3.2-1Z"/></svg></span><div><small>XP</small><strong>{{ xp }}</strong><span>досвід навчання</span></div></article>
+            <article class="product-stat-card"><span class="product-stat-symbol"><svg viewBox="0 0 24 24"><path d="M13 2.8c.2 3.2-1.2 4.8-2.8 6.3-1.5 1.4-3 2.9-3 5.4A4.8 4.8 0 0 0 12 19.3a5 5 0 0 0 5-5.2c0-2.4-1.1-4.7-4-7.3.1 2.2-.7 3.5-2 4.4"/></svg></span><div><small>Серія</small><strong>{{ streak }}</strong><span>днів поспіль</span></div></article>
+            <article class="product-stat-card"><span class="product-stat-symbol"><svg viewBox="0 0 24 24"><path d="M12 4 14.2 8.6l5 .7-3.6 3.5.9 4.9L12 15.8 7.5 17.7l.9-4.9L4.8 9.3l5-.7z"/></svg></span><div><small>Рівень</small><strong>{{ user_level }}</strong><span>{{ diagnostic_level_name }}</span></div></article>
+        </section>
 
-                <div class="dashboard-clean-hero-visual dashboard-clean-hero-visual-pro" aria-hidden="true">
-                    <div class="dashboard-hero-badge">Easy AI</div>
-                    <div class="dashboard-hero-card-note">Поясню ще раз, якщо щось буде незрозуміло.</div>
-                </div>
-            </section>
+        <section class="product-panel product-route-panel">
+            <div class="product-section-head">
+                <div><span class="product-kicker">Твій шлях</span><h2>Маршрут до 200 балів</h2></div>
+                <a href="{{ url_for('progress_page') }}">Деталі маршруту</a>
+            </div>
+            <div class="product-route" style="--route-progress: {{ progress|int }}%">
+                <div class="product-route-line"><span></span></div>
+                <div class="product-route-step done"><span><svg viewBox="0 0 24 24"><path d="m7 12 3 3 7-7"/></svg></span><b>Старт</b><small>Діагностика</small></div>
+                <div class="product-route-step {% if progress >= 25 %}done{% endif %}"><span><svg viewBox="0 0 24 24"><path d="m7 12 3 3 7-7"/></svg></span><b>База знань</b><small>Теорія та правила</small></div>
+                <div class="product-route-step active"><span><svg viewBox="0 0 24 24"><path d="M13.5 4.2c2.8-1.2 5.1-1 6.3-.8.2 1.3.4 3.6-.8 6.4-1.2 2.8-3.7 5.3-7.5 7.3l-4.6-4.6c2-3.8 4.5-6.3 7.3-7.5Z"/></svg></span><b>Тренування</b><small>{{ progress }}%</small></div>
+                <div class="product-route-step {% if progress >= 75 %}done{% endif %}"><span><svg viewBox="0 0 24 24"><rect x="7" y="10" width="10" height="9" rx="2"/><path d="M9 10V7a3 3 0 0 1 6 0v3"/></svg></span><b>Відпрацювання</b><small>Помилки</small></div>
+                <div class="product-route-step {% if progress >= 100 %}done{% endif %}"><span><svg viewBox="0 0 24 24"><rect x="7" y="10" width="10" height="9" rx="2"/><path d="M9 10V7a3 3 0 0 1 6 0v3"/></svg></span><b>Фініш</b><small>Симуляція НМТ</small></div>
+            </div>
+        </section>
 
-            <section class="dashboard-personal-panel glass-card">
-                <div><span class="section-kicker">Персональний фокус</span><h2>{{ diagnostic_level_name }}</h2><p>{{ personal_focus }}</p></div>
-                <div class="dashboard-personal-action"><small>Що робити сьогодні</small><strong>{{ personal_action }}</strong>{% if weak_topic %}<a href="{{ url_for('mistakes') }}">Переглянути помилки →</a>{% endif %}</div>
-            </section>
+        <section class="product-panel product-subject-panel">
+            <div class="product-section-head">
+                <div><span class="product-kicker">Навчання</span><h2>Предмети</h2></div>
+                <a href="{{ url_for('change_subject') }}">Усі предмети</a>
+            </div>
+            <div class="product-subject-grid">
+                <a href="{{ url_for('change_subject') }}" class="product-subject-card {% if subject_key == 'ukrainian' %}active{% endif %}"><span class="subject-icon"><svg viewBox="0 0 24 24"><path d="M6 5h12v14H6z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></span><strong>Українська мова</strong><small>{% if subject_key == 'ukrainian' %}Поточний предмет{% else %}Додати в маршрут{% endif %}</small><div class="subject-progress"><span style="width:{% if subject_key == 'ukrainian' %}{{ progress }}{% else %}0{% endif %}%"></span></div></a>
+                <a href="{{ url_for('change_subject') }}" class="product-subject-card {% if subject_key == 'math' %}active{% endif %}"><span class="subject-icon"><svg viewBox="0 0 24 24"><path d="M6 4h12v16H6z"/><path d="M9 8h6M9 12h2M13 12h2M9 16h2M13 16h2"/></svg></span><strong>Математика</strong><small>{% if subject_key == 'math' %}Поточний предмет{% else %}Додати в маршрут{% endif %}</small><div class="subject-progress"><span style="width:{% if subject_key == 'math' %}{{ progress }}{% else %}0{% endif %}%"></span></div></a>
+                <a href="{{ url_for('change_subject') }}" class="product-subject-card {% if subject_key == 'history' %}active{% endif %}"><span class="subject-icon"><svg viewBox="0 0 24 24"><path d="M12 3v18M5 6h14M7 18h10"/><path d="M8 9h8v6H8z"/></svg></span><strong>Історія України</strong><small>{% if subject_key == 'history' %}Поточний предмет{% else %}Додати в маршрут{% endif %}</small><div class="subject-progress"><span style="width:{% if subject_key == 'history' %}{{ progress }}{% else %}0{% endif %}%"></span></div></a>
+                <a href="{{ url_for('change_subject') }}" class="product-subject-card {% if subject_key == 'english' %}active{% endif %}"><span class="subject-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4a13 13 0 0 1 0 16M12 4a13 13 0 0 0 0 16"/></svg></span><strong>Англійська мова</strong><small>{% if subject_key == 'english' %}Поточний предмет{% else %}Додати в маршрут{% endif %}</small><div class="subject-progress"><span style="width:{% if subject_key == 'english' %}{{ progress }}{% else %}0{% endif %}%"></span></div></a>
+            </div>
+        </section>
+    </main>
 
-            <section class="dashboard-clean-stats" aria-label="Коротка статистика">
-                <article class="glass-card dashboard-clean-stat">
-                    <span class="dashboard-clean-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 19h14"/><path d="M7.5 15.5 11 12l2.5 2.5 4-5"/></svg></span>
-                    <div><small>Прогрес</small><strong>{{ progress }}%</strong><span>{{ completed_count }} з {{ lessons_total }} уроків</span></div>
-                    <div class="progress-track"><div class="progress-bar" data-progress="{{ progress }}"></div></div>
-                </article>
-                <article class="glass-card dashboard-clean-stat">
-                    <span class="dashboard-clean-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 4 14.2 8.6l5 .7-3.6 3.5.9 4.9L12 15.8 7.5 17.7l.9-4.9L4.8 9.3l5-.7z"/></svg></span>
-                    <div><small>Досвід</small><strong>{{ xp }} XP</strong><span>За уроки й тести</span></div>
-                </article>
-                <article class="glass-card dashboard-clean-stat">
-                    <span class="dashboard-clean-stat-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 7.5 9.3 10.7 10.3 8.7 21l7.8-10.2-3.2-1Z"/></svg></span>
-                    <div><small>Днів поспіль</small><strong>{{ streak }}</strong><span>Продовж завтра</span></div>
-                </article>
-            </section>
+    <aside class="product-rail" aria-label="Рекомендації">
+        <section class="rail-card rail-recommendation">
+            <span class="rail-label">Рекомендовано на сьогодні</span>
+            <h3>{{ first_topic }}</h3>
+            <p>{{ lesson_goal }}</p>
+            <span class="rail-meta">{{ daily_time }}</span>
+            <a href="{{ url_for('lesson', lesson_id=first_lesson_id) }}">Розпочати урок <span>›</span></a>
+        </section>
 
-            <section class="dashboard-clean-section glass-card">
-                <div class="dashboard-clean-section-head">
-                    <div><span class="section-kicker">Твій маршрут</span><h2>Проходь теми по черзі</h2><p>Спочатку пройди поточний урок і тест. Після цього відкриється наступна тема.</p></div>
-                    <a class="text-link" href="{{ url_for('library') }}">Усі уроки →</a>
-                </div>
-                <div class="dashboard-levels-row">
-                    {% for lesson in lessons %}
-                    {% set is_completed = lesson.id in completed_lessons %}
-                    {% set is_unlocked = lesson.id in unlocked_lessons %}
-                    {% if is_unlocked %}
-                    <a class="dashboard-level-card {% if is_completed %}completed{% elif lesson.id == first_lesson_id %}current{% endif %}" href="{{ url_for('lesson', lesson_id=lesson.id) }}">
-                        <span class="dashboard-level-number">{{ loop.index }}</span>
-                        <div><small>{% if is_completed %}Пройдено{% elif lesson.id == first_lesson_id %}Зараз{% else %}Відкрито{% endif %}</small><strong>{{ lesson.title }}</strong><span>{{ lesson.badge }} · 25 хв</span></div>
-                        <span class="dashboard-level-state">{% if is_completed %}✓{% else %}→{% endif %}</span>
-                    </a>
-                    {% else %}
-                    <div class="dashboard-level-card locked" aria-label="Урок закритий">
-                        <span class="dashboard-level-number">{{ loop.index }}</span>
-                        <div><small>Ще закрито</small><strong>{{ lesson.title }}</strong><span>Спочатку пройди попередній урок</span></div>
-                        <span class="dashboard-level-state">🔒</span>
-                    </div>
-                    {% endif %}
-                    {% endfor %}
-                </div>
-            </section>
+        <section class="rail-card">
+            <span class="rail-label">Тренування</span>
+            <h3>10 запитань</h3>
+            <p>Закріпи тему короткою практикою.</p>
+            <a href="{{ url_for('lesson', lesson_id=first_lesson_id) }}#practice">Почати тренування <span>›</span></a>
+        </section>
 
-            <section class="dashboard-clean-section dashboard-clean-route glass-card">
-                <div>
-                    <span class="section-kicker">До цілі</span>
-                    <h2>Космічний маршрут</h2>
-                    <p>Кожен завершений урок рухає тебе далі.</p>
-                </div>
-                <div class="cosmic-progress cosmic-progress-v3" style="--route-progress: {{ progress|default(0)|int }}%;" aria-label="Прогрес до цілі: {{ progress|default(0)|int }}%">
-                    <div class="cosmic-progress-track" aria-hidden="true"><span></span></div>
-                    <div class="cosmic-progress-step completed"><span class="cosmic-progress-icon">🌍</span><span>Старт</span></div>
-                    <div class="cosmic-progress-step {% if progress >= 20 %}completed{% endif %}"><span class="cosmic-progress-icon">🌙</span><span>Місяць</span></div>
-                    <div class="cosmic-progress-step {% if progress >= 40 %}completed{% endif %}"><span class="cosmic-progress-icon">🛰️</span><span>Орбіта</span></div>
-                    <div class="cosmic-progress-step {% if progress >= 60 %}completed{% endif %}"><span class="cosmic-progress-icon">🚀</span><span>Марс</span></div>
-                    <div class="cosmic-progress-step {% if progress >= 80 %}completed{% endif %}"><span class="cosmic-progress-icon">⭐</span><span>190+</span></div>
-                    <div class="cosmic-progress-step {% if progress >= 100 %}completed{% endif %}"><span class="cosmic-progress-icon">🌌</span><span>200</span></div>
-                </div>
-            </section>
-        </main>
-    </div>
+        <section class="rail-card">
+            <span class="rail-label">Помилки для повторення</span>
+            <h3>{{ weak_count or 0 }} завдань</h3>
+            <p>{% if weak_topic %}Фокус: {{ weak_topic }}{% else %}Поки критичних помилок немає.{% endif %}</p>
+            <a href="{{ url_for('mistakes') }}">Переглянути <span>›</span></a>
+        </section>
+
+        <blockquote class="rail-quote">«Дисципліна сьогодні — результат завтра.»</blockquote>
+    </aside>
 </section>
 
-<a class="dashboard-floating-chat liquid-circle" href="{{ url_for('tutor') }}" aria-label="Відкрити чат з Easy"><span>AI</span></a>
+<a class="dashboard-floating-chat product-floating-ai" href="{{ url_for('tutor') }}" aria-label="Відкрити Easy AI"><span>AI</span></a>
 {% endblock %}
