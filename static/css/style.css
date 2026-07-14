@@ -7299,3 +7299,116 @@ body.dashboard-v0981 .cosmic-progress-v3 .cosmic-progress-step.completed .cosmic
         font-size: 9px;
     }
 }
+
+/* ========================================================================== 
+   EasyNMT v0.9.9 · Виправлення 3 — behaviour, readability and Easy context
+   ========================================================================== */
+
+/* Flash/toast messages live for five seconds. Hovering or focusing pauses
+   the timer; JS adds these state classes while the message is held. */
+.flash-message,
+.toast {
+    transition: opacity .26s ease, transform .26s ease, filter .26s ease;
+}
+
+.flash-message.is-paused,
+.toast.is-paused {
+    filter: brightness(1.06);
+}
+
+.flash-message.is-dismissing,
+.toast.is-dismissing {
+    opacity: 0 !important;
+    transform: translateY(-8px) scale(.985) !important;
+    pointer-events: none;
+}
+
+/* Easy is independent outside a lesson. This small pill appears only when
+   the lesson explicitly opened the tutor with context=lesson. */
+.ai-context-pill {
+    display: inline-flex;
+    min-height: 26px;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 9px;
+    border: 1px solid rgba(167,139,250,.34);
+    border-radius: 999px;
+    color: #ddd6fe;
+    background: rgba(124,58,237,.13);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.ai-chat-topbar-left strong {
+    font-size: 16px;
+}
+
+.ai-chat-topbar-left small {
+    max-width: min(58vw, 520px);
+}
+
+/* Notebook text must stay fully readable on the paper background. */
+.notebook-paper {
+    background-image:
+      linear-gradient(rgba(104, 148, 219, .10) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(104, 148, 219, .10) 1px, transparent 1px);
+}
+
+.notebook-step h3 {
+    color: #1f293d !important;
+    opacity: 1 !important;
+}
+
+.notebook-line {
+    color: #27334b !important;
+    opacity: 1 !important;
+    font-weight: 650;
+    text-shadow: 0 1px 0 rgba(255,255,255,.6);
+}
+
+.notebook-task {
+    color: #172033 !important;
+    opacity: 1 !important;
+}
+
+/* Keep the scroll button clear of the floating Easy button on desktop. */
+body.dashboard-v0981 .scroll-top-button {
+    right: 25px;
+    bottom: 90px;
+}
+
+/* The Easy launch button now responds like the rest of the application. */
+body.dashboard-v0981 .dashboard-floating-chat {
+    transform: translateZ(0) scale(1);
+    transition: transform .16s ease, box-shadow .2s ease, border-color .2s ease, filter .2s ease;
+    will-change: transform;
+}
+
+body.dashboard-v0981 .dashboard-floating-chat:hover {
+    border-color: rgba(196,181,253,.48);
+    filter: brightness(1.08);
+    box-shadow: 0 16px 40px rgba(0,0,0,.32), 0 0 26px rgba(124,58,237,.22), inset 0 1px 0 rgba(255,255,255,.26);
+}
+
+body.dashboard-v0981 .dashboard-floating-chat:active {
+    transform: translateY(2px) scale(.90);
+    filter: brightness(.94);
+    box-shadow: 0 6px 18px rgba(0,0,0,.28), inset 0 2px 8px rgba(0,0,0,.18);
+}
+
+@media (max-width: 920px) {
+    .scroll-top-button {
+        right: 14px;
+        bottom: calc(96px + env(safe-area-inset-bottom));
+    }
+
+    .ai-context-pill {
+        display: none;
+    }
+
+    .ai-chat-topbar-left small {
+        max-width: 52vw;
+    }
+}

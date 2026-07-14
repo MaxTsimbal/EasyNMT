@@ -81,6 +81,7 @@ def init_db():
             xp INTEGER NOT NULL DEFAULT 0,
             streak INTEGER NOT NULL DEFAULT 1,
             last_activity_date TEXT,
+            diagnostic_required INTEGER NOT NULL DEFAULT 0,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users (id)
         )
@@ -196,6 +197,7 @@ def init_db():
     for column_sql in [
         "ALTER TABLE user_plans ADD COLUMN streak INTEGER NOT NULL DEFAULT 1",
         "ALTER TABLE user_plans ADD COLUMN last_activity_date TEXT",
+        "ALTER TABLE user_plans ADD COLUMN diagnostic_required INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE users ADD COLUMN google_sub TEXT",
         "ALTER TABLE users ADD COLUMN avatar_url TEXT",
     ]:
@@ -235,6 +237,7 @@ def clear_plan_session():
     session.pop("xp", None)
     session.pop("last_score", None)
     session.pop("last_total", None)
+    session.pop("diagnostic_required", None)
 
 
 def load_subject_progress_to_session(user_id, subject):
@@ -276,6 +279,7 @@ def load_plan_to_session(user_id):
         session["subject"] = plan["subject"]
     if plan["time_left"]:
         session["time_left"] = plan["time_left"]
+    session["diagnostic_required"] = bool(plan["diagnostic_required"])
 
     load_subject_progress_to_session(user_id, plan["subject"])
 
@@ -288,8 +292,9 @@ def save_plan_to_db():
     conn = get_db_connection()
     conn.execute(
         """
-        INSERT INTO user_plans (user_id, goal, subject, time_left, progress, xp, streak, last_activity_date)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO user_plans
+            (user_id, goal, subject, time_left, progress, xp, streak, last_activity_date, diagnostic_required)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(user_id) DO UPDATE SET
             goal = excluded.goal,
             subject = excluded.subject,
@@ -298,11 +303,13 @@ def save_plan_to_db():
             xp = excluded.xp,
             streak = excluded.streak,
             last_activity_date = excluded.last_activity_date,
+            diagnostic_required = excluded.diagnostic_required,
             updated_at = CURRENT_TIMESTAMP
         """,
         (user_id, session.get("goal"), subject, session.get("time_left"),
          session.get("progress", 0), session.get("xp", 0),
-         session.get("streak", 1), session.get("last_activity_date")),
+         session.get("streak", 1), session.get("last_activity_date"),
+         int(bool(session.get("diagnostic_required", False)))),
     )
 
     if subject:
@@ -353,11 +360,15 @@ def onboarding_complete():
     )
 
 
+def diagnostic_is_required():
+    return bool(session.get("diagnostic_required", False))
+
+
 def redirect_after_auth():
     if onboarding_complete():
-        if diagnostic_complete():
-            return redirect(url_for("dashboard"))
-        return redirect(url_for("diagnostic"))
+        if diagnostic_is_required() and not diagnostic_complete():
+            return redirect(url_for("diagnostic"))
+        return redirect(url_for("dashboard"))
 
     return redirect(url_for("goal"))
 
@@ -1199,11 +1210,29 @@ def increment_ai_usage(user_id):
     conn.close()
 
 
-def get_easy_answer(question):
+def get_easy_answer(question, *, lesson_context=False, lesson=None):
     subject_key = get_subject_key()
-    lesson = get_lesson_content()
     clean_question = (question or "").strip()
 
+    if not lesson_context:
+        subject_names = {
+            "math": "математики",
+            "ukrainian": "української мови",
+            "history": "історії України",
+            "english": "англійської мови",
+            "none": "підготовки до НМТ",
+        }
+        subject_name = subject_names.get(subject_key, "підготовки до НМТ")
+        if not clean_question:
+            return f"Easy: Запитай будь-що про {subject_name}. Я поясню коротко, просто й без зайвих слів."
+        lowered = clean_question.lower()
+        if "приклад" in lowered:
+            return "Easy: Напиши тему або саме завдання. Я підберу простий приклад і розберу кожен крок."
+        if "прост" in lowered or "легш" in lowered:
+            return "Easy: Скинь правило, речення або задачу. Я приберу складні слова й поясню все маленькими кроками."
+        return f"Easy: Твоє питання: «{clean_question}». Почнемо з головної ідеї, а потім перевіримо її на прикладі."
+
+    lesson = lesson or get_lesson_content()
     starters = {
         "math": "Easy: У математиці головне не зубрити формулу, а зрозуміти, що вона шукає. У темі «{title}» ми спочатку визначаємо дані, потім обираємо спосіб розв’язання і тільки після цього рахуємо.",
         "ukrainian": "Easy: В українській мові найкраще працює правило + приклад. У темі «{title}» спочатку знаходь підказку в слові, а потім перевіряй себе правилом.",
@@ -1218,16 +1247,12 @@ def get_easy_answer(question):
         return base + " Напиши, що саме тобі цікаво, і я поясню точніше."
 
     lowered = clean_question.lower()
-
     if "прост" in lowered or "легш" in lowered or "5 клас" in lowered:
         return base + " Якщо зовсім просто: уяви, що тема це двері. Правило це ключ. Спочатку знаходимо, який ключ потрібен, потім відкриваємо завдання крок за кроком."
-
     if "приклад" in lowered:
         return f"Easy: Ось приклад до теми «{lesson['title']}». {lesson['example']} Тепер спробуй пояснити собі, який був перший крок і чому саме він."
-
     if "чому" in lowered:
         return base + " Найчастіше відповідь на «чому» ховається в логіці правила: воно не вигадане просто так, а допомагає не плутатися в типових завданнях НМТ."
-
     return base + f" Твоє питання: «{clean_question}». Я б почав з цього: {lesson['goal'].capitalize()}."
 
 
@@ -1344,7 +1369,7 @@ def google_auth_status():
         {
             "callback_url": url_for("google_callback", _external=True, _scheme="https"),
             "implementation": "oauth2_pkce_requests",
-            "version": "0.9.9.5",
+            "version": "0.9.9-fix-3",
         }
     )
     return status
@@ -1526,6 +1551,7 @@ def set_time(time_left):
     session["time_left"] = time_left
     session["progress"] = session.get("progress", 0)
     session["xp"] = session.get("xp", 0)
+    session["diagnostic_required"] = True
     save_plan_to_db()
     return redirect(url_for("loader"))
 
@@ -1575,6 +1601,8 @@ def diagnostic():
     if not onboarding_complete():
         return redirect(url_for("goal"))
     subject_key = session.get("subject", "math")
+    if request.method == "GET" and diagnostic_complete(subject_key) and not diagnostic_is_required():
+        return redirect(url_for("dashboard"))
     questions = DIAGNOSTIC_BANK.get(subject_key, DIAGNOSTIC_BANK["math"])
     if request.method == "POST":
         score = sum(1 for index, q in enumerate(questions, 1) if request.form.get(f"q{index}") == q[2])
@@ -1588,6 +1616,8 @@ def diagnostic():
             (session["user_id"], subject_key, score, len(questions), level),
         )
         conn.commit(); conn.close()
+        session["diagnostic_required"] = False
+        save_plan_to_db()
         flash("Перевірку завершено. Тепер маршрут підлаштовано під твій рівень.", "success")
         return redirect(url_for("dashboard"))
     return render_template("diagnostic.html", **get_user_data(), questions=questions)
@@ -1623,7 +1653,7 @@ def privacy():
 def dashboard():
     if not onboarding_complete():
         return redirect(url_for("goal"))
-    if not diagnostic_complete():
+    if diagnostic_is_required() and not diagnostic_complete():
         return redirect(url_for("diagnostic"))
 
     return render_template("dashboard.html", **get_user_data())
@@ -1919,8 +1949,15 @@ def tutor():
     question = ""
     answer = ""
 
-    lesson_id = normalize_lesson_id(session.get("current_lesson_id", 1))
-    lesson = get_lesson_content(lesson_id)
+    lesson_context = request.values.get("context") == "lesson"
+    requested_lesson_id = request.values.get("lesson_id")
+    lesson = None
+    lesson_id = None
+    if lesson_context:
+        lesson_id = normalize_lesson_id(requested_lesson_id or session.get("current_lesson_id", 1))
+        lesson = get_lesson_content(lesson_id)
+        session["current_lesson_id"] = lesson_id
+
     user_id = session.get("user_id")
     daily_limit = app.config["OPENAI_DAILY_LIMIT"]
     used_today = get_ai_usage_today(user_id)
@@ -1931,20 +1968,25 @@ def tutor():
         question = request.form.get("question", "").strip()
         max_chars = app.config["OPENAI_MAX_QUESTION_CHARS"]
         if not question:
-            answer = "Напиши питання, і Easy допоможе розібрати тему."
+            answer = "Напиши питання, і Easy допоможе розібратися."
         elif len(question) > max_chars:
             answer = f"Питання завелике. Скороти його до {max_chars} символів."
         elif ai_service.enabled and used_today >= daily_limit:
-            answer = "Денний AI-ліміт вичерпано. Спробуй завтра або продовжуй урок у демо-режимі."
+            answer = "Денний AI-ліміт вичерпано. Спробуй завтра або продовжуй у демо-режимі."
             ai_mode = "limit"
         else:
-            fallback = get_easy_answer(question)
+            fallback = get_easy_answer(
+                question,
+                lesson_context=lesson_context,
+                lesson=lesson,
+            )
             result = ai_service.answer(
                 question=question,
                 subject=session.get("subject", "НМТ"),
-                lesson_title=lesson["title"],
-                lesson_goal=lesson.get("goal", "зрозуміти тему"),
+                lesson_title=lesson["title"] if lesson_context and lesson else "",
+                lesson_goal=lesson.get("goal", "зрозуміти тему") if lesson_context and lesson else "",
                 fallback=fallback,
+                lesson_context=lesson_context,
             )
             answer = result.text
             ai_mode = result.mode
@@ -1957,6 +1999,8 @@ def tutor():
         "tutor.html",
         **get_user_data(),
         lesson=lesson,
+        lesson_context=lesson_context,
+        lesson_id=lesson_id,
         question=question,
         answer=answer,
         ai_mode=ai_mode,

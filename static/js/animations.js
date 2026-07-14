@@ -750,7 +750,57 @@ document.addEventListener("DOMContentLoaded", () => {
        Toast notifications
        ---------------------------------------------------------------------- */
 
-    function showToast(message, type = "info", duration = 3200) {
+    const attachAutoDismiss = (element, duration = 5000) => {
+        if (!element) return;
+
+        let timerId = null;
+        let remaining = duration;
+        let startedAt = 0;
+        let dismissed = false;
+
+        const finish = () => {
+            if (dismissed) return;
+            dismissed = true;
+            window.clearTimeout(timerId);
+            element.classList.add("is-dismissing");
+            window.setTimeout(() => element.remove(), 260);
+        };
+
+        const start = () => {
+            if (dismissed || remaining <= 0) {
+                finish();
+                return;
+            }
+            startedAt = Date.now();
+            timerId = window.setTimeout(finish, remaining);
+        };
+
+        const pause = () => {
+            if (dismissed || !timerId) return;
+            window.clearTimeout(timerId);
+            timerId = null;
+            remaining -= Date.now() - startedAt;
+            element.classList.add("is-paused");
+        };
+
+        const resume = () => {
+            if (dismissed || timerId) return;
+            element.classList.remove("is-paused");
+            start();
+        };
+
+        element.addEventListener("pointerenter", pause);
+        element.addEventListener("pointerleave", resume);
+        element.addEventListener("focusin", pause);
+        element.addEventListener("focusout", resume);
+        start();
+    };
+
+    document.querySelectorAll(".flash-message").forEach((message) => {
+        attachAutoDismiss(message, 5000);
+    });
+
+    function showToast(message, type = "info", duration = 5000) {
         if (!toastContainer || !message) {
             return;
         }
@@ -764,15 +814,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         toast.appendChild(toastText);
         toastContainer.appendChild(toast);
-
-        window.setTimeout(() => {
-            toast.style.opacity = "0";
-            toast.style.transform = "translateX(18px)";
-
-            window.setTimeout(() => {
-                toast.remove();
-            }, 260);
-        }, duration);
+        attachAutoDismiss(toast, duration);
     }
 
     window.EasyNMT = {

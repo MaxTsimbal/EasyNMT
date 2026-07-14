@@ -28,16 +28,37 @@ class EasyNMT_AI:
     def enabled(self) -> bool:
         return self.client is not None
 
-    def answer(self, *, question: str, subject: str, lesson_title: str, lesson_goal: str, fallback: str) -> AIResult:
+    def answer(
+        self,
+        *,
+        question: str,
+        subject: str,
+        lesson_title: str = "",
+        lesson_goal: str = "",
+        fallback: str,
+        lesson_context: bool = False,
+    ) -> AIResult:
         if not self.enabled:
             return AIResult(fallback, "demo")
-        system_prompt = "\n\n".join([EASY_TUTOR_SYSTEM_PROMPT, LESSON_STYLE_PROMPT, GRADING_STYLE_PROMPT])
-        user_prompt = (
-            f"Предмет: {subject}.\n"
-            f"Поточна тема: {lesson_title}.\n"
-            f"Мета уроку: {lesson_goal}.\n"
-            f"Питання учня: {question}"
-        )
+
+        prompt_parts = [EASY_TUTOR_SYSTEM_PROMPT, GRADING_STYLE_PROMPT]
+        if lesson_context:
+            prompt_parts.insert(1, LESSON_STYLE_PROMPT)
+        system_prompt = "\n\n".join(prompt_parts)
+
+        if lesson_context:
+            user_prompt = (
+                f"Предмет: {subject}.\n"
+                f"Поточна тема уроку: {lesson_title}.\n"
+                f"Мета уроку: {lesson_goal}.\n"
+                f"Питання учня: {question}"
+            )
+        else:
+            user_prompt = (
+                f"Напрям підготовки учня: {subject}.\n"
+                "Зараз Easy працює як окремий універсальний помічник, без прив’язки до конкретного уроку.\n"
+                f"Питання учня: {question}"
+            )
 
         try:
             response = self.client.responses.create(

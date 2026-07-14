@@ -56,7 +56,7 @@
     {% else %}
       <form method="post" action="{{ url_for('mark_lesson_ready', lesson_id=lesson.id) }}"><button class="button button-primary" type="submit">Я розібрався. Перевірити себе →</button></form>
     {% endif %}
-    <a class="button button-ghost" href="{{ url_for('tutor') }}">Поставити запитання репетитору</a>
+    <a class="button button-ghost" href="{{ url_for('tutor', context='lesson', lesson_id=lesson.id) }}">Поставити запитання репетитору</a>
   </section>
 </div>
 {% endblock %}

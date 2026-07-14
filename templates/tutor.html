@@ -1,10 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}AI-репетитор | EasyNMT{% endblock %}
+{% block title %}Easy — AI-репетитор | EasyNMT{% endblock %}
 {% block body_class %}tutor-chat-page{% endblock %}
 
+{% set tutor_action = url_for('tutor', context='lesson', lesson_id=lesson.id) if lesson_context and lesson else url_for('tutor') %}
+{% set close_url = url_for('lesson', lesson_id=lesson.id) if lesson_context and lesson else url_for('dashboard') %}
+
 {% block content %}
-<div class="ai-chat-shell" data-ai-mode="{{ ai_mode }}">
+<div class="ai-chat-shell" data-ai-mode="{{ ai_mode }}" data-lesson-context="{{ 'true' if lesson_context else 'false' }}">
     <aside class="ai-chat-sidebar" id="chatSidebar" aria-label="Історія розмов">
         <div class="ai-chat-sidebar-head">
             <a href="{{ url_for('dashboard') }}" class="ai-chat-brand" aria-label="Повернутися в кабінет">
@@ -24,22 +27,27 @@
         <div class="ai-chat-history">
             <p class="ai-history-label">Сьогодні</p>
             <button class="ai-history-item is-active" type="button">
-                <span>Питання про «{{ lesson.title }}»</span>
-                <small>Поточна розмова</small>
+                {% if lesson_context and lesson %}
+                <span>Тема «{{ lesson.title }}»</span>
+                <small>Контекст уроку підключено</small>
+                {% else %}
+                <span>Загальна розмова</span>
+                <small>Без прив’язки до уроку</small>
+                {% endif %}
             </button>
 
             <p class="ai-history-label">Швидкий доступ</p>
-            <form method="POST">
-                <input type="hidden" name="question" value="Поясни цю тему з самого початку простими словами">
+            <form method="POST" action="{{ tutor_action }}">
+                <input type="hidden" name="question" value="{% if lesson_context %}Поясни цю тему з самого початку простими словами{% else %}Поясни простими словами тему, яку я зараз напишу{% endif %}">
                 <button class="ai-history-item" type="submit"><span>Пояснення з нуля</span></button>
             </form>
-            <form method="POST">
-                <input type="hidden" name="question" value="Дай простий приклад і розв’яжи його крок за кроком">
-                <button class="ai-history-item" type="submit"><span>Приклад із розв’язанням</span></button>
+            <form method="POST" action="{{ tutor_action }}">
+                <input type="hidden" name="question" value="{% if lesson_context %}Дай простий приклад до цієї теми й розв’яжи його крок за кроком{% else %}Дай простий приклад до мого питання й поясни кожен крок{% endif %}">
+                <button class="ai-history-item" type="submit"><span>Приклад із поясненням</span></button>
             </form>
-            <form method="POST">
-                <input type="hidden" name="question" value="Які помилки найчастіше роблять у цій темі?">
-                <button class="ai-history-item" type="submit"><span>Типові помилки</span></button>
+            <form method="POST" action="{{ tutor_action }}">
+                <input type="hidden" name="question" value="{% if lesson_context %}Які помилки найчастіше роблять у цій темі?{% else %}Допоможи знайти помилку в моєму розв’язанні або відповіді{% endif %}">
+                <button class="ai-history-item" type="submit"><span>Знайти помилку</span></button>
             </form>
         </div>
 
@@ -51,7 +59,11 @@
                     <small>{{ ai_used }}/{{ ai_limit }} запитів сьогодні</small>
                 </div>
             </div>
-            <a href="{{ url_for('lesson') }}" class="ai-sidebar-link">← Повернутися до уроку</a>
+            {% if lesson_context and lesson %}
+            <a href="{{ url_for('lesson', lesson_id=lesson.id) }}" class="ai-sidebar-link">← Повернутися до уроку</a>
+            {% else %}
+            <a href="{{ url_for('dashboard') }}" class="ai-sidebar-link">← Повернутися в кабінет</a>
+            {% endif %}
         </div>
     </aside>
 
@@ -64,15 +76,20 @@
                     <span></span><span></span><span></span>
                 </button>
                 <div>
-                    <strong>AI-репетитор</strong>
-                    <small>{{ lesson.badge }} {{ lesson.title }}</small>
+                    <strong>Easy</strong>
+                    {% if lesson_context and lesson %}
+                    <small>Працюємо з темою: {{ lesson.title }}</small>
+                    {% else %}
+                    <small>Запитай будь-що</small>
+                    {% endif %}
                 </div>
             </div>
             <div class="ai-topbar-actions">
+                {% if lesson_context %}<span class="ai-context-pill">Урок</span>{% endif %}
                 <span class="ai-mode-pill {{ ai_mode }}">
                     {% if ai_mode == "openai" %}Онлайн{% elif ai_mode == "limit" %}Ліміт{% else %}Демо{% endif %}
                 </span>
-                <a href="{{ url_for('lesson') }}" class="ai-icon-button ai-close-chat" aria-label="Закрити чат">×</a>
+                <a href="{{ close_url }}" class="ai-icon-button ai-close-chat" aria-label="Закрити чат">×</a>
             </div>
         </header>
 
@@ -80,43 +97,43 @@
             <div class="ai-chat-thread">
                 {% if not question and not answer %}
                 <section class="ai-empty-state">
-                    <div class="ai-empty-logo">
-                        <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="Easy">
+                    <div class="ai-empty-logo" aria-hidden="true">
+                        <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
                     </div>
-                    <h1>Що розберемо?</h1>
-                    <p>Запитай будь-що.</p>
+                    <h1>Запитай будь-що</h1>
+                    {% if lesson_context and lesson %}
+                    <p>Easy бачить тему «{{ lesson.title }}» лише під час цього заняття.</p>
+                    {% else %}
+                    <p>Поясню тему, розберу приклад або допоможу знайти помилку.</p>
+                    {% endif %}
 
                     <div class="ai-starter-grid">
-                        <form method="POST">
-                            <input type="hidden" name="question" value="Поясни цю тему з самого початку так, ніби я бачу її вперше">
+                        <form method="POST" action="{{ tutor_action }}">
+                            <input type="hidden" name="question" value="{% if lesson_context %}Поясни цю тему з самого початку так, ніби я бачу її вперше{% else %}Поясни простими словами тему, яку я зараз напишу{% endif %}">
                             <button type="submit" class="ai-starter-card">
                                 <span class="ai-starter-icon">🧩</span>
-                                <strong>Поясни з нуля</strong>
-
+                                <strong>З нуля</strong>
                             </button>
                         </form>
-                        <form method="POST">
-                            <input type="hidden" name="question" value="Покажи простий приклад і поясни кожен крок">
+                        <form method="POST" action="{{ tutor_action }}">
+                            <input type="hidden" name="question" value="{% if lesson_context %}Покажи простий приклад до цієї теми й поясни кожен крок{% else %}Покажи простий приклад до мого питання й поясни кожен крок{% endif %}">
                             <button type="submit" class="ai-starter-card">
                                 <span class="ai-starter-icon">✍️</span>
-                                <strong>Покажи приклад</strong>
-
+                                <strong>Приклад</strong>
                             </button>
                         </form>
-                        <form method="POST">
-                            <input type="hidden" name="question" value="Поясни, навіщо ця тема потрібна на НМТ">
+                        <form method="POST" action="{{ tutor_action }}">
+                            <input type="hidden" name="question" value="Поясни, як це може трапитися на НМТ">
                             <button type="submit" class="ai-starter-card">
                                 <span class="ai-starter-icon">🎯</span>
-                                <strong>Навіщо це на НМТ?</strong>
-
+                                <strong>НМТ</strong>
                             </button>
                         </form>
-                        <form method="POST">
-                            <input type="hidden" name="question" value="Дай мені одну просту задачу для тренування">
+                        <form method="POST" action="{{ tutor_action }}">
+                            <input type="hidden" name="question" value="Дай одну коротку задачу або вправу для тренування">
                             <button type="submit" class="ai-starter-card">
                                 <span class="ai-starter-icon">📝</span>
-                                <strong>Дай задачу</strong>
-
+                                <strong>Задача</strong>
                             </button>
                         </form>
                     </div>
@@ -139,11 +156,11 @@
                         <div class="ai-message-content ai-answer-text">{{ answer }}</div>
                         <div class="ai-message-tools" aria-label="Дії з відповіддю">
                             <button type="button" class="ai-tool-button" data-copy-answer title="Скопіювати">⧉</button>
-                            <form method="POST">
+                            <form method="POST" action="{{ tutor_action }}">
                                 <input type="hidden" name="question" value="Поясни попередню відповідь ще простіше">
                                 <button type="submit" class="ai-tool-text">Поясни простіше</button>
                             </form>
-                            <form method="POST">
+                            <form method="POST" action="{{ tutor_action }}">
                                 <input type="hidden" name="question" value="Покажи це на простому прикладі крок за кроком">
                                 <button type="submit" class="ai-tool-text">Дай приклад</button>
                             </form>
@@ -155,9 +172,9 @@
         </div>
 
         <div class="ai-composer-wrap">
-            <form method="POST" class="ai-composer" id="aiComposer">
+            <form method="POST" action="{{ tutor_action }}" class="ai-composer" id="aiComposer">
                 <div class="ai-composer-input-row">
-                    <button class="ai-attach-button" type="button" aria-label="Додати файл" title="Додавання фото запрацює після підключення AI">＋</button>
+                    <button class="ai-attach-button" type="button" aria-label="Додати файл" title="Додавання фото запрацює після підключення аналізу файлів">＋</button>
                     <textarea
                         id="aiQuestion"
                         name="question"
