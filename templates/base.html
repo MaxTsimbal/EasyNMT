@@ -35,8 +35,11 @@
 <header class="site-header" id="siteHeader">
     <div class="container header-container">
         <a class="brand" href="{{ url_for('home') }}" aria-label="EasyNMT — головна">
-            <img class="brand-mascot" src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
-            <span class="brand-text">Easy<span>NMT</span></span><span class="brand-version">v0.9.9.5</span>
+            <img class="brand-mascot brand-mascot-clean" src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="" width="46" height="46">
+            <span class="brand-copy">
+                <span class="brand-text">Easy<span>NMT</span></span>
+                <span class="brand-version">v0.9.9 · виправлення 1</span>
+            </span>
         </a>
         <button class="mobile-menu-button" id="mobileMenuButton" type="button" aria-label="Відкрити меню" aria-expanded="false" aria-controls="mainNavigation"><span class="mobile-menu-line"></span><span class="mobile-menu-line"></span><span class="mobile-menu-line"></span></button>
         <nav class="main-navigation" id="mainNavigation" aria-label="Головна навігація">
@@ -51,14 +54,24 @@
 </header>
 {% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}<div class="flash-stack">{% for category, message in messages %}<div class="flash-message flash-{{ category }}">{{ message }}</div>{% endfor %}</div>{% endif %}{% endwith %}
 <main id="main-content" class="main-content">{% block content %}{% endblock %}</main>
-<footer class="site-footer"><div class="container footer-links"><a href="{{ url_for('about') }}">Про EasyNMT</a><a href="{{ url_for('pricing') }}">Тарифи</a><a href="{{ url_for('privacy') }}">Конфіденційність</a></div><div class="container footer-bottom"><p>© <span id="currentYear">2026</span> EasyNMT. Усі права захищено.</p><p>Навчальна система ✦ v0.9.9.5</p></div></footer>
+<footer class="site-footer"><div class="container footer-links"><a href="{{ url_for('about') }}">Про EasyNMT</a><a href="{{ url_for('pricing') }}">Тарифи</a><a href="{{ url_for('privacy') }}">Конфіденційність</a></div><div class="container footer-bottom"><p>© <span id="currentYear">2026</span> EasyNMT. Усі права захищено.</p><p>Навчальна система ✦ v0.9.9 · виправлення 1</p></div></footer>
 {% if is_logged_in and has_plan and request.endpoint in ['dashboard','today','library','tutor','profile','progress_page','mistakes','planner','achievements_page','settings','lesson','quiz','result'] %}
 <nav class="mobile-app-nav" aria-label="Мобільна навігація кабінету">
-    <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}"><span>⌂</span><b>Огляд</b></a>
-    <a href="{{ url_for('today') }}" class="{% if request.endpoint == 'today' %}active{% endif %}"><span>◷</span><b>Сьогодні</b></a>
-    <a href="{{ url_for('library') }}" class="{% if request.endpoint in ['library','lesson','quiz','result'] %}active{% endif %}"><span>▤</span><b>Уроки</b></a>
-    <a href="{{ url_for('tutor') }}" class="{% if request.endpoint == 'tutor' %}active{% endif %}"><span>✦</span><b>Easy</b></a>
-    <a href="{{ url_for('profile') }}" class="{% if request.endpoint == 'profile' %}active{% endif %}"><span>●</span><b>Профіль</b></a>
+    <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
+        <span class="mobile-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 11.2 12 4l9 7.2v8.3a1.5 1.5 0 0 1-1.5 1.5H15v-6H9v6H4.5A1.5 1.5 0 0 1 3 19.5z"/></svg></span><b>Огляд</b>
+    </a>
+    <a href="{{ url_for('today') }}" class="{% if request.endpoint == 'today' %}active{% endif %}">
+        <span class="mobile-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.3 2"/></svg></span><b>Сьогодні</b>
+    </a>
+    <a href="{{ url_for('library') }}" class="{% if request.endpoint in ['library','lesson','quiz','result'] %}active{% endif %}">
+        <span class="mobile-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5zM20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5z"/></svg></span><b>Уроки</b>
+    </a>
+    <a href="{{ url_for('tutor') }}" class="{% if request.endpoint == 'tutor' %}active{% endif %}">
+        <span class="mobile-nav-icon easy-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 3 1.45 4.05L17.5 8.5l-4.05 1.45L12 14l-1.45-4.05L6.5 8.5l4.05-1.45zM18.5 14l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/></svg></span><b>Easy</b>
+    </a>
+    <a href="{{ url_for('profile') }}" class="{% if request.endpoint == 'profile' %}active{% endif %}">
+        <span class="mobile-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></svg></span><b>Профіль</b>
+    </a>
 </nav>
 {% endif %}
 <div class="toast-container" id="toastContainer" aria-live="polite"></div>

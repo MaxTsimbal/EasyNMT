@@ -6,10 +6,6 @@
 {% block content %}
 <section class="dashboard-page dashboard-clean-page">
     <div class="container dashboard-clean-shell">
-        <button class="dashboard-mobile-sidebar-toggle liquid-circle" id="dashboardSidebarToggle" type="button" aria-controls="dashboardSidebar" aria-expanded="false" aria-label="Відкрити меню кабінету">
-            <span class="hamburger-icon" aria-hidden="true"><i></i><i></i><i></i></span>
-        </button>
-
         <div class="dashboard-sidebar-overlay" id="dashboardSidebarOverlay" aria-hidden="true"></div>
 
         <aside class="dashboard-sidebar dashboard-clean-sidebar" id="dashboardSidebar" aria-label="Навігація кабінету">
@@ -54,7 +50,9 @@
                     <p>Сьогодні почнемо з теми, яка найкраще допоможе рухатися далі.</p>
 
                     <div class="dashboard-clean-next">
-                        <span class="dashboard-clean-next-icon">📘</span>
+                        <span class="dashboard-clean-next-icon dashboard-next-brand" aria-hidden="true">
+                            <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
+                        </span>
                         <div>
                             <small>Наступний урок</small>
                             <strong>{{ first_topic }}</strong>

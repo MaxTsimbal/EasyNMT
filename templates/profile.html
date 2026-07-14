@@ -1,21 +1,38 @@
 {% extends "base.html" %}
 {% block title %}Профіль | EasyNMT{% endblock %}
+{% block body_class %}profile-app{% endblock %}
 {% block content %}
-<div class="lesson-page">
-    <div class="logo">EasyNMT</div>
-    <div class="lesson-header fade-up"><span class="pill">👤 Student Profile</span><h1>{{ user_name }}</h1><p>{{ user_email }}</p></div>
-    <div class="goal-grid">
-        <div class="goal-card premium"><span class="score">🎯 {{ goal }}</span><span class="desc">Ціль на НМТ</span></div>
-        <div class="goal-card"><span class="score">📚 {{ subject }}</span><span class="desc">Поточний предмет</span><a href="/change-subject" class="inline-action-link" style="margin-top:16px;">🔁 Змінити предмет</a></div>
-        <div class="goal-card"><span class="score">⭐ {{ xp }}</span><span class="desc">XP</span></div>
-        <div class="goal-card"><span class="score">🔥 {{ streak }}</span><span class="desc">Днів серії</span></div>
-        <div class="goal-card"><span class="score">✅ {{ completed_count }}</span><span class="desc">Пройдено уроків</span></div>
-        <div class="goal-card"><span class="score">🏆 {{ all_achievements|length }}</span><span class="desc">Досягнень</span></div>
-    </div><br>
-    <div class="subject-actions">
-        <a href="/change-subject" class="inline-action-link">🔁 Змінити предмет</a>
-        <a href="/settings"><button>Налаштування профілю</button></a>
-        <a href="/dashboard" class="inline-action-link">← Назад у кабінет</a>
+<section class="profile-page">
+    <div class="container profile-shell">
+        <header class="profile-hero glass-card fade-up">
+            <div class="profile-avatar" aria-hidden="true">
+                <span>{{ (user_name or 'У')[0]|upper }}</span>
+                <span class="profile-avatar-status"></span>
+            </div>
+            <div class="profile-identity">
+                <span class="eyebrow">Твій профіль</span>
+                <h1>{{ user_name or 'Учень' }}</h1>
+                <p>{{ user_email }}</p>
+            </div>
+            <a class="button button-ghost button-small" href="{{ url_for('settings') }}">Налаштувати</a>
+        </header>
+
+        <section class="profile-stats" aria-label="Статистика профілю">
+            <article class="profile-stat-card glass-card"><span>🎯</span><div><small>Ціль на НМТ</small><strong>{{ goal }}</strong></div></article>
+            <article class="profile-stat-card glass-card"><span>⭐</span><div><small>Досвід</small><strong>{{ xp }} XP</strong></div></article>
+            <article class="profile-stat-card glass-card"><span>🔥</span><div><small>Серія</small><strong>{{ streak }} днів</strong></div></article>
+            <article class="profile-stat-card glass-card"><span>✅</span><div><small>Уроки</small><strong>{{ completed_count }}</strong></div></article>
+        </section>
+
+        <section class="profile-panel glass-card">
+            <div class="profile-panel-head">
+                <div><span class="section-kicker">Навчання</span><h2>{{ subject }}</h2><p>Поточний предмет і твій навчальний маршрут.</p></div>
+                <a class="button button-primary button-small" href="{{ url_for('change_subject') }}">Змінити предмет</a>
+            </div>
+            <div class="profile-detail-row"><span>🏆 Досягнення</span><strong>{{ all_achievements|length }}</strong></div>
+            <a class="profile-action-row" href="{{ url_for('settings') }}"><span>⚙️ Налаштування профілю</span><b>→</b></a>
+            <a class="profile-action-row" href="{{ url_for('dashboard') }}"><span>← Повернутися в кабінет</span><b></b></a>
+        </section>
     </div>
-</div>
+</section>
 {% endblock %}

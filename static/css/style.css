@@ -7019,3 +7019,91 @@ body.tutor-chat-page .cosmic-background { opacity: .38; }
   .dashboard-clean-hero-visual img, .tutor-orbit > img, .hero-mascot-image,
   .mini-robot-image, .final-cosmic-cta img { background:transparent !important; }
 }
+
+
+/* ========================================================================== 
+   EasyNMT v0.9.9 · Виправлення 1 — Mobile UX Redesign
+   ========================================================================== */
+
+.brand-copy { display:grid; gap:2px; min-width:0; }
+.brand-mascot-clean { display:block; background:transparent !important; }
+.site-header .brand-version { width:max-content; padding:2px 7px; font-size:9px; letter-spacing:.02em; }
+.mobile-nav-icon { display:grid; width:24px; height:24px; place-items:center; }
+.mobile-nav-icon svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.mobile-nav-icon.easy-icon svg { fill:currentColor; stroke:none; }
+
+body.dashboard-v0981 .dashboard-next-brand { padding:7px; overflow:hidden; }
+body.dashboard-v0981 .dashboard-next-brand img { display:block; width:100%; height:100%; object-fit:contain; background:transparent; filter:drop-shadow(0 6px 12px rgba(124,58,237,.35)); }
+
+.profile-page { padding:32px 0 70px; }
+.profile-shell { display:grid; gap:18px; width:min(920px, calc(100% - 28px)); }
+.profile-hero { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:20px; padding:28px; border-radius:28px; }
+.profile-avatar { position:relative; display:grid; width:92px; height:92px; place-items:center; border:1px solid rgba(196,181,253,.35); border-radius:30px; background:linear-gradient(145deg,rgba(124,58,237,.95),rgba(37,99,235,.86)); box-shadow:0 18px 42px rgba(76,29,149,.34), inset 0 1px 0 rgba(255,255,255,.22); font:800 36px/1 "Space Grotesk",sans-serif; }
+.profile-avatar::before { content:""; position:absolute; inset:7px; border:1px solid rgba(255,255,255,.16); border-radius:24px; }
+.profile-avatar-status { position:absolute; right:-2px; bottom:-2px; width:20px; height:20px; border:4px solid #0a0d21; border-radius:50%; background:#22c55e; }
+.profile-identity h1 { margin:7px 0 3px; font:700 clamp(32px,5vw,48px)/1 "Space Grotesk",sans-serif; letter-spacing:-.04em; }
+.profile-identity p { margin:0; color:var(--color-text-muted); overflow-wrap:anywhere; }
+.profile-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+.profile-stat-card { display:flex; align-items:center; gap:13px; padding:18px; border-radius:22px; }
+.profile-stat-card > span { display:grid; width:44px; height:44px; place-items:center; border-radius:15px; background:rgba(139,92,246,.14); font-size:21px; }
+.profile-stat-card div { display:grid; gap:3px; }
+.profile-stat-card small { color:var(--color-text-muted); }
+.profile-stat-card strong { font-size:18px; }
+.profile-panel { padding:26px; border-radius:28px; }
+.profile-panel-head { display:flex; align-items:center; justify-content:space-between; gap:20px; padding-bottom:22px; }
+.profile-panel-head h2 { margin:6px 0; font:700 28px/1.1 "Space Grotesk",sans-serif; }
+.profile-panel-head p { margin:0; color:var(--color-text-soft); }
+.profile-detail-row,.profile-action-row { display:flex; min-height:58px; align-items:center; justify-content:space-between; gap:16px; padding:0 4px; border-top:1px solid rgba(255,255,255,.08); color:#fff; text-decoration:none; }
+.profile-action-row:hover { color:#c4b5fd; }
+
+@media (max-width:920px) {
+  body.dashboard-app .site-header .mobile-menu-button { display:inline-flex !important; }
+  body.dashboard-v0981 .dashboard-mobile-sidebar-toggle { display:none !important; }
+  body.dashboard-v0981 .dashboard-clean-sidebar { z-index:6200; padding-top:calc(82px + env(safe-area-inset-top)); }
+  body.dashboard-app .dashboard-sidebar-overlay { z-index:6100; }
+  body.dashboard-app.dashboard-sidebar-open .site-header { z-index:6300 !important; }
+  body.dashboard-app.dashboard-sidebar-open .mobile-menu-button { background:rgba(124,58,237,.2) !important; border-color:rgba(196,181,253,.5) !important; }
+  .profile-stats { grid-template-columns:1fr 1fr; }
+}
+
+@media (max-width:640px) {
+  .site-header { min-height:68px !important; }
+  .site-header .header-container { min-height:68px !important; height:68px !important; width:min(calc(100% - 22px),var(--container-width)) !important; }
+  .site-header .brand { gap:8px; }
+  .site-header .brand-mascot { width:36px !important; height:36px !important; }
+  .site-header .brand-text { font-size:18px !important; }
+  .site-header .brand-version { display:none; }
+  .mobile-menu-button { width:48px !important; height:48px !important; border-radius:17px !important; }
+
+  .mobile-app-nav { min-height:68px; padding:6px; border-radius:22px; }
+  .mobile-app-nav a { gap:2px; border-radius:15px; }
+  .mobile-app-nav a b { font-size:10px; }
+  .mobile-nav-icon { width:22px; height:22px; }
+  .mobile-nav-icon svg { width:20px; height:20px; }
+
+  body.dashboard-v0981 .dashboard-clean-page { padding-top:12px; }
+  body.dashboard-v0981 .dashboard-clean-hero { padding:20px 16px; border-radius:24px; }
+  body.dashboard-v0981 .dashboard-clean-hero-copy h1 { font-size:clamp(34px,11vw,48px); }
+  body.dashboard-v0981 .dashboard-clean-next { grid-template-columns:44px minmax(0,1fr); padding:12px; border-radius:18px; }
+  body.dashboard-v0981 .dashboard-clean-next-icon { width:44px; height:44px; border-radius:14px; }
+
+  .profile-page { padding:16px 0 104px; }
+  .profile-shell { width:min(100% - 18px,920px); gap:12px; }
+  .profile-hero { grid-template-columns:auto minmax(0,1fr); gap:14px; padding:18px 16px; border-radius:24px; }
+  .profile-hero > .button { grid-column:1/-1; width:100%; }
+  .profile-avatar { width:68px; height:68px; border-radius:23px; font-size:27px; }
+  .profile-avatar::before { border-radius:18px; }
+  .profile-identity h1 { font-size:30px; }
+  .profile-stats { gap:8px; }
+  .profile-stat-card { min-width:0; padding:13px 11px; border-radius:18px; }
+  .profile-stat-card > span { width:36px; height:36px; flex:0 0 36px; border-radius:12px; font-size:17px; }
+  .profile-stat-card small { font-size:10px; }
+  .profile-stat-card strong { font-size:14px; }
+  .profile-panel { padding:18px 16px; border-radius:24px; }
+  .profile-panel-head { display:grid; gap:14px; }
+  .profile-panel-head .button { width:100%; }
+
+  .tutor-chat-page .ai-chat-main { height:calc(100dvh - 84px) !important; }
+  .tutor-chat-page .ai-composer-wrap { bottom:calc(84px + env(safe-area-inset-bottom)) !important; }
+  .tutor-chat-page .ai-chat-scroll { padding-bottom:104px !important; }
+}
