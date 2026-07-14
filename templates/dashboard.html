@@ -122,7 +122,8 @@
                     <h2>Космічний маршрут</h2>
                     <p>Кожен завершений урок рухає тебе далі.</p>
                 </div>
-                <div class="cosmic-progress cosmic-progress-v2">
+                <div class="cosmic-progress cosmic-progress-v3" style="--route-progress: {{ progress|default(0)|int }}%;" aria-label="Прогрес до цілі: {{ progress|default(0)|int }}%">
+                    <div class="cosmic-progress-track" aria-hidden="true"><span></span></div>
                     <div class="cosmic-progress-step completed"><span class="cosmic-progress-icon">🌍</span><span>Старт</span></div>
                     <div class="cosmic-progress-step {% if progress >= 20 %}completed{% endif %}"><span class="cosmic-progress-icon">🌙</span><span>Місяць</span></div>
                     <div class="cosmic-progress-step {% if progress >= 40 %}completed{% endif %}"><span class="cosmic-progress-icon">🛰️</span><span>Орбіта</span></div>

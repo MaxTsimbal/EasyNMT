@@ -7107,3 +7107,195 @@ body.dashboard-v0981 .dashboard-next-brand img { display:block; width:100%; heig
   .tutor-chat-page .ai-composer-wrap { bottom:calc(84px + env(safe-area-inset-bottom)) !important; }
   .tutor-chat-page .ai-chat-scroll { padding-bottom:104px !important; }
 }
+
+
+/* ========================================================================== 
+   EasyNMT v0.9.9 · Виправлення 2 — navigation and route polish
+   ========================================================================== */
+
+/* Stable, centered hamburger. It stays visually balanced even when older
+   responsive rules set the button to flex or block. */
+.mobile-menu-button {
+    display: none;
+    width: 46px;
+    height: 46px;
+    min-width: 46px;
+    padding: 0 !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-direction: column !important;
+    gap: 5px !important;
+    border: 1px solid rgba(196, 181, 253, .24) !important;
+    border-radius: 15px !important;
+    background: linear-gradient(145deg, rgba(255,255,255,.085), rgba(255,255,255,.035)) !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 10px 28px rgba(0,0,0,.22) !important;
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    overflow: hidden;
+}
+
+.mobile-menu-button .mobile-menu-line {
+    display: block !important;
+    position: static !important;
+    width: 22px !important;
+    height: 2px !important;
+    min-height: 2px !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 999px !important;
+    background: rgba(248,250,252,.96) !important;
+    box-shadow: 0 0 10px rgba(196,181,253,.18);
+    transform-origin: center !important;
+}
+
+.mobile-menu-button .mobile-menu-line:nth-child(2) {
+    width: 17px !important;
+    align-self: center;
+}
+
+.mobile-menu-button.active .mobile-menu-line:nth-child(1) {
+    width: 21px !important;
+    transform: translateY(7px) rotate(45deg) !important;
+}
+
+.mobile-menu-button.active .mobile-menu-line:nth-child(2) {
+    opacity: 0 !important;
+    transform: scaleX(.3) !important;
+}
+
+.mobile-menu-button.active .mobile-menu-line:nth-child(3) {
+    width: 21px !important;
+    transform: translateY(-7px) rotate(-45deg) !important;
+}
+
+/* A single real route line, positioned through the centre of every planet. */
+body.dashboard-v0981 .dashboard-clean-route .cosmic-progress-v3 {
+    --route-icon-size: 46px;
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    width: 100%;
+    min-width: 0;
+    padding: 8px 0 2px;
+    gap: 0;
+    overflow: visible;
+    isolation: isolate;
+}
+
+body.dashboard-v0981 .dashboard-clean-route .cosmic-progress-v3::before {
+    content: none !important;
+    display: none !important;
+}
+
+body.dashboard-v0981 .cosmic-progress-v3 .cosmic-progress-track {
+    position: absolute;
+    z-index: 0;
+    top: calc(8px + var(--route-icon-size) / 2 - 2px);
+    left: calc(100% / 12);
+    right: calc(100% / 12);
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(148,163,184,.16);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,.28);
+    overflow: hidden;
+}
+
+body.dashboard-v0981 .cosmic-progress-v3 .cosmic-progress-track > span {
+    display: block;
+    width: clamp(0%, var(--route-progress), 100%);
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #8b5cf6 0%, #6366f1 52%, #38bdf8 100%);
+    box-shadow: 0 0 16px rgba(99,102,241,.72);
+    transition: width .8s cubic-bezier(.2,.8,.2,1);
+}
+
+body.dashboard-v0981 .cosmic-progress-v3 .cosmic-progress-step {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    width: auto;
+    min-width: 0;
+    grid-template-rows: var(--route-icon-size) auto;
+    justify-items: center;
+    gap: 8px;
+    color: #8f99b5;
+    font-size: 11px;
+    line-height: 1.15;
+}
+
+body.dashboard-v0981 .cosmic-progress-v3 .cosmic-progress-icon {
+    width: var(--route-icon-size);
+    height: var(--route-icon-size);
+    border-width: 2px;
+    background: #10152c;
+    box-shadow: 0 0 0 6px rgba(9,12,31,.96), 0 10px 24px rgba(0,0,0,.24);
+}
+
+body.dashboard-v0981 .cosmic-progress-v3 .cosmic-progress-step.completed {
+    color: #d6dcf0;
+}
+
+body.dashboard-v0981 .cosmic-progress-v3 .cosmic-progress-step.completed .cosmic-progress-icon {
+    border-color: rgba(167,139,250,.74);
+    background: linear-gradient(145deg, rgba(124,58,237,.42), rgba(37,99,235,.28));
+    box-shadow: 0 0 0 6px rgba(9,12,31,.96), 0 0 22px rgba(124,58,237,.38), 0 10px 24px rgba(0,0,0,.22);
+}
+
+@media (max-width: 920px) {
+    .mobile-menu-button {
+        display: inline-flex !important;
+    }
+
+    /* Easy already has a permanent tab in the mobile navigation. Hiding the
+       floating duplicate prevents it from peeking out behind Profile. */
+    body.dashboard-v0981 .dashboard-floating-chat {
+        display: none !important;
+    }
+
+    body.dashboard-v0981 .dashboard-clean-route {
+        gap: 16px;
+    }
+
+    body.dashboard-v0981 .dashboard-clean-route .cosmic-progress-v3 {
+        --route-icon-size: 42px;
+        padding-top: 6px;
+    }
+
+    body.dashboard-v0981 .cosmic-progress-v3 .cosmic-progress-track {
+        top: calc(6px + var(--route-icon-size) / 2 - 2px);
+    }
+}
+
+@media (max-width: 480px) {
+    .mobile-menu-button {
+        width: 44px !important;
+        height: 44px !important;
+        min-width: 44px !important;
+        border-radius: 14px !important;
+    }
+
+    body.dashboard-v0981 .dashboard-clean-route {
+        padding-left: 15px !important;
+        padding-right: 15px !important;
+    }
+
+    body.dashboard-v0981 .dashboard-clean-route .cosmic-progress-v3 {
+        --route-icon-size: 38px;
+        width: 100%;
+    }
+
+    body.dashboard-v0981 .cosmic-progress-v3 .cosmic-progress-icon {
+        font-size: 17px;
+        box-shadow: 0 0 0 4px rgba(9,12,31,.98), 0 8px 18px rgba(0,0,0,.2);
+    }
+
+    body.dashboard-v0981 .cosmic-progress-v3 .cosmic-progress-step.completed .cosmic-progress-icon {
+        box-shadow: 0 0 0 4px rgba(9,12,31,.98), 0 0 16px rgba(124,58,237,.34), 0 8px 18px rgba(0,0,0,.2);
+    }
+
+    body.dashboard-v0981 .cosmic-progress-v3 .cosmic-progress-step {
+        gap: 7px;
+        font-size: 9px;
+    }
+}
