@@ -7732,3 +7732,35 @@ body.easy-chat-v6 .cosmic-background { opacity:.12; }
   .easy-message-user-bubble { max-width:86%; font-size:14px; }
   .easy-answer { font-size:14px; line-height:1.7; }
 }
+
+/* EasyNMT v0.9.9 Fix 6.1 — composer visibility hotfix */
+body.easy-chat-v6 .easy-chat-main {
+    overflow: hidden;
+}
+body.easy-chat-v6 .easy-composer-zone {
+    position: fixed !important;
+    z-index: 50 !important;
+    left: 260px;
+    right: 0;
+    bottom: 0;
+    padding: 10px 20px 14px !important;
+    background: linear-gradient(180deg, rgba(15,17,26,0), rgba(15,17,26,.96) 20%, #0f111a 48%);
+}
+body.easy-chat-v6 .easy-conversation {
+    padding-bottom: 170px;
+}
+body.easy-chat-v6 .easy-conversation-inner {
+    padding-bottom: 36px !important;
+}
+body.easy-chat-v6 .easy-composer-box {
+    min-height: 74px;
+}
+@media (max-width: 900px) {
+    body.easy-chat-v6 .easy-composer-zone {
+        left: 0;
+        padding: 8px 10px calc(10px + env(safe-area-inset-bottom)) !important;
+    }
+    body.easy-chat-v6 .easy-conversation {
+        padding-bottom: 178px;
+    }
+}
