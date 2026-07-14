@@ -84,7 +84,7 @@
                         <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="Easy">
                     </div>
                     <h1>Що розберемо?</h1>
-                    <p>Запитай про тему «{{ lesson.title }}». Можеш написати своїми словами, навіть якщо поки не знаєш, як правильно сформулювати питання.</p>
+                    <p>Запитай будь-що.</p>
 
                     <div class="ai-starter-grid">
                         <form method="POST">
@@ -92,7 +92,7 @@
                             <button type="submit" class="ai-starter-card">
                                 <span class="ai-starter-icon">🧩</span>
                                 <strong>Поясни з нуля</strong>
-                                <small>Почнемо з найпростішого</small>
+
                             </button>
                         </form>
                         <form method="POST">
@@ -100,7 +100,7 @@
                             <button type="submit" class="ai-starter-card">
                                 <span class="ai-starter-icon">✍️</span>
                                 <strong>Покажи приклад</strong>
-                                <small>Розберемо крок за кроком</small>
+
                             </button>
                         </form>
                         <form method="POST">
@@ -108,7 +108,7 @@
                             <button type="submit" class="ai-starter-card">
                                 <span class="ai-starter-icon">🎯</span>
                                 <strong>Навіщо це на НМТ?</strong>
-                                <small>Побачимо, де тема трапляється</small>
+
                             </button>
                         </form>
                         <form method="POST">
@@ -116,7 +116,7 @@
                             <button type="submit" class="ai-starter-card">
                                 <span class="ai-starter-icon">📝</span>
                                 <strong>Дай задачу</strong>
-                                <small>Спробуй розв’язати сам</small>
+
                             </button>
                         </form>
                     </div>
@@ -163,7 +163,7 @@
                         name="question"
                         maxlength="1500"
                         rows="1"
-                        placeholder="Запитай про тему..."
+                        placeholder="Запитай будь-що..."
                         aria-label="Твоє питання"
                     ></textarea>
                     <button class="ai-send-button" id="aiSendButton" type="submit" aria-label="Надіслати питання" disabled>↑</button>

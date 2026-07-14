@@ -6,22 +6,14 @@
 {% block content %}
 <section class="dashboard-page dashboard-clean-page">
     <div class="container dashboard-clean-shell">
-        <div class="dashboard-mobile-commandbar glass-card">
-            <div><small>Ти в кабінеті</small><strong>Огляд навчання</strong></div>
-            <button class="dashboard-mobile-sidebar-toggle" id="dashboardSidebarToggle" type="button" aria-controls="dashboardSidebar" aria-expanded="false" aria-label="Відкрити всі розділи кабінету">
-                <span class="hamburger-icon" aria-hidden="true"><i></i><i></i><i></i></span>
-                <span>Усі розділи</span>
-            </button>
-        </div>
+        <button class="dashboard-mobile-sidebar-toggle liquid-circle" id="dashboardSidebarToggle" type="button" aria-controls="dashboardSidebar" aria-expanded="false" aria-label="Відкрити меню кабінету">
+            <span class="hamburger-icon" aria-hidden="true"><i></i><i></i><i></i></span>
+        </button>
 
         <div class="dashboard-sidebar-overlay" id="dashboardSidebarOverlay" aria-hidden="true"></div>
 
         <aside class="dashboard-sidebar dashboard-clean-sidebar" id="dashboardSidebar" aria-label="Навігація кабінету">
             <div class="dashboard-sidebar-inner">
-                <div class="dashboard-sidebar-mobile-head">
-                    <span>Навігація</span>
-                    <button type="button" id="dashboardSidebarClose" aria-label="Закрити меню">×</button>
-                </div>
                 <div class="dashboard-user dashboard-clean-user">
                     <span class="dashboard-avatar">{{ (user_name or 'E')[0]|upper }}</span>
                     <span class="dashboard-user-copy">

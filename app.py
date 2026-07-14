@@ -1324,7 +1324,7 @@ def login():
         login_user(user)
         session.permanent = request.form.get("remember") == "on"
         flash("Ти увійшов в акаунт.", "success")
-        return redirect(url_for("dashboard"))
+        return redirect_after_auth()
 
     return render_template("login.html")
 
@@ -1344,7 +1344,7 @@ def google_auth_status():
         {
             "callback_url": url_for("google_callback", _external=True, _scheme="https"),
             "implementation": "oauth2_pkce_requests",
-            "version": "0.9.9.6",
+            "version": "0.9.9.5",
         }
     )
     return status
@@ -1411,7 +1411,6 @@ def google_callback():
         return redirect(url_for("login"))
 
     conn = get_db_connection()
-    is_new_user = False
     try:
         user = conn.execute(
             "SELECT * FROM users WHERE google_sub = ? OR email = ?",
@@ -1419,7 +1418,6 @@ def google_callback():
         ).fetchone()
 
         if user is None:
-            is_new_user = True
             cursor = conn.execute(
                 """
                 INSERT INTO users
@@ -1455,12 +1453,8 @@ def google_callback():
 
     login_user(user)
     session["user_avatar"] = avatar_url
-    if is_new_user:
-        flash("Акаунт створено через Google. Тепер зберемо твій план.", "success")
-        return redirect(url_for("goal"))
-
     flash("Готово, ти увійшов через Google.", "success")
-    return redirect(url_for("dashboard"))
+    return redirect_after_auth()
 
 
 @app.route("/goal")
@@ -1627,9 +1621,11 @@ def privacy():
 @app.route("/dashboard")
 @require_login
 def dashboard():
-    # Returning users always land in the cabinet. Older accounts may not have
-    # completed the latest onboarding/diagnostic flow yet, so the dashboard
-    # must remain available and guide them onward instead of redirecting away.
+    if not onboarding_complete():
+        return redirect(url_for("goal"))
+    if not diagnostic_complete():
+        return redirect(url_for("diagnostic"))
+
     return render_template("dashboard.html", **get_user_data())
 
 
