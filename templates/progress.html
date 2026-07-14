@@ -1,35 +1,28 @@
 {% extends "base.html" %}
 
-{% block title %}
-Мій прогрес | EasyNMT
-{% endblock %}
+{% block title %}Мій прогрес | EasyNMT{% endblock %}
 
 {% block content %}
-
-<div class="progress-page dashboard-shell">
+<div class="progress-page dashboard-shell progress-page-pro">
     <div class="logo">EasyNMT</div>
 
     <section class="dashboard-hero fade-up">
-        <span class="pill">📊 Progress Center</span>
+        <span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19h14"/><path d="M7.5 15.5 11 12l2.5 2.5 4-5"/></svg> Progress Center</span>
         <h1>Мій прогрес</h1>
         <p>Тут EasyNMT збирає твої уроки, XP, серію і результати тестів в одну зрозумілу картину.</p>
     </section>
 
-    <section class="dashboard-stats achievement-stats">
-        <div class="stat-card premium">
-            <span class="stat-label">📈 Прогрес</span>
-            <span class="stat-value">{{ progress }}%</span>
-            <div class="progress-bar mini-progress"><div class="progress-fill" style="width: {{ progress }}%;"></div></div>
-        </div>
-        <div class="stat-card"><span class="stat-label">✅ Уроки</span><span class="stat-value">{{ completed_count }}/{{ lessons_total }}</span><span class="stat-note">Завершено у предметі</span></div>
-        <div class="stat-card"><span class="stat-label">⭐ XP</span><span class="stat-value">{{ xp }}</span><span class="stat-note">Досвід навчання</span></div>
-        <div class="stat-card"><span class="stat-label">🔥 Серія</span><span class="stat-value">{{ streak }} дн.</span><span class="stat-note">Поточний ритм</span></div>
+    <section class="dashboard-stats achievement-stats progress-stat-grid">
+        <div class="stat-card premium"><span class="stat-label"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19h14"/><path d="M7.5 15.5 11 12l2.5 2.5 4-5"/></svg> Прогрес</span><span class="stat-value">{{ progress }}%</span><div class="progress-bar mini-progress"><div class="progress-fill" style="width: {{ progress }}%;"></div></div></div>
+        <div class="stat-card"><span class="stat-label"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6.5 12.5 3.2 3.2L17.5 8"/></svg> Уроки</span><span class="stat-value">{{ completed_count }}/{{ lessons_total }}</span><span class="stat-note">Завершено у предметі</span></div>
+        <div class="stat-card"><span class="stat-label"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 14.2 8.6l5 .7-3.6 3.5.9 4.9L12 15.8 7.5 17.7l.9-4.9L4.8 9.3l5-.7z"/></svg> XP</span><span class="stat-value">{{ xp }}</span><span class="stat-note">Досвід навчання</span></div>
+        <div class="stat-card"><span class="stat-label"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 7.5 9.3 10.7 10.3 8.7 21l7.8-10.2-3.2-1Z"/></svg> Серія</span><span class="stat-value">{{ streak }} дн.</span><span class="stat-note">Поточний ритм</span></div>
     </section>
 
     <br>
 
     <div class="goal-card">
-        <span class="score">📚 Прогрес уроків</span>
+        <span class="score"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5zM20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5z"/></svg> Прогрес уроків</span>
         <span class="desc">Зелений статус означає, що урок уже зарахований.</span>
         <div class="progress-lesson-list">
             {% for lesson in lessons %}
@@ -37,7 +30,7 @@
             {% set attempt = quiz_attempts.get(lesson.id) %}
             {% if unlocked %}<a href="{{ url_for('lesson', lesson_id=lesson.id) }}" class="mini-lesson-row {% if lesson.id in completed_lessons %}completed-row{% endif %}">{% else %}<div class="mini-lesson-row is-locked" aria-disabled="true">{% endif %}
                 <div>
-                    <div class="mini-lesson-title">{% if lesson.id in completed_lessons %}✅{% elif unlocked %}○{% else %}🔒{% endif %} Урок {{ lesson.id }}: {{ lesson.title }}</div>
+                    <div class="mini-lesson-title">{% if lesson.id in completed_lessons %}✓{% elif unlocked %}○{% else %}🔒{% endif %} Урок {{ lesson.id }}: {{ lesson.title }}</div>
                     <div class="mini-lesson-meta">{{ lesson.badge }} · {% if lesson.id in completed_lessons %}пройдено{% elif unlocked %}відкрито{% else %}ще закрито{% endif %}{% if attempt %} · найкраще {{ attempt.best_score }}/{{ attempt.total }} · спроб {{ attempt.attempts }}{% endif %}</div>
                 </div>
                 <span>{% if unlocked %}→{% else %}🔒{% endif %}</span>
@@ -50,7 +43,7 @@
 
     {% if completed_stats %}
     <div class="goal-card">
-        <span class="score">📝 Результати тестів</span>
+        <span class="score"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h10M7 9h10M7 13h6M6 3.5h12A1.5 1.5 0 0 1 19.5 5v14A1.5 1.5 0 0 1 18 20.5H6A1.5 1.5 0 0 1 4.5 19V5A1.5 1.5 0 0 1 6 3.5Z"/></svg> Результати тестів</span>
         <div class="review-list">
             {% for item in completed_stats %}
             <div class="review-item correct">
@@ -66,9 +59,8 @@
     <br>
 
     <div class="goal-grid">
-        <a href="/achievements" class="goal-link"><button>🏆 Досягнення</button></a>
-        <a href="/dashboard" class="goal-link"><button class="secondary-action">Назад у кабінет</button></a>
+        <a href="/achievements" class="goal-link"><button><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 14.2 8.6l5 .7-3.6 3.5.9 4.9L12 15.8 7.5 17.7l.9-4.9L4.8 9.3l5-.7z"/></svg> Досягнення</button></a>
+        <a href="/dashboard" class="goal-link"><button class="secondary-action"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 7 5 12l5 5"/><path d="M6 12h13"/></svg> Назад у кабінет</button></a>
     </div>
 </div>
-
 {% endblock %}

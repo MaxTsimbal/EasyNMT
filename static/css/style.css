@@ -7429,3 +7429,323 @@ body.dashboard-v0981 .dashboard-floating-chat:active {
   font-size: .86rem;
   text-align: right;
 }
+
+/* EasyNMT v0.9.9 · виправлення 5
+   Professional desktop redesign for Easy chat and PC icon system */
+
+/* shared inline icon treatment */
+.dashboard-nav-icon,
+.dashboard-clean-stat-icon,
+.profile-icon-box,
+.profile-detail-row svg,
+.profile-action-row svg,
+.progress-page-pro .pill svg,
+.progress-page-pro .stat-label svg,
+.progress-page-pro .score svg,
+.progress-page-pro button svg,
+.library-page-pro .pill svg,
+.library-page-pro button svg,
+.ai-new-chat-icon svg,
+.ai-starter-icon svg,
+.dashboard-clean-next-icon svg {
+    width: 20px;
+    height: 20px;
+    display: block;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+body.dashboard-v0981 .dashboard-nav-pro .dashboard-nav-link {
+    gap: 10px;
+    padding: 0 13px;
+    border-radius: 14px;
+}
+body.dashboard-v0981 .dashboard-nav-icon {
+    display: inline-grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    background: rgba(255,255,255,.04);
+    color: #cbd5e1;
+    transition: background .18s ease, color .18s ease, border-color .18s ease;
+}
+body.dashboard-v0981 .dashboard-nav-pro .dashboard-nav-link:hover .dashboard-nav-icon,
+body.dashboard-v0981 .dashboard-nav-pro .dashboard-nav-link.active .dashboard-nav-icon {
+    color: #fff;
+    background: linear-gradient(145deg, rgba(124,58,237,.7), rgba(59,130,246,.55));
+}
+body.dashboard-v0981 .dashboard-nav-pro .dashboard-nav-link b {
+    font-weight: 700;
+}
+
+body.dashboard-v0981 .dashboard-clean-hero-pro {
+    background:
+        radial-gradient(circle at 85% 20%, rgba(59,130,246,.18), transparent 26%),
+        radial-gradient(circle at 20% 15%, rgba(139,92,246,.16), transparent 28%),
+        linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02)),
+        var(--bg-card);
+}
+body.dashboard-v0981 .dashboard-next-brand {
+    color: #efe9ff;
+    background: linear-gradient(145deg, rgba(124,58,237,.72), rgba(37,99,235,.62));
+}
+body.dashboard-v0981 .dashboard-clean-next-icon svg {
+    width: 24px;
+    height: 24px;
+}
+body.dashboard-v0981 .dashboard-clean-hero-visual-pro::before {
+    width: 270px;
+    height: 270px;
+    background: radial-gradient(circle, rgba(124,58,237,.34), transparent 66%);
+}
+body.dashboard-v0981 .dashboard-clean-hero-visual-pro {
+    align-content: center;
+    justify-items: center;
+    gap: 16px;
+}
+body.dashboard-v0981 .dashboard-hero-badge {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 178px;
+    height: 178px;
+    border: 1px solid rgba(196,181,253,.28);
+    border-radius: 40px;
+    background: linear-gradient(145deg, rgba(124,58,237,.24), rgba(255,255,255,.04));
+    box-shadow: 0 24px 80px rgba(18, 24, 46, .48);
+    color: #fff;
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: -.04em;
+}
+body.dashboard-v0981 .dashboard-hero-card-note {
+    position: relative;
+    z-index: 2;
+    max-width: 245px;
+    padding: 10px 14px;
+    border: 1px solid rgba(255,255,255,.09);
+    border-radius: 16px;
+    background: rgba(9,13,31,.88);
+    color: var(--color-text-soft);
+    font-size: 12px;
+    text-align: center;
+}
+body.dashboard-v0981 .dashboard-clean-stat-icon {
+    color: #ede9fe;
+    background: linear-gradient(145deg, rgba(124,58,237,.68), rgba(37,99,235,.54));
+}
+body.dashboard-v0981 .dashboard-clean-stat-icon svg { width: 22px; height: 22px; }
+
+.profile-stats-pro .profile-icon-box {
+    display: grid;
+    width: 44px;
+    height: 44px;
+    place-items: center;
+    border-radius: 15px;
+    background: linear-gradient(145deg, rgba(124,58,237,.18), rgba(59,130,246,.12));
+    color: #ede9fe;
+}
+.profile-stats-pro .profile-icon-box svg { width: 21px; height: 21px; }
+.profile-panel .profile-detail-row span,
+.profile-panel .profile-action-row span {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+.profile-panel .profile-detail-row svg,
+.profile-panel .profile-action-row svg {
+    width: 18px;
+    height: 18px;
+    color: #c4b5fd;
+}
+
+.progress-page-pro .pill,
+.library-page-pro .pill {
+    gap: 8px;
+}
+.progress-page-pro .stat-label,
+.progress-page-pro .score,
+.library-page-pro .pill,
+.progress-page-pro .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.progress-page-pro .goal-grid button,
+.library-page-pro button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+.progress-page-pro .goal-grid button svg,
+.library-page-pro button svg { width: 18px; height: 18px; }
+
+/* professional Easy chat */
+.ai-chat-shell {
+    background:
+        radial-gradient(circle at 80% 10%, rgba(59,130,246,.12), transparent 22%),
+        radial-gradient(circle at 12% 8%, rgba(139,92,246,.12), transparent 24%),
+        rgba(8, 11, 25, .94);
+}
+.ai-chat-sidebar {
+    background: linear-gradient(180deg, rgba(10,14,30,.98), rgba(11,15,32,.96));
+}
+.ai-brand-mark {
+    display: inline-grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    background: linear-gradient(145deg, rgba(124,58,237,.78), rgba(59,130,246,.64));
+    color: #fff;
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -.04em;
+    box-shadow: 0 10px 30px rgba(76,29,149,.25);
+}
+.ai-brand-mark-small {
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+    font-size: 14px;
+}
+.ai-new-chat {
+    min-height: 48px;
+    border-radius: 15px;
+    font-size: 14px;
+    background: rgba(255,255,255,.03);
+}
+.ai-new-chat-icon {
+    display: inline-grid;
+    width: 24px;
+    height: 24px;
+    place-items: center;
+    color: #dbe4f0;
+}
+.ai-history-item {
+    min-height: 44px;
+    padding: 10px 12px;
+    border-radius: 12px;
+}
+.ai-chat-topbar {
+    min-height: 70px;
+    padding: 12px 22px;
+    background: rgba(11, 15, 31, .84);
+}
+.ai-chat-topbar strong {
+    font-size: 16px;
+    letter-spacing: -.02em;
+}
+.ai-chat-thread {
+    width: min(900px, calc(100% - 48px));
+    padding: 48px 0 36px;
+}
+.ai-empty-state-pro {
+    justify-items: start;
+    text-align: left;
+    min-height: calc(100vh - 260px);
+    padding: 12px 0 42px;
+}
+.ai-empty-kicker {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 12px;
+    border: 1px solid rgba(167,139,250,.22);
+    border-radius: 999px;
+    background: rgba(124,58,237,.08);
+    color: #d8ccff;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+.ai-empty-state-pro h1 {
+    max-width: 720px;
+    margin: 18px 0 12px;
+    font-size: clamp(34px, 4.3vw, 52px);
+}
+.ai-empty-state-pro > p {
+    max-width: 740px;
+    color: #9eabc0;
+    font-size: 15px;
+}
+.ai-starter-grid-pro {
+    width: min(760px, 100%);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 28px;
+}
+.ai-starter-card-pro {
+    min-height: 110px;
+    grid-template-columns: 46px 1fr;
+    grid-template-rows: auto auto;
+    align-items: start;
+    padding: 18px;
+    border-radius: 18px;
+    background: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.02));
+}
+.ai-starter-card-pro .ai-starter-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+    background: rgba(255,255,255,.045);
+    color: #ddd6fe;
+}
+.ai-starter-card-pro strong {
+    font-size: 14px;
+}
+.ai-starter-card-pro small {
+    display: block;
+    margin-top: 3px;
+    color: #90a0b5;
+    font-size: 12px;
+    line-height: 1.45;
+}
+.ai-message-avatar-pro {
+    background: rgba(255,255,255,.03);
+    border-color: rgba(196,181,253,.18);
+}
+.ai-message-name {
+    color: #ddd6fe;
+    letter-spacing: .02em;
+}
+.ai-message-assistant .ai-message-content {
+    max-width: 100%;
+}
+.ai-composer-wrap {
+    padding: 12px 20px 20px;
+    background: linear-gradient(180deg, transparent, rgba(11,15,31,.98) 32%);
+}
+.ai-composer-input-row {
+    min-height: 64px;
+    padding: 12px 13px;
+    border-radius: 28px;
+    background: #1d2332;
+}
+.ai-attach-button,
+.ai-send-button {
+    transition: transform .12s ease, filter .18s ease, box-shadow .18s ease;
+}
+.ai-send-button:active,
+.ai-attach-button:active {
+    transform: scale(.94);
+}
+
+/* desktop only: keep mobile simplified */
+@media (min-width: 901px) {
+    body.tutor-chat-page .mobile-app-nav { display: none !important; }
+}
+
+@media (max-width: 900px) {
+    .ai-empty-state-pro,
+    .ai-empty-state-pro h1,
+    .ai-empty-state-pro > p { text-align: center; justify-items: center; }
+}

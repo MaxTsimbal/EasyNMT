@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Бібліотека уроків | EasyNMT{% endblock %}
 {% block content %}
-<div class="lesson-page">
+<div class="lesson-page library-page-pro">
     <div class="logo">EasyNMT</div>
-    <div class="lesson-header fade-up"><span class="pill">📚 Lesson Center</span><h1>Бібліотека уроків</h1><p>Усі предмети й теми в одному місці. Можеш подивитися прогрес по кожному напрямку.</p></div>
+    <div class="lesson-header fade-up"><span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5zM20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5z"/></svg> Lesson Center</span><h1>Бібліотека уроків</h1><p>Усі предмети й теми в одному місці. Можеш подивитися прогрес по кожному напрямку.</p></div>
     {% for block in catalog_view %}
     <div class="goal-card library-subject-card">
         <span class="score">{{ block.name }}</span>
@@ -11,11 +11,11 @@
         <div class="progress-bar" style="margin:16px 0;"><div class="progress-fill" style="width:{{ block.progress }}%;"></div></div>
         {% for lesson in block.lessons %}
         <a href="{{ url_for('switch_subject', subject=block.key, lesson=lesson.id) }}" class="mini-lesson-row {% if lesson.id in block.completed %}completed-row{% endif %}">
-            <div><div class="mini-lesson-title">{% if lesson.id in block.completed %}✅{% else %}○{% endif %} Урок {{ lesson.id }}: {{ lesson.title }}</div><div class="mini-lesson-meta">{{ lesson.goal }}</div></div><span>→</span>
+            <div><div class="mini-lesson-title">{% if lesson.id in block.completed %}✓{% else %}○{% endif %} Урок {{ lesson.id }}: {{ lesson.title }}</div><div class="mini-lesson-meta">{{ lesson.goal }}</div></div><span>→</span>
         </a>
         {% endfor %}
     </div><br>
     {% endfor %}
-    <a href="/dashboard"><button>Назад у кабінет</button></a>
+    <a href="/dashboard"><button><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 7 5 12l5 5"/><path d="M6 12h13"/></svg> Назад у кабінет</button></a>
 </div>
 {% endblock %}
