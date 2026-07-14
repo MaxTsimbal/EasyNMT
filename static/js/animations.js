@@ -1193,6 +1193,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const toggle = document.getElementById("dashboardSidebarToggle");
     const sidebar = document.getElementById("dashboardSidebar");
     const overlay = document.getElementById("dashboardSidebarOverlay");
+    const closeButton = document.getElementById("dashboardSidebarClose");
 
     if (!toggle || !sidebar || !overlay) {
         return;
@@ -1228,6 +1229,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     overlay.addEventListener("click", closeSidebar);
+    if (closeButton) {
+        closeButton.addEventListener("click", () => {
+            closeSidebar();
+            toggle.focus();
+        });
+    }
 
     sidebar.addEventListener("click", (event) => {
         if (event.target.closest("a")) {

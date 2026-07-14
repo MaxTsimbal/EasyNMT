@@ -6955,3 +6955,210 @@ body.tutor-chat-page .cosmic-background { opacity: .38; }
     margin: 0;
     accent-color: #7667ff;
 }
+
+
+/* ========================================================================== 
+   EasyNMT v0.9.9.6 Mobile Clarity Update
+   Clear command bar, labeled navigation and thumb-friendly bottom dock.
+   ========================================================================== */
+.dashboard-mobile-commandbar,
+.dashboard-sidebar-mobile-head,
+.mobile-study-nav { display: none; }
+
+@media (max-width: 920px) {
+    body.dashboard-v0981 .dashboard-clean-page {
+        padding-top: 10px;
+        padding-bottom: 104px;
+    }
+
+    body.dashboard-v0981 .dashboard-clean-shell.container {
+        width: min(calc(100% - 20px), var(--container-width));
+    }
+
+    body.dashboard-v0981 .dashboard-mobile-commandbar {
+        position: sticky;
+        top: calc(var(--header-height) + 8px);
+        z-index: 1200;
+        display: flex;
+        min-height: 64px;
+        margin-bottom: 12px;
+        padding: 10px 10px 10px 15px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        border-radius: 18px;
+        background: rgba(9, 13, 31, .92);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+    }
+
+    body.dashboard-v0981 .dashboard-mobile-commandbar > div {
+        display: grid;
+        gap: 2px;
+        min-width: 0;
+    }
+
+    body.dashboard-v0981 .dashboard-mobile-commandbar small {
+        color: var(--color-text-muted);
+        font-size: 11px;
+    }
+
+    body.dashboard-v0981 .dashboard-mobile-commandbar strong {
+        overflow: hidden;
+        font-size: 15px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    body.dashboard-v0981 .dashboard-mobile-sidebar-toggle {
+        position: static;
+        display: inline-flex;
+        width: auto;
+        height: 44px;
+        min-height: 44px;
+        padding: 0 13px;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        border: 1px solid rgba(167, 139, 250, .28);
+        border-radius: 14px;
+        color: #fff;
+        background: rgba(139, 92, 246, .16);
+        font: inherit;
+        font-size: 12px;
+        font-weight: 800;
+    }
+
+    body.dashboard-v0981 .dashboard-mobile-sidebar-toggle > span:last-child {
+        display: inline;
+    }
+
+    body.dashboard-v0981 .dashboard-sidebar-mobile-head {
+        position: sticky;
+        top: -18px;
+        z-index: 2;
+        display: flex;
+        margin: -18px -14px 14px;
+        padding: calc(14px + env(safe-area-inset-top)) 16px 12px;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid rgba(255,255,255,.08);
+        background: rgba(7, 10, 28, .98);
+        font-weight: 800;
+    }
+
+    body.dashboard-v0981 .dashboard-sidebar-mobile-head button {
+        display: grid;
+        width: 42px;
+        height: 42px;
+        min-height: 42px;
+        padding: 0;
+        place-items: center;
+        border: 1px solid rgba(255,255,255,.12);
+        border-radius: 13px;
+        color: #fff;
+        background: rgba(255,255,255,.06);
+        font-size: 26px;
+        line-height: 1;
+    }
+
+    body.dashboard-v0981 .dashboard-clean-sidebar {
+        width: min(90vw, 350px);
+        padding-top: calc(18px + env(safe-area-inset-top));
+        overflow-y: auto;
+    }
+
+    body.dashboard-v0981 .dashboard-sidebar-inner {
+        overflow: visible;
+    }
+
+    body.dashboard-v0981 .dashboard-clean-nav .dashboard-nav-link {
+        min-height: 50px;
+        border-radius: 14px;
+        font-size: 15px;
+    }
+
+    body.dashboard-v0981 .dashboard-clean-hero {
+        padding: 22px 18px;
+        border-radius: 24px;
+    }
+
+    body.dashboard-v0981 .dashboard-clean-hero-copy h1 {
+        margin-top: 8px;
+        font-size: clamp(34px, 10vw, 46px);
+    }
+
+    body.dashboard-v0981 .dashboard-clean-hero-copy > p {
+        margin-bottom: 18px;
+        font-size: 16px;
+        line-height: 1.55;
+    }
+
+    body.dashboard-v0981 .dashboard-clean-hero-visual {
+        display: none;
+    }
+
+    body.dashboard-v0981 .dashboard-personal-panel,
+    body.dashboard-v0981 .dashboard-clean-stat,
+    body.dashboard-v0981 .dashboard-clean-section {
+        border-radius: 22px;
+    }
+
+    body.dashboard-v0981 .dashboard-level-card {
+        min-height: 92px;
+        padding: 14px;
+    }
+
+    body.dashboard-v0981 .dashboard-clean-route {
+        overflow-x: auto;
+    }
+
+    .mobile-study-nav {
+        position: fixed;
+        right: max(10px, env(safe-area-inset-right));
+        bottom: max(10px, env(safe-area-inset-bottom));
+        left: max(10px, env(safe-area-inset-left));
+        z-index: 1500;
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        min-height: 66px;
+        padding: 6px;
+        border: 1px solid rgba(255,255,255,.12);
+        border-radius: 22px;
+        background: rgba(7, 10, 28, .94);
+        box-shadow: 0 18px 54px rgba(0,0,0,.45);
+        backdrop-filter: blur(22px);
+        -webkit-backdrop-filter: blur(22px);
+    }
+
+    .mobile-study-nav a {
+        display: grid;
+        min-width: 0;
+        min-height: 54px;
+        padding: 5px 2px;
+        place-items: center;
+        align-content: center;
+        gap: 3px;
+        border-radius: 16px;
+        color: var(--color-text-muted);
+        text-decoration: none;
+    }
+
+    .mobile-study-nav a span { font-size: 20px; line-height: 1; }
+    .mobile-study-nav a b { font-size: 10px; font-weight: 750; }
+    .mobile-study-nav a.active {
+        color: #fff;
+        background: linear-gradient(135deg, rgba(124, 58, 237, .46), rgba(37, 99, 235, .30));
+    }
+
+    body:has(.mobile-study-nav) .site-footer { padding-bottom: 92px; }
+    body:has(.mobile-study-nav) .scroll-top-button { bottom: 92px; }
+    body.dashboard-v0981 .dashboard-floating-chat { display: none; }
+}
+
+@media (max-width: 430px) {
+    body.dashboard-v0981 .dashboard-mobile-commandbar strong { font-size: 14px; }
+    body.dashboard-v0981 .dashboard-mobile-sidebar-toggle { padding-inline: 10px; }
+    body.dashboard-v0981 .dashboard-mobile-sidebar-toggle > span:last-child { font-size: 11px; }
+    .mobile-study-nav { right: 6px; bottom: max(6px, env(safe-area-inset-bottom)); left: 6px; }
+}
