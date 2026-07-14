@@ -372,6 +372,68 @@ def load_plan_to_session(user_id):
 
     load_subject_progress_to_session(user_id, plan["subject"])
 
+
+
+def ensure_legacy_google_plan(user_id):
+    """Make an existing Google account immediately usable.
+
+    Early EasyNMT builds could create a Google user before ``user_plans`` existed,
+    or leave a partially filled plan after an interrupted onboarding flow. Such an
+    account is already registered and must go straight to the dashboard on the next
+    Google login. Brand-new Google users are handled separately and still complete
+    onboarding once.
+    """
+    conn = get_db_connection()
+    try:
+        progress_row = conn.execute(
+            """
+            SELECT subject
+            FROM user_subject_progress
+            WHERE user_id = ?
+            ORDER BY updated_at DESC
+            LIMIT 1
+            """,
+            (user_id,),
+        ).fetchone()
+        fallback_subject = (
+            progress_row["subject"]
+            if progress_row and progress_row["subject"]
+            else "math"
+        )
+
+        plan = conn.execute(
+            "SELECT * FROM user_plans WHERE user_id = ?", (user_id,)
+        ).fetchone()
+
+        if plan is None:
+            conn.execute(
+                """
+                INSERT INTO user_plans
+                    (user_id, goal, subject, time_left, progress, xp, streak, diagnostic_required)
+                VALUES (?, '170', ?, '3-plus', 0, 0, 1, 0)
+                """,
+                (user_id, fallback_subject),
+            )
+        else:
+            # Fill only missing legacy values. Existing choices and progress remain intact.
+            conn.execute(
+                """
+                UPDATE user_plans
+                SET goal = COALESCE(NULLIF(goal, ''), '170'),
+                    subject = COALESCE(NULLIF(subject, ''), ?),
+                    time_left = COALESCE(NULLIF(time_left, ''), '3-plus'),
+                    progress = COALESCE(progress, 0),
+                    xp = COALESCE(xp, 0),
+                    streak = COALESCE(streak, 1),
+                    diagnostic_required = 0
+                WHERE user_id = ?
+                """,
+                (fallback_subject, user_id),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
 def save_plan_to_db():
     user_id = session.get("user_id")
     if not user_id:
@@ -1695,6 +1757,8 @@ def google_callback():
             (google_sub, email),
         ).fetchone()
 
+        is_new_google_user = user is None
+
         if user is None:
             cursor = conn.execute(
                 """
@@ -1728,6 +1792,9 @@ def google_callback():
         return redirect(url_for("login"))
     finally:
         conn.close()
+
+    if not is_new_google_user:
+        ensure_legacy_google_plan(user["id"])
 
     login_user(user)
     session["user_avatar"] = avatar_url

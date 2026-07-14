@@ -16,6 +16,9 @@
             <button type="submit">Зберегти</button>
         </form>
     </div><br>
-    <a href="/dashboard"><button class="secondary-action">Назад</button></a>
+    <div class="settings-actions">
+        <a href="/dashboard"><button class="secondary-action">Назад</button></a>
+        <a href="{{ url_for('logout') }}" class="settings-logout-link"><button type="button" class="settings-logout-button">Вийти з акаунта</button></a>
+    </div>
 </div>
 {% endblock %}

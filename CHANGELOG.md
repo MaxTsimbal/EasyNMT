@@ -1,3 +1,11 @@
+
+## v0.9.9.9 — Account and universal menu patch
+
+- Cabinet sidebar is reused on all authenticated application sections.
+- Profile settings include a visible sign-out action.
+- Existing Google accounts with missing or partial legacy plans are repaired safely and sent directly to the dashboard.
+- Brand-new Google accounts still complete onboarding once.
+
 # EasyNMT v0.9.9.9
 
 - Зафіксовано останню стабільну демо-збірку перед v1.0 Beta.

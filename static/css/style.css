@@ -8035,3 +8035,91 @@ body.dashboard-v0981 .dashboard-clean-hero-visual img {
         font-size: 12px;
     }
 }
+
+/* v0.9.9.9 final account and universal cabinet menu fixes */
+.settings-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+}
+.settings-actions > a { text-decoration: none; }
+.settings-logout-button {
+    background: rgba(239, 68, 68, .1) !important;
+    border: 1px solid rgba(248, 113, 113, .38) !important;
+    color: #fecaca !important;
+    box-shadow: none !important;
+}
+.settings-logout-button:hover {
+    background: rgba(239, 68, 68, .18) !important;
+    border-color: rgba(248, 113, 113, .6) !important;
+}
+
+@media (max-width: 920px) {
+    body.dashboard-sidebar-open { overflow: hidden; }
+    .universal-app-sidebar {
+        position: fixed !important;
+        z-index: 6200 !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: min(86vw, 330px) !important;
+        height: 100dvh !important;
+        padding: calc(88px + env(safe-area-inset-top)) 16px 24px !important;
+        transform: translateX(-105%) !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        border-right: 1px solid rgba(167,139,250,.22) !important;
+        background: rgba(7,10,28,.98) !important;
+        box-shadow: 28px 0 80px rgba(0,0,0,.5) !important;
+        transition: transform .24s ease !important;
+    }
+    .universal-app-sidebar.open { transform: translateX(0) !important; }
+    .universal-sidebar-overlay {
+        position: fixed !important;
+        z-index: 6100 !important;
+        inset: 0 !important;
+        display: block !important;
+        opacity: 0;
+        visibility: hidden;
+        background: rgba(2,4,14,.72);
+        backdrop-filter: blur(5px);
+        transition: opacity .2s ease, visibility .2s ease;
+    }
+    .universal-sidebar-overlay.visible {
+        opacity: 1;
+        visibility: visible;
+    }
+    body.dashboard-sidebar-open .site-header { z-index: 6300 !important; }
+    .universal-app-sidebar .dashboard-sidebar-inner { height: 100%; overflow-y: auto; }
+    .universal-app-sidebar .dashboard-clean-user { margin-bottom: 14px; }
+    .universal-app-sidebar .dashboard-clean-nav { display: grid; gap: 6px; }
+    .universal-app-sidebar .dashboard-nav-link {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-height: 48px;
+        padding: 0 13px;
+        border-radius: 14px;
+        color: #cbd5e1;
+    }
+    .universal-app-sidebar .dashboard-nav-link.active,
+    .universal-app-sidebar .dashboard-nav-link:hover {
+        color: #fff;
+        background: linear-gradient(145deg, rgba(124,58,237,.34), rgba(37,99,235,.18));
+    }
+    .universal-app-sidebar .dashboard-nav-link > span {
+        display: grid;
+        width: 32px;
+        height: 32px;
+        place-items: center;
+        border-radius: 10px;
+        background: rgba(255,255,255,.045);
+    }
+    .settings-actions { display: grid; grid-template-columns: 1fr; }
+    .settings-actions button { width: 100%; }
+}
+
+@media (min-width: 921px) {
+    .universal-app-sidebar,
+    .universal-sidebar-overlay { display: none !important; }
+}

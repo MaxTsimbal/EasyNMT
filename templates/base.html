@@ -53,6 +53,40 @@
         <div class="mobile-navigation-backdrop" id="mobileNavigationBackdrop" aria-hidden="true"></div>
     </div>
 </header>
+{% if is_logged_in and has_plan and request.endpoint != 'dashboard' %}
+<div class="dashboard-sidebar-overlay universal-sidebar-overlay" id="dashboardSidebarOverlay" aria-hidden="true"></div>
+<aside class="dashboard-sidebar dashboard-clean-sidebar universal-app-sidebar" id="dashboardSidebar" aria-label="Навігація кабінету">
+    <div class="dashboard-sidebar-inner">
+        <div class="dashboard-user dashboard-clean-user">
+            <span class="dashboard-avatar">{{ (session.get('user_name') or 'E')[0]|upper }}</span>
+            <span class="dashboard-user-copy">
+                <b class="dashboard-user-name">{{ session.get('user_name') or 'Учень' }}</b>
+                <small class="dashboard-user-level">Твій кабінет</small>
+            </span>
+        </div>
+        <div class="dashboard-sidebar-section">
+            <span class="dashboard-sidebar-label">Навчання</span>
+            <nav class="dashboard-nav dashboard-clean-nav" aria-label="Навчальні розділи">
+                <a class="dashboard-nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}"><span>⌂</span><b>Огляд</b></a>
+                <a class="dashboard-nav-link {% if request.endpoint == 'today' %}active{% endif %}" href="{{ url_for('today') }}"><span>◷</span><b>Сьогодні</b></a>
+                <a class="dashboard-nav-link {% if request.endpoint in ['library','lesson','quiz','result'] %}active{% endif %}" href="{{ url_for('library') }}"><span>▤</span><b>Уроки</b></a>
+                <a class="dashboard-nav-link {% if request.endpoint == 'progress_page' %}active{% endif %}" href="{{ url_for('progress_page') }}"><span>↗</span><b>Прогрес</b></a>
+                <a class="dashboard-nav-link {% if request.endpoint == 'mistakes' %}active{% endif %}" href="{{ url_for('mistakes') }}"><span>↻</span><b>Помилки</b></a>
+                <a class="dashboard-nav-link {% if request.endpoint == 'tutor' %}active{% endif %}" href="{{ url_for('tutor') }}"><span>✦</span><b>Чат з Easy</b></a>
+            </nav>
+        </div>
+        <div class="dashboard-sidebar-section dashboard-sidebar-secondary">
+            <span class="dashboard-sidebar-label">Ще</span>
+            <nav class="dashboard-nav dashboard-clean-nav" aria-label="Інші розділи">
+                <a class="dashboard-nav-link {% if request.endpoint == 'planner' %}active{% endif %}" href="{{ url_for('planner') }}"><span>□</span><b>Планер</b></a>
+                <a class="dashboard-nav-link {% if request.endpoint == 'achievements_page' %}active{% endif %}" href="{{ url_for('achievements_page') }}"><span>☆</span><b>Досягнення</b></a>
+                <a class="dashboard-nav-link {% if request.endpoint == 'profile' %}active{% endif %}" href="{{ url_for('profile') }}"><span>○</span><b>Профіль</b></a>
+                <a class="dashboard-nav-link {% if request.endpoint == 'settings' %}active{% endif %}" href="{{ url_for('settings') }}"><span>⚙</span><b>Налаштування</b></a>
+            </nav>
+        </div>
+    </div>
+</aside>
+{% endif %}
 {% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}<div class="flash-stack">{% for category, message in messages %}<div class="flash-message flash-{{ category }}">{{ message }}</div>{% endfor %}</div>{% endif %}{% endwith %}
 <main id="main-content" class="main-content">{% block content %}{% endblock %}</main>
 <footer class="site-footer"><div class="container footer-links"><a href="{{ url_for('about') }}">Про EasyNMT</a><a href="{{ url_for('pricing') }}">Тарифи</a><a href="{{ url_for('privacy') }}">Конфіденційність</a></div><div class="container footer-bottom"><p>© <span id="currentYear">2026</span> EasyNMT. Усі права захищено.</p><p>Навчальна система ✦ v0.9.9.9</p></div></footer>

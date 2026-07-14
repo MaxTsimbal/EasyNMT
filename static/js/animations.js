@@ -206,7 +206,7 @@ document.addEventListener("DOMContentLoaded", () => {
         openMobileMenu();
     };
 
-    if (mobileMenuButton && mainNavigation && !body.classList.contains("dashboard-app")) {
+    if (mobileMenuButton && mainNavigation && !body.classList.contains("dashboard-app") && !document.getElementById("dashboardSidebar")) {
         const mobileNavigationBackdrop = document.getElementById("mobileNavigationBackdrop");
 
         mobileMenuButton.addEventListener("click", toggleMobileMenu);
@@ -1242,7 +1242,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const body = document.body;
     const headerToggle = document.getElementById("mobileMenuButton");
     const legacyToggle = document.getElementById("dashboardSidebarToggle");
-    const toggle = body.classList.contains("dashboard-app") ? (headerToggle || legacyToggle) : legacyToggle;
+    const toggle = headerToggle || legacyToggle;
     const sidebar = document.getElementById("dashboardSidebar");
     const overlay = document.getElementById("dashboardSidebarOverlay");
 
