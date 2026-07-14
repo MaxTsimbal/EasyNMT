@@ -207,7 +207,15 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     if (mobileMenuButton && mainNavigation && !body.classList.contains("dashboard-app")) {
+        const mobileNavigationBackdrop = document.getElementById("mobileNavigationBackdrop");
+
         mobileMenuButton.addEventListener("click", toggleMobileMenu);
+
+        if (mobileNavigationBackdrop) {
+            mobileNavigationBackdrop.addEventListener("click", () => {
+                closeMobileMenu({ returnFocus: false });
+            });
+        }
 
         mainNavigation.addEventListener("click", (event) => {
             const clickedLink = event.target.closest("a");

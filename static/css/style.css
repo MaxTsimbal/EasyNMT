@@ -7764,3 +7764,151 @@ body.easy-chat-v6 .easy-composer-box {
         padding-bottom: 178px;
     }
 }
+
+/* EasyNMT v0.9.9.9 final mobile menu and robot speech polish */
+.mobile-navigation-backdrop {
+    display: none;
+}
+
+@media (max-width: 920px) {
+    body:not(.dashboard-app) .mobile-navigation-backdrop {
+        position: fixed;
+        inset: var(--header-height) 0 0;
+        z-index: 9940;
+        display: block;
+        background: rgba(3, 5, 18, .62);
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: opacity .2s ease, visibility .2s ease;
+    }
+
+    body:not(.dashboard-app).menu-open .mobile-navigation-backdrop {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+    }
+
+    body:not(.dashboard-app) .main-navigation {
+        z-index: 9950 !important;
+        top: calc(var(--header-height) + 12px) !important;
+        right: 18px !important;
+        left: 18px !important;
+        display: grid !important;
+        max-height: calc(100dvh - var(--header-height) - 32px) !important;
+        padding: 18px !important;
+        gap: 16px !important;
+        border: 1px solid rgba(196, 181, 253, .25) !important;
+        border-radius: 24px !important;
+        background: linear-gradient(160deg, rgba(14,18,42,.985), rgba(8,11,29,.985)) !important;
+        box-shadow: 0 28px 90px rgba(0,0,0,.52), inset 0 1px 0 rgba(255,255,255,.08) !important;
+        backdrop-filter: blur(28px) saturate(145%) !important;
+        -webkit-backdrop-filter: blur(28px) saturate(145%) !important;
+    }
+
+    body:not(.dashboard-app) .main-navigation.open {
+        opacity: 1 !important;
+        visibility: visible !important;
+        transform: translateY(0) scale(1) !important;
+    }
+
+    body:not(.dashboard-app) .navigation-links,
+    body:not(.dashboard-app) .navigation-actions {
+        display: grid !important;
+        gap: 9px !important;
+    }
+
+    body:not(.dashboard-app) .navigation-link,
+    body:not(.dashboard-app) .navigation-actions .button {
+        width: 100% !important;
+        min-height: 54px !important;
+        padding: 0 18px !important;
+        justify-content: flex-start !important;
+        border-radius: 17px !important;
+        font-size: 16px !important;
+    }
+
+    body:not(.dashboard-app) .navigation-link {
+        display: flex !important;
+        align-items: center !important;
+        color: #e5e7eb !important;
+        border: 1px solid transparent !important;
+    }
+
+    body:not(.dashboard-app) .navigation-link:hover,
+    body:not(.dashboard-app) .navigation-link:focus-visible {
+        border-color: rgba(167,139,250,.24) !important;
+        background: rgba(124,58,237,.10) !important;
+    }
+
+    body:not(.dashboard-app) .navigation-actions .button-ghost {
+        border-color: rgba(148,163,184,.18) !important;
+        background: rgba(255,255,255,.035) !important;
+    }
+
+    body:not(.dashboard-app) .navigation-actions .button-primary {
+        justify-content: center !important;
+    }
+
+    body.menu-open {
+        overflow: hidden !important;
+    }
+}
+
+.dashboard-robot-speech {
+    position: absolute;
+    z-index: 3;
+    right: -2px;
+    top: 46%;
+    width: min(245px, 88%);
+    padding: 12px 15px;
+    border: 1px solid rgba(196,181,253,.28);
+    border-radius: 17px;
+    background: rgba(8,12,30,.94);
+    color: #eef2ff;
+    box-shadow: 0 16px 46px rgba(0,0,0,.34), 0 0 28px rgba(124,58,237,.10);
+    font-size: 12px;
+    line-height: 1.45;
+    text-align: center;
+    animation: easySpeechFloat 4.5s ease-in-out infinite;
+}
+
+.dashboard-robot-speech::before {
+    content: "";
+    position: absolute;
+    right: 25px;
+    top: -9px;
+    width: 17px;
+    height: 17px;
+    border-top: 1px solid rgba(196,181,253,.28);
+    border-left: 1px solid rgba(196,181,253,.28);
+    background: rgba(8,12,30,.96);
+    transform: rotate(45deg);
+}
+
+@keyframes easySpeechFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+}
+
+@media (max-width: 760px) {
+    body.dashboard-v0981 .dashboard-clean-hero-visual {
+        position: relative;
+        padding-bottom: 72px;
+    }
+
+    .dashboard-robot-speech {
+        right: 8px;
+        top: auto;
+        bottom: 20px;
+        width: min(250px, calc(100% - 24px));
+        font-size: 12px;
+    }
+
+    .dashboard-robot-speech::before {
+        right: 34px;
+        top: -9px;
+    }
+}
