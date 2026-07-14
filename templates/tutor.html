@@ -1,200 +1,156 @@
 {% extends "base.html" %}
 
 {% block title %}Easy — AI-репетитор | EasyNMT{% endblock %}
-{% block body_class %}tutor-chat-page{% endblock %}
+{% block body_class %}tutor-chat-page easy-chat-v6{% endblock %}
 
 {% set tutor_action = url_for('tutor', context='lesson', lesson_id=lesson.id) if lesson_context and lesson else url_for('tutor') %}
 {% set close_url = url_for('lesson', lesson_id=lesson.id) if lesson_context and lesson else url_for('dashboard') %}
 
 {% block content %}
-<div class="ai-chat-shell" data-ai-mode="{{ ai_mode }}" data-lesson-context="{{ 'true' if lesson_context else 'false' }}">
-    <aside class="ai-chat-sidebar" id="chatSidebar" aria-label="Історія розмов">
-        <div class="ai-chat-sidebar-head">
-            <a href="{{ url_for('dashboard') }}" class="ai-chat-brand" aria-label="Повернутися в кабінет">
+<div class="easy-chat-app" data-ai-mode="{{ ai_mode }}" data-lesson-context="{{ 'true' if lesson_context else 'false' }}">
+    <aside class="easy-chat-sidebar" id="chatSidebar" aria-label="Історія розмов">
+        <div class="easy-sidebar-top">
+            <a class="easy-sidebar-brand" href="{{ url_for('dashboard') }}" aria-label="EasyNMT">
                 <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
                 <span>EasyNMT</span>
             </a>
-            <button class="ai-icon-button ai-sidebar-close" id="chatSidebarClose" type="button" aria-label="Закрити історію">×</button>
+            <button class="easy-sidebar-close" id="chatSidebarClose" type="button" aria-label="Закрити меню">×</button>
         </div>
 
-        <form method="GET" action="{{ url_for('tutor') }}">
-            <button class="ai-new-chat" type="submit">
-                <span class="ai-new-chat-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
+        <form method="GET" action="{{ url_for('tutor') }}" class="easy-new-chat-form">
+            <button class="easy-new-chat" type="submit">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
                 <span>Нова розмова</span>
             </button>
         </form>
 
-        <div class="ai-chat-history">
-            <p class="ai-history-label">Сьогодні</p>
-            <button class="ai-history-item is-active" type="button">
-                {% if lesson_context and lesson %}
-                <span>Тема «{{ lesson.title }}»</span>
-                <small>Контекст уроку підключено</small>
-                {% else %}
-                <span>Загальна розмова</span>
-                <small>Без прив’язки до уроку</small>
-                {% endif %}
-            </button>
+        <div class="easy-history-list">
+            <div class="easy-history-group">
+                <div class="easy-history-title">Сьогодні</div>
+                <button class="easy-history-row active" type="button">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5v7A2.5 2.5 0 0 1 16.5 16H10l-4.5 3v-5A2.5 2.5 0 0 1 5 12.5z"/></svg>
+                    <span>{% if lesson_context and lesson %}{{ lesson.title }}{% else %}Загальна розмова{% endif %}</span>
+                </button>
+            </div>
 
-            <p class="ai-history-label">Швидкий доступ</p>
-            <form method="POST" action="{{ tutor_action }}">
-                <input type="hidden" name="question" value="{% if lesson_context %}Поясни цю тему з самого початку простими словами{% else %}Поясни простими словами тему, яку я зараз напишу{% endif %}">
-                <button class="ai-history-item" type="submit"><span>Пояснення з нуля</span></button>
-            </form>
-            <form method="POST" action="{{ tutor_action }}">
-                <input type="hidden" name="question" value="{% if lesson_context %}Дай простий приклад до цієї теми й розв’яжи його крок за кроком{% else %}Дай простий приклад до мого питання й поясни кожен крок{% endif %}">
-                <button class="ai-history-item" type="submit"><span>Приклад із поясненням</span></button>
-            </form>
-            <form method="POST" action="{{ tutor_action }}">
-                <input type="hidden" name="question" value="{% if lesson_context %}Які помилки найчастіше роблять у цій темі?{% else %}Допоможи знайти помилку в моєму розв’язанні або відповіді{% endif %}">
-                <button class="ai-history-item" type="submit"><span>Знайти помилку</span></button>
-            </form>
+            <div class="easy-history-group">
+                <div class="easy-history-title">Швидкі дії</div>
+                <form method="POST" action="{{ tutor_action }}">
+                    <input type="hidden" name="question" value="{% if lesson_context %}Поясни цю тему з самого початку простими словами{% else %}Поясни простими словами тему, яку я зараз напишу{% endif %}">
+                    <button class="easy-history-row" type="submit"><span>Поясни з нуля</span></button>
+                </form>
+                <form method="POST" action="{{ tutor_action }}">
+                    <input type="hidden" name="question" value="{% if lesson_context %}Дай простий приклад до цієї теми й розв’яжи його крок за кроком{% else %}Дай простий приклад до мого питання й поясни кожен крок{% endif %}">
+                    <button class="easy-history-row" type="submit"><span>Покажи приклад</span></button>
+                </form>
+                <form method="POST" action="{{ tutor_action }}">
+                    <input type="hidden" name="question" value="{% if lesson_context %}Які помилки найчастіше роблять у цій темі?{% else %}Допоможи знайти помилку в моєму розв’язанні або відповіді{% endif %}">
+                    <button class="easy-history-row" type="submit"><span>Знайди помилку</span></button>
+                </form>
+            </div>
         </div>
 
-        <div class="ai-sidebar-footer">
-            <div class="ai-status-card">
-                <span class="ai-status-dot {{ ai_mode }}"></span>
+        <div class="easy-sidebar-bottom">
+            <div class="easy-ai-status">
+                <span class="easy-status-dot {{ ai_mode }}"></span>
                 <div>
-                    <strong>{% if ai_mode == "openai" %}AI підключено{% elif ai_mode == "limit" %}Ліміт вичерпано{% else %}Демо-режим{% endif %}</strong>
+                    <strong>{% if ai_mode == 'openai' %}Easy онлайн{% elif ai_mode == 'limit' %}Ліміт вичерпано{% else %}Демо-режим{% endif %}</strong>
                     <small>{{ ai_used }}/{{ ai_limit }} запитів сьогодні</small>
                 </div>
             </div>
-            {% if lesson_context and lesson %}
-            <a href="{{ url_for('lesson', lesson_id=lesson.id) }}" class="ai-sidebar-link">← Повернутися до уроку</a>
-            {% else %}
-            <a href="{{ url_for('dashboard') }}" class="ai-sidebar-link">← Повернутися в кабінет</a>
-            {% endif %}
+            <a href="{{ close_url }}" class="easy-back-link">← {% if lesson_context %}Повернутися до уроку{% else %}Повернутися в кабінет{% endif %}</a>
         </div>
     </aside>
 
-    <div class="ai-chat-overlay" id="chatSidebarOverlay"></div>
+    <div class="easy-chat-overlay" id="chatSidebarOverlay"></div>
 
-    <section class="ai-chat-main">
-        <header class="ai-chat-topbar">
-            <div class="ai-chat-topbar-left">
-                <button class="ai-icon-button ai-sidebar-open" id="chatSidebarOpen" type="button" aria-label="Відкрити історію">
+    <main class="easy-chat-main">
+        <header class="easy-chat-header">
+            <div class="easy-chat-header-left">
+                <button class="easy-menu-button" id="chatSidebarOpen" type="button" aria-label="Відкрити історію">
                     <span></span><span></span><span></span>
                 </button>
-                <div>
-                    <strong>Easy</strong>
-                    {% if lesson_context and lesson %}
-                    <small>Працюємо з темою: {{ lesson.title }}</small>
-                    {% else %}
-                    <small>Запитай будь-що</small>
-                    {% endif %}
-                </div>
+                <button class="easy-model-button" type="button" aria-label="Поточний режим">
+                    <span>Easy</span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 10 4 4 4-4"/></svg>
+                </button>
             </div>
-            <div class="ai-topbar-actions">
-                {% if lesson_context %}<span class="ai-context-pill">Урок</span>{% endif %}
-                <span class="ai-mode-pill {{ ai_mode }}">
-                    {% if ai_mode == "openai" %}Онлайн{% elif ai_mode == "limit" %}Ліміт{% else %}Демо{% endif %}
-                </span>
-                <a href="{{ close_url }}" class="ai-icon-button ai-close-chat" aria-label="Закрити чат">×</a>
+            <div class="easy-chat-header-right">
+                {% if lesson_context and lesson %}<span class="easy-context-label">{{ lesson.title }}</span>{% endif %}
+                <span class="easy-mode-label {{ ai_mode }}">{% if ai_mode == 'openai' %}Онлайн{% elif ai_mode == 'limit' %}Ліміт{% else %}Демо{% endif %}</span>
+                <a href="{{ close_url }}" class="easy-close-button" aria-label="Закрити чат">×</a>
             </div>
         </header>
 
-        <div class="ai-chat-scroll" id="chatScroll">
-            <div class="ai-chat-thread">
+        <section class="easy-conversation" id="chatScroll">
+            <div class="easy-conversation-inner">
                 {% if not question and not answer %}
-                <section class="ai-empty-state">
-                    <div class="ai-empty-logo" aria-hidden="true">
-                        <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
-                    </div>
-                    <h1>Запитай будь-що</h1>
+                <section class="easy-welcome">
+                    <div class="easy-welcome-logo"><img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt=""></div>
+                    <h1>Чим можу допомогти?</h1>
                     {% if lesson_context and lesson %}
-                    <p>Easy бачить тему «{{ lesson.title }}» лише під час цього заняття.</p>
+                    <p>Контекст уроку «{{ lesson.title }}» підключено тільки на час цього заняття.</p>
                     {% else %}
-                    <p>Поясню тему, розберу приклад або допоможу знайти помилку.</p>
+                    <p>Запитай про тему, приклад, правило або свою помилку.</p>
                     {% endif %}
-
-                    <div class="ai-starter-grid">
-                        <form method="POST" action="{{ tutor_action }}">
-                            <input type="hidden" name="question" value="{% if lesson_context %}Поясни цю тему з самого початку так, ніби я бачу її вперше{% else %}Поясни простими словами тему, яку я зараз напишу{% endif %}">
-                            <button type="submit" class="ai-starter-card">
-                                <span class="ai-starter-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 4 4 8l8 4 8-4-8-4Zm0 8-8-4v8l8 4 8-4V8l-8 4Z"/></svg></span>
-                                <strong>З нуля</strong>
-                            </button>
-                        </form>
-                        <form method="POST" action="{{ tutor_action }}">
-                            <input type="hidden" name="question" value="{% if lesson_context %}Покажи простий приклад до цієї теми й поясни кожен крок{% else %}Покажи простий приклад до мого питання й поясни кожен крок{% endif %}">
-                            <button type="submit" class="ai-starter-card">
-                                <span class="ai-starter-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 19.5h14M7.5 15.5l8-8a1.4 1.4 0 0 1 2 2l-8 8-3.5 1 1-3.5Z"/></svg></span>
-                                <strong>Приклад</strong>
-                            </button>
-                        </form>
-                        <form method="POST" action="{{ tutor_action }}">
-                            <input type="hidden" name="question" value="Поясни, як це може трапитися на НМТ">
-                            <button type="submit" class="ai-starter-card">
-                                <span class="ai-starter-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="M12 4v2M20 12h-2M12 20v-2M4 12h2"/></svg></span>
-                                <strong>НМТ</strong>
-                            </button>
-                        </form>
-                        <form method="POST" action="{{ tutor_action }}">
-                            <input type="hidden" name="question" value="Дай одну коротку задачу або вправу для тренування">
-                            <button type="submit" class="ai-starter-card">
-                                <span class="ai-starter-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 5h10M7 9h10M7 13h6M6 3.5h12A1.5 1.5 0 0 1 19.5 5v14A1.5 1.5 0 0 1 18 20.5H6A1.5 1.5 0 0 1 4.5 19V5A1.5 1.5 0 0 1 6 3.5Z"/></svg></span>
-                                <strong>Задача</strong>
-                            </button>
-                        </form>
-                    </div>
                 </section>
                 {% endif %}
 
                 {% if question %}
-                <article class="ai-message ai-message-user">
-                    <div class="ai-message-content">{{ question }}</div>
+                <article class="easy-message easy-message-user">
+                    <div class="easy-message-user-bubble">{{ question }}</div>
                 </article>
                 {% endif %}
 
                 {% if answer %}
-                <article class="ai-message ai-message-assistant">
-                    <div class="ai-message-avatar">
-                        <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
-                    </div>
-                    <div class="ai-message-body">
-                        <div class="ai-message-name">Easy</div>
-                        <div class="ai-message-content ai-answer-text">{{ answer }}</div>
-                        <div class="ai-message-tools" aria-label="Дії з відповіддю">
-                            <button type="button" class="ai-tool-button" data-copy-answer title="Скопіювати">⧉</button>
+                <article class="easy-message easy-message-assistant">
+                    <div class="easy-assistant-avatar"><img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt=""></div>
+                    <div class="easy-assistant-content">
+                        <div class="easy-assistant-name">Easy</div>
+                        <div class="easy-answer ai-answer-text">{{ answer }}</div>
+                        <div class="easy-answer-actions">
+                            <button type="button" data-copy-answer title="Скопіювати" class="easy-answer-icon">⧉</button>
                             <form method="POST" action="{{ tutor_action }}">
                                 <input type="hidden" name="question" value="Поясни попередню відповідь ще простіше">
-                                <button type="submit" class="ai-tool-text">Поясни простіше</button>
+                                <button type="submit">Поясни простіше</button>
                             </form>
                             <form method="POST" action="{{ tutor_action }}">
                                 <input type="hidden" name="question" value="Покажи це на простому прикладі крок за кроком">
-                                <button type="submit" class="ai-tool-text">Дай приклад</button>
+                                <button type="submit">Дай приклад</button>
                             </form>
                         </div>
                     </div>
                 </article>
                 {% endif %}
             </div>
-        </div>
+        </section>
 
-        <div class="ai-composer-wrap">
-            <form method="POST" action="{{ tutor_action }}" class="ai-composer" id="aiComposer">
-                <div class="ai-composer-input-row">
-                    <button class="ai-attach-button" type="button" aria-label="Додати файл" title="Додавання фото запрацює після підключення аналізу файлів">＋</button>
-                    <textarea
-                        id="aiQuestion"
-                        name="question"
-                        maxlength="1500"
-                        rows="1"
-                        placeholder="Запитай будь-що..."
-                        aria-label="Твоє питання"
-                    ></textarea>
-                    <button class="ai-send-button" id="aiSendButton" type="submit" aria-label="Надіслати питання" disabled>↑</button>
+        <section class="easy-composer-zone">
+            {% if not question and not answer %}
+            <div class="easy-suggestions" aria-label="Швидкі запити">
+                <form method="POST" action="{{ tutor_action }}"><input type="hidden" name="question" value="{% if lesson_context %}Поясни цю тему з самого початку простими словами{% else %}Поясни простими словами тему, яку я зараз напишу{% endif %}"><button type="submit">Поясни з нуля</button></form>
+                <form method="POST" action="{{ tutor_action }}"><input type="hidden" name="question" value="{% if lesson_context %}Покажи простий приклад до цієї теми й поясни кожен крок{% else %}Покажи простий приклад до мого питання й поясни кожен крок{% endif %}"><button type="submit">Дай приклад</button></form>
+                <form method="POST" action="{{ tutor_action }}"><input type="hidden" name="question" value="Поясни, як це може трапитися на НМТ"><button type="submit">Як це буде на НМТ?</button></form>
+                <form method="POST" action="{{ tutor_action }}"><input type="hidden" name="question" value="Дай одну коротку задачу або вправу для тренування"><button type="submit">Дай задачу</button></form>
+            </div>
+            {% endif %}
+
+            <form method="POST" action="{{ tutor_action }}" class="easy-composer" id="aiComposer">
+                <div class="easy-composer-box">
+                    <textarea id="aiQuestion" name="question" maxlength="1500" rows="1" placeholder="Напиши повідомлення для Easy" aria-label="Твоє питання"></textarea>
+                    <div class="easy-composer-controls">
+                        <button class="easy-attach" type="button" aria-label="Додати файл" title="Фото й файли з’являться після підключення аналізу">＋</button>
+                        <span class="easy-composer-spacer"></span>
+                        <button class="easy-send" id="aiSendButton" type="submit" aria-label="Надіслати" disabled>
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6.5 10.5 12 5l5.5 5.5"/></svg>
+                        </button>
+                    </div>
                 </div>
-                <div class="ai-composer-footer">
-                    <span>EasyNMT може помилятися. Перевіряй важливі обчислення.</span>
-                    <span id="aiCharCount">0 / 1500</span>
-                </div>
+                <div class="easy-composer-note"><span>Easy може помилятися. Перевіряй важливі відповіді.</span><span id="aiCharCount">0 / 1500</span></div>
             </form>
-        </div>
-    </section>
+        </section>
+    </main>
 </div>
 {% endblock %}
 
-{% block extra_js %}
-<script src="{{ url_for('static', filename='js/tutor_chat.js') }}" defer></script>
-{% endblock %}
+{% block extra_js %}<script src="{{ url_for('static', filename='js/tutor_chat.js') }}" defer></script>{% endblock %}
