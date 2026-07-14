@@ -8123,3 +8123,73 @@ body.dashboard-v0981 .dashboard-clean-hero-visual img {
     .universal-app-sidebar,
     .universal-sidebar-overlay { display: none !important; }
 }
+
+/* EasyNMT v0.9.9.9 — subject welcome experience */
+body.welcome-experience-page { overflow:hidden; }
+body.welcome-experience-page .site-header,
+body.welcome-experience-page .site-footer,
+body.welcome-experience-page .mobile-app-nav,
+body.welcome-experience-page .scroll-top-button,
+body.welcome-experience-page .page-loader { display:none !important; }
+body.welcome-experience-page .main-content { min-height:100dvh; padding:0; }
+body.welcome-experience-page .cosmic-background { opacity:.85; }
+.welcome-experience {
+    position:relative; z-index:4; display:grid; min-height:100dvh; place-items:center;
+    overflow:hidden; padding:40px 24px; isolation:isolate;
+    background:radial-gradient(circle at 50% 45%, rgba(124,58,237,.18), transparent 34%);
+}
+.welcome-content { position:relative; z-index:3; width:min(760px,100%); text-align:center; }
+.welcome-subject {
+    display:inline-flex; padding:8px 14px; border:1px solid rgba(196,181,253,.26);
+    border-radius:999px; color:#d8ccff; background:rgba(124,58,237,.08);
+    font-size:12px; font-weight:800; letter-spacing:.12em; text-transform:uppercase;
+}
+.welcome-content h1 {
+    margin:22px auto 14px; max-width:820px; color:#fff; font-family:"Space Grotesk",sans-serif;
+    font-size:clamp(54px,8vw,108px); line-height:.94; letter-spacing:-.065em;
+    text-shadow:0 18px 60px rgba(76,29,149,.3);
+}
+.welcome-content p { max-width:620px; margin:0 auto; color:#b9c5db; font-size:clamp(16px,2vw,20px); line-height:1.65; }
+.welcome-start-button {
+    display:inline-flex; align-items:center; justify-content:center; gap:12px; min-width:210px;
+    margin-top:34px; padding:16px 22px; border:1px solid rgba(255,255,255,.18); border-radius:18px;
+    color:#fff; background:linear-gradient(135deg,#7c3aed,#4f46e5); box-shadow:0 18px 50px rgba(79,70,229,.32);
+    font-weight:800; text-decoration:none; transition:transform .18s ease,box-shadow .18s ease,filter .18s ease;
+}
+.welcome-start-button:hover { transform:translateY(-3px); box-shadow:0 24px 62px rgba(79,70,229,.42); filter:brightness(1.06); }
+.welcome-start-button:active { transform:scale(.96); }
+.welcome-start-button svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.welcome-symbol {
+    position:absolute; z-index:1; display:grid; width:min(36vw,420px); aspect-ratio:1; place-items:center;
+    border:1px solid rgba(196,181,253,.14); border-radius:50%; color:rgba(255,255,255,.07);
+    background:radial-gradient(circle,rgba(124,58,237,.17),transparent 68%);
+    font-family:"Space Grotesk",sans-serif; font-size:clamp(150px,24vw,330px); font-weight:700;
+    animation:welcomeFloat 7s ease-in-out infinite;
+}
+.welcome-orbit { position:absolute; inset:0; z-index:0; pointer-events:none; }
+.welcome-orbit-ring { position:absolute; left:50%; top:50%; border:1px solid rgba(167,139,250,.12); border-radius:50%; transform:translate(-50%,-50%) rotate(-12deg); }
+.welcome-orbit-ring.ring-one { width:min(76vw,980px); height:min(42vw,520px); }
+.welcome-orbit-ring.ring-two { width:min(56vw,720px); height:min(30vw,370px); transform:translate(-50%,-50%) rotate(18deg); }
+.welcome-orbit-dot { position:absolute; width:8px; height:8px; border-radius:50%; background:#c4b5fd; box-shadow:0 0 24px #8b5cf6; }
+.welcome-orbit-dot.dot-one { left:18%; top:30%; animation:welcomeTwinkle 2.8s ease-in-out infinite; }
+.welcome-orbit-dot.dot-two { right:17%; bottom:28%; animation:welcomeTwinkle 3.4s ease-in-out infinite reverse; }
+.welcome-brand { position:absolute; left:50%; bottom:22px; z-index:3; transform:translateX(-50%); color:#8793aa; font-size:12px; font-weight:700; letter-spacing:.06em; }
+.welcome-brand span { color:#a89bd4; }
+body.welcome-leaving .welcome-experience { animation:welcomeExit .52s ease forwards; }
+body.welcome-leaving { pointer-events:none; }
+.welcome-subject-english .welcome-experience { background:radial-gradient(circle at 50% 45%,rgba(37,99,235,.22),transparent 36%); }
+.welcome-subject-ukrainian .welcome-experience { background:radial-gradient(circle at 50% 45%,rgba(59,130,246,.18),transparent 36%); }
+.welcome-subject-history .welcome-experience { background:radial-gradient(circle at 50% 45%,rgba(180,83,9,.13),transparent 36%); }
+@keyframes welcomeFloat { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-12px) scale(1.015)} }
+@keyframes welcomeTwinkle { 0%,100%{opacity:.35;transform:scale(.8)} 50%{opacity:1;transform:scale(1.35)} }
+@keyframes welcomeExit { to{opacity:0;transform:scale(1.025);filter:blur(8px)} }
+@media(max-width:640px){
+    .welcome-experience{padding:28px 18px 72px;align-items:center}
+    .welcome-content h1{font-size:clamp(48px,15vw,72px);line-height:.98}
+    .welcome-content p{font-size:15px;max-width:340px}
+    .welcome-start-button{width:min(100%,320px);margin-top:28px}
+    .welcome-symbol{width:86vw;font-size:54vw}
+    .welcome-orbit-ring.ring-one{width:128vw;height:74vw}
+    .welcome-orbit-ring.ring-two{width:100vw;height:58vw}
+}
+@media(prefers-reduced-motion:reduce){.welcome-symbol,.welcome-orbit-dot{animation:none}.welcome-start-button{transition:none}}

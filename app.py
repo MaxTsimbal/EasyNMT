@@ -531,7 +531,7 @@ def redirect_after_auth():
     if onboarding_complete():
         if diagnostic_is_required() and not diagnostic_complete():
             return redirect(url_for("diagnostic"))
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("welcome"))
 
     return redirect(url_for("goal"))
 
@@ -1971,6 +1971,73 @@ def pricing():
 @app.route("/privacy")
 def privacy():
     return render_template("privacy.html", is_logged_in=is_logged_in())
+
+
+WELCOME_EXPERIENCE = {
+    "math": {
+        "name": "Математика",
+        "headline": "Кожна задача має розв’язання.",
+        "messages": [
+            "Сьогодні ще один крок до впевнених відповідей.",
+            "Не поспішай. Точність починається з одного правильного кроку.",
+            "Складне стає простішим, коли розібрати його по частинах.",
+        ],
+        "symbol": "∑",
+    },
+    "english": {
+        "name": "English",
+        "headline": "Let’s do it.",
+        "messages": [
+            "One lesson closer to your goal.",
+            "Practice makes progress.",
+            "Every word counts.",
+        ],
+        "symbol": "A",
+    },
+    "ukrainian": {
+        "name": "Українська мова",
+        "headline": "Мова відкриває можливості.",
+        "messages": [
+            "Одне правило сьогодні — більше впевненості на НМТ.",
+            "Уважність до слова перетворюється на правильну відповідь.",
+            "Рухайся крок за кроком. Ти вже ближче до своєї цілі.",
+        ],
+        "symbol": "Ї",
+    },
+    "history": {
+        "name": "Історія України",
+        "headline": "Минуле допомагає будувати майбутнє.",
+        "messages": [
+            "Сьогодні зв’яжемо події, причини та наслідки.",
+            "Ще одна тема — і карта історії стає зрозумілішою.",
+            "Не просто запам’ятовуй. Зрозумій, чому це сталося.",
+        ],
+        "symbol": "✦",
+    },
+}
+
+@app.route("/welcome")
+@require_login
+def welcome():
+    if not onboarding_complete():
+        return redirect(url_for("goal"))
+    if diagnostic_is_required() and not diagnostic_complete():
+        return redirect(url_for("diagnostic"))
+
+    subject_key = session.get("subject", "math")
+    experience = WELCOME_EXPERIENCE.get(subject_key, WELCOME_EXPERIENCE["math"])
+    message = random.choice(experience["messages"])
+    return render_template(
+        "welcome.html",
+        subject_key=subject_key,
+        subject_name=experience["name"],
+        headline=experience["headline"],
+        welcome_message=message,
+        subject_symbol=experience["symbol"],
+        user_name=session.get("user_name", "Учень"),
+        is_logged_in=True,
+        has_plan=True,
+    )
 
 
 @app.route("/dashboard")

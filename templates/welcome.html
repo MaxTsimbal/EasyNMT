@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ subject_name }} | EasyNMT{% endblock %}
+{% block body_class %}welcome-experience-page welcome-subject-{{ subject_key }}{% endblock %}
+{% block content %}
+<section class="welcome-experience" aria-labelledby="welcomeTitle">
+    <div class="welcome-orbit" aria-hidden="true">
+        <span class="welcome-orbit-ring ring-one"></span>
+        <span class="welcome-orbit-ring ring-two"></span>
+        <span class="welcome-orbit-dot dot-one"></span>
+        <span class="welcome-orbit-dot dot-two"></span>
+    </div>
+
+    <div class="welcome-symbol" aria-hidden="true">{{ subject_symbol }}</div>
+
+    <div class="welcome-content">
+        <span class="welcome-subject">{{ subject_name }}</span>
+        <h1 id="welcomeTitle">{{ headline }}</h1>
+        <p>{{ welcome_message }}</p>
+
+        <a class="welcome-start-button" id="welcomeStartButton" href="{{ url_for('dashboard') }}">
+            <span>Почнемо</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg>
+        </a>
+    </div>
+
+    <div class="welcome-brand">EasyNMT <span>v0.9.9.9</span></div>
+</section>
+{% endblock %}
+{% block extra_js %}
+<script>
+(() => {
+    const button = document.getElementById('welcomeStartButton');
+    if (!button) return;
+    button.addEventListener('click', (event) => {
+        event.preventDefault();
+        try { sessionStorage.setItem('easynmtWelcomeSeen', '1'); } catch (error) {}
+        document.body.classList.add('welcome-leaving');
+        window.setTimeout(() => { window.location.href = button.href; }, 520);
+    });
+})();
+</script>
+{% endblock %}
