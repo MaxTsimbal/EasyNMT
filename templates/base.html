@@ -111,6 +111,20 @@
 {% endif %}
 <div class="toast-container" id="toastContainer" aria-live="polite"></div>
 <button class="scroll-top-button" id="scrollTopButton" type="button" aria-label="Повернутися нагору"><span>↑</span></button>
+{% if is_logged_in and has_plan and request.endpoint not in ['welcome','goal','subject','date','loader','diagnostic','login','register','logout','google_callback'] %}
+<script>
+(() => {
+    const welcomeKey = 'easynmtWelcomeSeen';
+    try {
+        if (window.sessionStorage.getItem(welcomeKey) !== '1') {
+            window.location.replace('{{ url_for("welcome") }}');
+        }
+    } catch (error) {
+        /* Storage can be blocked in strict privacy mode. Login redirects still show welcome. */
+    }
+})();
+</script>
+{% endif %}
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 <script src="{{ url_for('static', filename='js/animations.js') }}" defer></script>
 {% block extra_js %}{% endblock %}

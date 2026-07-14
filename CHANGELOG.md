@@ -1,3 +1,11 @@
+# EasyNMT v0.9.9.9 — Welcome Experience Reliability
+
+- Welcome screen is now shown after email/Google login and after first page load in a new browser session.
+- The redirect logic was moved from an ignored block in `dashboard.html` to the shared `base.html`.
+- New users see the welcome screen after completing diagnostics.
+- Added responsive subject-specific backgrounds for Mathematics, English, Ukrainian, and History using CSS and inline SVG only.
+- Internal navigation does not reopen the welcome screen in the same browser session.
+
 
 ## v0.9.9.9 — Account and universal menu patch
 

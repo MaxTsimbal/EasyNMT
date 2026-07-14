@@ -1944,7 +1944,7 @@ def diagnostic():
         session["diagnostic_required"] = False
         save_plan_to_db()
         flash("Перевірку завершено. Тепер маршрут підлаштовано під твій рівень.", "success")
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("welcome"))
     return render_template("diagnostic.html", **get_user_data(), questions=questions)
 
 @app.route("/lesson/<int:lesson_id>/ready", methods=["POST"])

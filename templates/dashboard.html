@@ -138,12 +138,3 @@
 
 <a class="dashboard-floating-chat liquid-circle" href="{{ url_for('tutor') }}" aria-label="Відкрити чат з Easy"><span>AI</span></a>
 {% endblock %}
-<script>
-(() => {
-    try {
-        if (!sessionStorage.getItem('easynmtWelcomeSeen')) {
-            window.location.replace('{{ url_for("welcome") }}');
-        }
-    } catch (error) {}
-})();
-</script>

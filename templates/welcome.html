@@ -1,21 +1,73 @@
 {% extends "base.html" %}
 {% block title %}{{ subject_name }} | EasyNMT{% endblock %}
 {% block body_class %}welcome-experience-page welcome-subject-{{ subject_key }}{% endblock %}
+
 {% block content %}
-<section class="welcome-experience" aria-labelledby="welcomeTitle">
-    <div class="welcome-orbit" aria-hidden="true">
-        <span class="welcome-orbit-ring ring-one"></span>
-        <span class="welcome-orbit-ring ring-two"></span>
-        <span class="welcome-orbit-dot dot-one"></span>
-        <span class="welcome-orbit-dot dot-two"></span>
+<section class="welcome-experience" aria-labelledby="welcomeTitle" data-subject="{{ subject_key }}">
+    <div class="welcome-background" aria-hidden="true">
+        <span class="welcome-aurora welcome-aurora-one"></span>
+        <span class="welcome-aurora welcome-aurora-two"></span>
+        <span class="welcome-noise"></span>
+        <span class="welcome-stars welcome-stars-one"></span>
+        <span class="welcome-stars welcome-stars-two"></span>
+
+        {% if subject_key == 'english' %}
+        <div class="welcome-motif welcome-motif-english">
+            <span class="motif-large">A</span>
+            <span class="motif-item motif-one">B2</span>
+            <span class="motif-item motif-two">speak</span>
+            <span class="motif-item motif-three">grow</span>
+            <span class="motif-item motif-four">learn</span>
+            <span class="motif-line motif-line-one"></span>
+            <span class="motif-line motif-line-two"></span>
+        </div>
+        {% elif subject_key == 'ukrainian' %}
+        <div class="welcome-motif welcome-motif-ukrainian">
+            <span class="motif-large">Ї</span>
+            <span class="motif-item motif-one">слово</span>
+            <span class="motif-item motif-two">мова</span>
+            <span class="motif-item motif-three">думка</span>
+            <span class="motif-item motif-four">правило</span>
+            <span class="motif-line motif-line-one"></span>
+            <span class="motif-line motif-line-two"></span>
+        </div>
+        {% elif subject_key == 'history' %}
+        <div class="welcome-motif welcome-motif-history">
+            <span class="motif-large">1648</span>
+            <span class="motif-item motif-one">988</span>
+            <span class="motif-item motif-two">1918</span>
+            <span class="motif-item motif-three">1991</span>
+            <span class="motif-item motif-four">Україна</span>
+            <svg class="history-route" viewBox="0 0 900 520" preserveAspectRatio="none">
+                <path d="M55 390 C170 260, 235 430, 360 285 S580 125, 835 230"/>
+                <circle cx="55" cy="390" r="6"/><circle cx="360" cy="285" r="6"/><circle cx="835" cy="230" r="6"/>
+            </svg>
+        </div>
+        {% else %}
+        <div class="welcome-motif welcome-motif-math">
+            <span class="motif-large">∑</span>
+            <span class="motif-item motif-one">x²</span>
+            <span class="motif-item motif-two">√</span>
+            <span class="motif-item motif-three">π</span>
+            <span class="motif-item motif-four">f(x)</span>
+            <svg class="math-graph" viewBox="0 0 900 520" preserveAspectRatio="none">
+                <path class="axis" d="M50 390 H850 M190 55 V470"/>
+                <path class="curve" d="M65 395 C230 390, 290 85, 455 205 S665 415, 835 115"/>
+            </svg>
+        </div>
+        {% endif %}
     </div>
 
-    <div class="welcome-symbol" aria-hidden="true">{{ subject_symbol }}</div>
+    <a class="welcome-logo" href="{{ url_for('home') }}" aria-label="EasyNMT — головна">
+        <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="" width="42" height="42">
+        <span>Easy<span>NMT</span></span>
+    </a>
 
     <div class="welcome-content">
         <span class="welcome-subject">{{ subject_name }}</span>
+        <p class="welcome-greeting">{{ user_name }}, час зробити ще один крок.</p>
         <h1 id="welcomeTitle">{{ headline }}</h1>
-        <p>{{ welcome_message }}</p>
+        <p class="welcome-message">{{ welcome_message }}</p>
 
         <a class="welcome-start-button" id="welcomeStartButton" href="{{ url_for('dashboard') }}">
             <span>Почнемо</span>
@@ -23,19 +75,33 @@
         </a>
     </div>
 
-    <div class="welcome-brand">EasyNMT <span>v0.9.9.9</span></div>
+    <div class="welcome-hint" aria-hidden="true">
+        <span></span>
+        <small>твій маршрут уже готовий</small>
+    </div>
+
+    <div class="welcome-brand">v0.9.9.9</div>
 </section>
 {% endblock %}
+
 {% block extra_js %}
 <script>
 (() => {
+    const page = document.querySelector('.welcome-experience');
     const button = document.getElementById('welcomeStartButton');
-    if (!button) return;
+    if (!page || !button) return;
+
+    requestAnimationFrame(() => document.body.classList.add('welcome-ready'));
+
     button.addEventListener('click', (event) => {
         event.preventDefault();
-        try { sessionStorage.setItem('easynmtWelcomeSeen', '1'); } catch (error) {}
+        try {
+            window.sessionStorage.setItem('easynmtWelcomeSeen', '1');
+        } catch (error) {}
         document.body.classList.add('welcome-leaving');
-        window.setTimeout(() => { window.location.href = button.href; }, 520);
+        window.setTimeout(() => {
+            window.location.assign(button.href);
+        }, 560);
     });
 })();
 </script>
