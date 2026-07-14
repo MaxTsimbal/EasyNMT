@@ -8615,3 +8615,216 @@ body.welcome-leaving .welcome-experience {
         transition: none;
     }
 }
+
+/* ========================================================================== 
+   EasyNMT global motion system
+   ========================================================================== */
+:root {
+    --easy-transition-duration: 360ms;
+    --easy-transition-ease: cubic-bezier(.22, .78, .22, 1);
+}
+
+body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 99998;
+    pointer-events: none;
+    opacity: 0;
+    background:
+        radial-gradient(circle at 50% 42%, rgba(103, 80, 255, .12), transparent 44%),
+        rgba(5, 7, 18, .12);
+    backdrop-filter: blur(0);
+    transition:
+        opacity var(--easy-transition-duration) ease,
+        backdrop-filter var(--easy-transition-duration) ease;
+}
+
+body.easy-page-enter .site-header,
+body.easy-page-enter #main-content,
+body.easy-page-enter .site-footer,
+body.easy-page-enter .dashboard-sidebar,
+body.easy-page-enter .mobile-app-nav {
+    opacity: 0;
+    will-change: transform, opacity, filter;
+}
+
+body.easy-page-enter-enter .site-header,
+body.easy-page-enter-enter #main-content,
+body.easy-page-enter-enter .site-footer,
+body.easy-page-enter-enter .dashboard-sidebar,
+body.easy-page-enter-enter .mobile-app-nav {
+    transform: translateY(10px) scale(.972);
+    filter: blur(5px);
+}
+
+body.easy-page-enter-exit .site-header,
+body.easy-page-enter-exit #main-content,
+body.easy-page-enter-exit .site-footer,
+body.easy-page-enter-exit .dashboard-sidebar,
+body.easy-page-enter-exit .mobile-app-nav {
+    transform: scale(1.026);
+    filter: blur(5px);
+}
+
+body.easy-page-enter-left .site-header,
+body.easy-page-enter-left #main-content,
+body.easy-page-enter-left .site-footer,
+body.easy-page-enter-left .dashboard-sidebar,
+body.easy-page-enter-left .mobile-app-nav {
+    transform: translateX(34px) scale(.988);
+    filter: blur(3px);
+}
+
+body.easy-page-enter-right .site-header,
+body.easy-page-enter-right #main-content,
+body.easy-page-enter-right .site-footer,
+body.easy-page-enter-right .dashboard-sidebar,
+body.easy-page-enter-right .mobile-app-nav {
+    transform: translateX(-34px) scale(.988);
+    filter: blur(3px);
+}
+
+body.easy-page-enter-soft .site-header,
+body.easy-page-enter-soft #main-content,
+body.easy-page-enter-soft .site-footer,
+body.easy-page-enter-soft .dashboard-sidebar,
+body.easy-page-enter-soft .mobile-app-nav {
+    transform: translateY(5px) scale(.992);
+    filter: blur(2px);
+}
+
+body.easy-page-enter.easy-page-visible .site-header,
+body.easy-page-enter.easy-page-visible #main-content,
+body.easy-page-enter.easy-page-visible .site-footer,
+body.easy-page-enter.easy-page-visible .dashboard-sidebar,
+body.easy-page-enter.easy-page-visible .mobile-app-nav {
+    opacity: 1;
+    transform: none;
+    filter: none;
+    transition:
+        opacity 440ms ease,
+        transform 520ms var(--easy-transition-ease),
+        filter 430ms ease;
+}
+
+body.easy-page-leaving {
+    overflow: hidden;
+}
+
+body.easy-page-leaving::after {
+    opacity: 1;
+    backdrop-filter: blur(2px);
+}
+
+body.easy-page-leaving .site-header,
+body.easy-page-leaving #main-content,
+body.easy-page-leaving .site-footer,
+body.easy-page-leaving .dashboard-sidebar,
+body.easy-page-leaving .mobile-app-nav {
+    pointer-events: none;
+    will-change: transform, opacity, filter;
+    transition:
+        opacity var(--easy-transition-duration) ease,
+        transform var(--easy-transition-duration) var(--easy-transition-ease),
+        filter var(--easy-transition-duration) ease;
+}
+
+body.easy-page-leave-enter .site-header,
+body.easy-page-leave-enter #main-content,
+body.easy-page-leave-enter .site-footer,
+body.easy-page-leave-enter .dashboard-sidebar,
+body.easy-page-leave-enter .mobile-app-nav {
+    opacity: 0;
+    transform: scale(1.035) translateY(-5px);
+    filter: blur(7px);
+}
+
+body.easy-page-leave-exit .site-header,
+body.easy-page-leave-exit #main-content,
+body.easy-page-leave-exit .site-footer,
+body.easy-page-leave-exit .dashboard-sidebar,
+body.easy-page-leave-exit .mobile-app-nav {
+    opacity: 0;
+    transform: scale(.94) translateY(8px);
+    filter: blur(7px);
+}
+
+body.easy-page-leave-left .site-header,
+body.easy-page-leave-left #main-content,
+body.easy-page-leave-left .site-footer,
+body.easy-page-leave-left .dashboard-sidebar,
+body.easy-page-leave-left .mobile-app-nav {
+    opacity: 0;
+    transform: translateX(-42px) scale(.985);
+    filter: blur(5px);
+}
+
+body.easy-page-leave-right .site-header,
+body.easy-page-leave-right #main-content,
+body.easy-page-leave-right .site-footer,
+body.easy-page-leave-right .dashboard-sidebar,
+body.easy-page-leave-right .mobile-app-nav {
+    opacity: 0;
+    transform: translateX(42px) scale(.985);
+    filter: blur(5px);
+}
+
+body.easy-page-leave-soft .site-header,
+body.easy-page-leave-soft #main-content,
+body.easy-page-leave-soft .site-footer,
+body.easy-page-leave-soft .dashboard-sidebar,
+body.easy-page-leave-soft .mobile-app-nav {
+    opacity: 0;
+    transform: translateY(-7px) scale(.99);
+    filter: blur(3px);
+}
+
+button,
+a,
+[role="button"],
+.goal-card,
+.subject-card,
+.dashboard-card,
+.lesson-card {
+    -webkit-tap-highlight-color: transparent;
+}
+
+.easy-tap {
+    animation: easyTapFeedback 210ms cubic-bezier(.2, .8, .2, 1) both;
+}
+
+@keyframes easyTapFeedback {
+    0% { transform: scale(1); }
+    46% { transform: scale(.965); }
+    100% { transform: scale(1); }
+}
+
+@media (max-width: 760px) {
+    :root { --easy-transition-duration: 320ms; }
+    body.easy-page-enter-left #main-content { transform: translateX(24px) scale(.99); }
+    body.easy-page-enter-right #main-content { transform: translateX(-24px) scale(.99); }
+    body.easy-page-leave-left #main-content { transform: translateX(-30px) scale(.99); }
+    body.easy-page-leave-right #main-content { transform: translateX(30px) scale(.99); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body::after,
+    body.easy-page-enter .site-header,
+    body.easy-page-enter #main-content,
+    body.easy-page-enter .site-footer,
+    body.easy-page-enter .dashboard-sidebar,
+    body.easy-page-enter .mobile-app-nav,
+    body.easy-page-leaving .site-header,
+    body.easy-page-leaving #main-content,
+    body.easy-page-leaving .site-footer,
+    body.easy-page-leaving .dashboard-sidebar,
+    body.easy-page-leaving .mobile-app-nav {
+        animation: none !important;
+        transition: none !important;
+        transform: none !important;
+        filter: none !important;
+        opacity: 1 !important;
+    }
+    .easy-tap { animation: none !important; }
+}
