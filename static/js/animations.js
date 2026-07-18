@@ -110,9 +110,8 @@ document.addEventListener("DOMContentLoaded", () => {
         pageLoader.classList.add("hidden");
         pageLoader.setAttribute("aria-hidden", "true");
 
-        window.setTimeout(() => {
-            pageLoader.remove();
-        }, 650);
+        // Keep the loader in the DOM so page transitions can reuse the same
+        // branded scene instead of exposing an empty background between routes.
     };
 
     if (document.readyState === "complete") {
@@ -1248,6 +1247,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!toggle || !sidebar || !overlay) return;
 
+    const forceClosed = () => {
+        sidebar.classList.remove("open");
+        overlay.classList.remove("visible");
+        body.classList.remove("dashboard-sidebar-open");
+        toggle.classList.remove("active");
+        toggle.setAttribute("aria-expanded", "false");
+        toggle.setAttribute("aria-label", "Відкрити меню кабінету");
+        overlay.setAttribute("aria-hidden", "true");
+    };
+
+    // New pages and pages restored from the mobile browser cache must start closed.
+    forceClosed();
+    window.addEventListener("pageshow", forceClosed);
+
     if (toggle === headerToggle) {
         toggle.setAttribute("aria-controls", "dashboardSidebar");
         toggle.setAttribute("aria-label", "Відкрити меню кабінету");
@@ -1286,4 +1299,5 @@ document.addEventListener("DOMContentLoaded", () => {
     window.addEventListener("resize", () => {
         if (window.innerWidth > 920) setOpen(false);
     });
+    window.addEventListener("pagehide", forceClosed);
 });

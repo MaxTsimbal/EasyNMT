@@ -6,7 +6,7 @@ import uuid
 from datetime import date as dt_date, datetime, timedelta
 from functools import wraps
 
-from flask import Flask, Response, abort, flash, redirect, render_template, request, send_file, session, url_for
+from flask import Flask, Response, abort, flash, jsonify, redirect, render_template, request, send_file, session, url_for
 from dotenv import load_dotenv
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
@@ -2548,6 +2548,61 @@ def tutor():
         ai_limit=daily_limit,
         ai_model=app.config["OPENAI_MODEL"],
     )
+
+
+@app.route("/api/lesson-chat", methods=["POST"])
+@require_login
+def lesson_chat_api():
+    """Return a contextual Easy answer without leaving the lesson page."""
+    if not onboarding_complete():
+        return jsonify({"ok": False, "error": "Спочатку заверши налаштування профілю."}), 403
+
+    payload = request.get_json(silent=True) or request.form
+    question = str(payload.get("question", "")).strip()
+    lesson_id = normalize_lesson_id(payload.get("lesson_id") or session.get("current_lesson_id", 1))
+    lesson = get_lesson_content(lesson_id)
+    session["current_lesson_id"] = lesson_id
+
+    max_chars = app.config["OPENAI_MAX_QUESTION_CHARS"]
+    if not question:
+        return jsonify({"ok": False, "error": "Напиши запитання для Easy."}), 400
+    if len(question) > max_chars:
+        return jsonify({"ok": False, "error": f"Скороти запитання до {max_chars} символів."}), 400
+
+    user_id = session.get("user_id")
+    daily_limit = app.config["OPENAI_DAILY_LIMIT"]
+    used_today = get_ai_usage_today(user_id)
+
+    if ai_service.enabled and used_today >= daily_limit:
+        return jsonify({
+            "ok": True,
+            "answer": "Денний AI-ліміт вичерпано. Продовжимо завтра, а зараз можеш повторити матеріал уроку.",
+            "mode": "limit",
+            "used": used_today,
+            "limit": daily_limit,
+        })
+
+    fallback = get_easy_answer(question, lesson_context=True, lesson=lesson)
+    result = ai_service.answer(
+        question=question,
+        subject=session.get("subject", "НМТ"),
+        lesson_title=lesson["title"],
+        lesson_goal=lesson.get("goal", "зрозуміти тему"),
+        fallback=fallback,
+        lesson_context=True,
+    )
+
+    if result.mode == "openai":
+        increment_ai_usage(user_id)
+        used_today += 1
+
+    return jsonify({
+        "ok": True,
+        "answer": result.text,
+        "mode": result.mode,
+        "used": used_today,
+        "limit": daily_limit,
+    })
 
 
 @app.route("/library")

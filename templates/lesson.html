@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ lesson.title }} | EasyNMT{% endblock %}
+{% block body_class %}lesson-active-page{% endblock %}
 {% block content %}
 <div class="lesson-page beginner-lesson-page">
   <div class="lesson-topline"><span>{{ lesson.badge }}</span><span>Тема {{ lesson.id }} з {{ lessons|length }}</span><span>до 60 XP</span></div>
@@ -38,7 +39,13 @@
       <article><small>Крок {{ loop.index }}</small><p>{{ example }}</p></article>
       {% endfor %}
     </div>
-    <a class="button button-ghost" href="{{ url_for('example_detail', lesson_id=lesson.id) }}">Відкрити пояснення на аркуші →</a>
+    <a class="lesson-paper-button" href="{{ url_for('example_detail', lesson_id=lesson.id) }}">
+      <span class="lesson-paper-button-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M6.5 3.5h8l3 3v14H6.5z"/><path d="M14.5 3.5v4h4M9 12h6M9 16h4"/><path d="m4 18 3.2-3.2 2 2L6 20H4z"/></svg>
+      </span>
+      <span class="lesson-paper-button-copy"><strong>Відкрити пояснення на аркуші</strong><small>Подивись увесь розбір крок за кроком</small></span>
+      <span class="lesson-paper-button-arrow" aria-hidden="true">→</span>
+    </a>
   </section>
 
   <section id="mistakes" class="lesson-teacher-block glass-card">
@@ -56,7 +63,39 @@
     {% else %}
       <form method="post" action="{{ url_for('mark_lesson_ready', lesson_id=lesson.id) }}"><button class="button button-primary" type="submit">Я розібрався. Перевірити себе →</button></form>
     {% endif %}
-    <a class="button button-ghost" href="{{ url_for('tutor', context='lesson', lesson_id=lesson.id) }}">Поставити запитання репетитору</a>
   </section>
 </div>
+
+<button class="lesson-easy-launcher" id="lessonEasyLauncher" type="button" aria-label="Відкрити чат з Easy" aria-expanded="false" aria-controls="lessonEasyPanel">
+  <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
+  <span>Easy</span>
+  <i aria-hidden="true"></i>
+</button>
+
+<div class="lesson-easy-backdrop" id="lessonEasyBackdrop" aria-hidden="true"></div>
+<aside class="lesson-easy-panel" id="lessonEasyPanel" aria-label="Чат з Easy під час уроку" aria-hidden="true" data-endpoint="{{ url_for('lesson_chat_api') }}" data-lesson-id="{{ lesson.id }}">
+  <header class="lesson-easy-header">
+    <div class="lesson-easy-identity">
+      <span class="lesson-easy-avatar"><img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt=""></span>
+      <span><strong>Easy</strong><small>Допомагаю з темою «{{ lesson.title }}»</small></span>
+    </div>
+    <button class="lesson-easy-close" id="lessonEasyClose" type="button" aria-label="Закрити чат">×</button>
+  </header>
+  <div class="lesson-easy-messages" id="lessonEasyMessages" aria-live="polite">
+    <article class="lesson-easy-message lesson-easy-message-assistant">
+      <span class="lesson-easy-mini-avatar"><img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt=""></span>
+      <div><b>Easy</b><p>Привіт! Я бачу тему цього уроку. Запитай, що пояснити простіше або який момент розібрати ще раз.</p></div>
+    </article>
+  </div>
+  <form class="lesson-easy-composer" id="lessonEasyComposer">
+    <label class="sr-only" for="lessonEasyInput">Запитання до Easy</label>
+    <textarea id="lessonEasyInput" name="question" rows="1" maxlength="1500" placeholder="Напиши запитання…" required></textarea>
+    <button id="lessonEasySend" type="submit" aria-label="Надіслати">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6.5 10.5 12 5l5.5 5.5"/></svg>
+    </button>
+    <small>Easy може помилятися. Перевіряй важливі відповіді.</small>
+  </form>
+</aside>
 {% endblock %}
+
+{% block extra_js %}<script src="{{ url_for('static', filename='js/lesson_chat.js') }}" defer></script>{% endblock %}

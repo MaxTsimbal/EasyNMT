@@ -77,6 +77,14 @@
 
     let navigating = false;
 
+    const revealTransitionLoader = () => {
+        const loader = document.getElementById("pageLoader");
+        if (!loader) return;
+        loader.classList.remove("hidden");
+        loader.setAttribute("aria-hidden", "false");
+        body.classList.add("easy-transition-loading");
+    };
+
     const inferTransition = (destination, element) => {
         const explicit = element?.dataset?.transition;
         if (allowedTypes.has(explicit)) return explicit;
@@ -118,6 +126,7 @@
         }
 
         body.classList.add("easy-page-leaving", `easy-page-leave-${type}`);
+        window.setTimeout(revealTransitionLoader, 110);
         window.setTimeout(navigate, DURATION);
     };
 
@@ -164,6 +173,7 @@
 
         if (!reducedMotion) {
             body.classList.add("easy-page-leaving", `easy-page-leave-${allowedTypes.has(type) ? type : "enter"}`);
+            window.setTimeout(revealTransitionLoader, 110);
         }
         // Do not prevent submission: validation, uploads and POST requests stay native.
     }, true);
@@ -177,8 +187,12 @@
                 "easy-page-leave-exit",
                 "easy-page-leave-left",
                 "easy-page-leave-right",
-                "easy-page-leave-soft"
+                "easy-page-leave-soft",
+                "easy-transition-loading"
             );
+            const loader = document.getElementById("pageLoader");
+            loader?.classList.add("hidden");
+            loader?.setAttribute("aria-hidden", "true");
         }
     });
 })();
