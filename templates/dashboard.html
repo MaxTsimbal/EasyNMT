@@ -146,5 +146,11 @@
     </div>
 </section>
 
-<a class="dashboard-floating-chat liquid-circle" href="{{ url_for('tutor') }}" aria-label="Відкрити чат з Easy"><span>AI</span></a>
+<a class="dashboard-floating-chat dashboard-easy-launcher" href="{{ url_for('tutor') }}" aria-label="Відкрити чат з Easy">
+    <span class="dashboard-easy-robot" aria-hidden="true">
+        <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
+    </span>
+    <span class="dashboard-easy-label">Easy</span>
+    <i class="dashboard-easy-status" aria-hidden="true"></i>
+</a>
 {% endblock %}

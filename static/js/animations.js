@@ -1299,5 +1299,36 @@ document.addEventListener("DOMContentLoaded", () => {
     window.addEventListener("resize", () => {
         if (window.innerWidth > 920) setOpen(false);
     });
+    // Clicking the already active cabinet tab should only close the drawer, not reload
+    // the same page. This removes the repeated sidebar flash on mobile.
+    document.addEventListener("click", (event) => {
+        const link = event.target.closest("a[href]");
+        if (!link) return;
+
+        let targetUrl;
+        try {
+            targetUrl = new URL(link.href, window.location.href);
+        } catch {
+            return;
+        }
+
+        const currentPath = window.location.pathname.replace(/\/+$/, "") || "/";
+        const targetPath = targetUrl.pathname.replace(/\/+$/, "") || "/";
+        const samePage = targetUrl.origin === window.location.origin &&
+            targetPath === currentPath &&
+            !targetUrl.search &&
+            !targetUrl.hash;
+
+        if (samePage) {
+            event.preventDefault();
+            forceClosed();
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+    }, true);
+
     window.addEventListener("pagehide", forceClosed);
+    window.addEventListener("popstate", forceClosed);
+    document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) forceClosed();
+    });
 });
