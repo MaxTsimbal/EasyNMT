@@ -21,6 +21,40 @@
         messages.scrollTop = messages.scrollHeight;
     };
 
+    let lockedScrollY = 0;
+
+    const syncVisualViewport = () => {
+        const viewport = window.visualViewport;
+        const height = viewport?.height || window.innerHeight;
+        const offsetTop = viewport?.offsetTop || 0;
+        document.documentElement.style.setProperty("--easy-visual-height", `${Math.round(height)}px`);
+        document.documentElement.style.setProperty("--easy-visual-top", `${Math.round(offsetTop)}px`);
+        if (panel.classList.contains("is-open")) scrollToBottom();
+    };
+
+    const lockPage = () => {
+        lockedScrollY = window.scrollY;
+        document.body.style.position = "fixed";
+        document.body.style.top = `-${lockedScrollY}px`;
+        document.body.style.left = "0";
+        document.body.style.right = "0";
+        document.body.style.width = "100%";
+    };
+
+    const unlockPage = () => {
+        document.body.style.position = "";
+        document.body.style.top = "";
+        document.body.style.left = "";
+        document.body.style.right = "";
+        document.body.style.width = "";
+        window.scrollTo(0, lockedScrollY);
+    };
+
+    syncVisualViewport();
+    window.visualViewport?.addEventListener("resize", syncVisualViewport);
+    window.visualViewport?.addEventListener("scroll", syncVisualViewport);
+    window.addEventListener("orientationchange", () => window.setTimeout(syncVisualViewport, 120));
+
     const setOpen = (open) => {
         panel.classList.toggle("is-open", open);
         backdrop.classList.toggle("is-visible", open);
@@ -31,12 +65,18 @@
 
         if (open) {
             lastFocused = document.activeElement;
+            syncVisualViewport();
+            lockPage();
             window.setTimeout(() => {
                 input.focus({ preventScroll: true });
+                syncVisualViewport();
                 scrollToBottom();
             }, 180);
-        } else if (lastFocused instanceof HTMLElement) {
-            lastFocused.focus({ preventScroll: true });
+        } else {
+            unlockPage();
+            if (lastFocused instanceof HTMLElement) {
+                lastFocused.focus({ preventScroll: true });
+            }
         }
     };
 
@@ -132,6 +172,10 @@
             sendButton?.removeAttribute("disabled");
             input.focus({ preventScroll: true });
         }
+    });
+
+    window.addEventListener("pagehide", () => {
+        if (panel.classList.contains("is-open")) unlockPage();
     });
 
     autoGrow();

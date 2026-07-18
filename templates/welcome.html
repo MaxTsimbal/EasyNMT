@@ -91,7 +91,13 @@
     const button = document.getElementById('welcomeStartButton');
     if (!page || !button) return;
 
-    requestAnimationFrame(() => document.body.classList.add('welcome-ready'));
+    const revealWelcome = () => requestAnimationFrame(() => document.body.classList.add('welcome-ready'));
+    const loader = document.getElementById('pageLoader');
+    if (loader && !loader.classList.contains('hidden')) {
+        window.addEventListener('easynmt:loader-hidden', revealWelcome, { once: true });
+    } else {
+        revealWelcome();
+    }
 
     button.addEventListener('click', (event) => {
         event.preventDefault();
@@ -99,6 +105,11 @@
             window.sessionStorage.setItem('easynmtWelcomeSeen', '1');
         } catch (error) {}
         document.body.classList.add('welcome-leaving');
+        window.setTimeout(() => {
+            const transitionLoader = document.getElementById('pageLoader');
+            transitionLoader?.classList.remove('hidden');
+            transitionLoader?.setAttribute('aria-hidden', 'false');
+        }, 220);
         window.setTimeout(() => {
             window.location.assign(button.href);
         }, 560);

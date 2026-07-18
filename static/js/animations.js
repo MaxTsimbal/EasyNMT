@@ -102,27 +102,37 @@ document.addEventListener("DOMContentLoaded", () => {
        Page loader
        ---------------------------------------------------------------------- */
 
-    const hidePageLoader = () => {
-        if (!pageLoader) {
+    const loaderMinimumMs = 700;
+    const navigationStartedAt = 0;
+    let loaderHideTimer = 0;
+
+    const hidePageLoader = ({ immediate = false } = {}) => {
+        if (!pageLoader || pageLoader.classList.contains("hidden")) {
             return;
         }
 
-        pageLoader.classList.add("hidden");
-        pageLoader.setAttribute("aria-hidden", "true");
+        const elapsed = window.performance?.now?.() ?? loaderMinimumMs;
+        const delay = immediate ? 0 : Math.max(0, loaderMinimumMs - (elapsed - navigationStartedAt));
 
-        // Keep the loader in the DOM so page transitions can reuse the same
-        // branded scene instead of exposing an empty background between routes.
+        window.clearTimeout(loaderHideTimer);
+        loaderHideTimer = window.setTimeout(() => {
+            pageLoader.classList.add("hidden");
+            pageLoader.setAttribute("aria-hidden", "true");
+            body.classList.remove("easy-transition-loading");
+            window.dispatchEvent(new CustomEvent("easynmt:loader-hidden"));
+        }, delay);
     };
 
-    if (document.readyState === "complete") {
-        hidePageLoader();
-    } else {
-        window.addEventListener("load", hidePageLoader, { once: true });
+    const finishInitialLoad = () => hidePageLoader();
 
-        window.setTimeout(() => {
-            hidePageLoader();
-        }, 2500);
+    if (document.readyState === "complete") {
+        finishInitialLoad();
+    } else {
+        window.addEventListener("load", finishInitialLoad, { once: true });
     }
+
+    // A broken third-party asset must never leave the application blocked.
+    window.setTimeout(() => hidePageLoader({ immediate: true }), 4500);
 
     /* ----------------------------------------------------------------------
        Sticky header
@@ -1121,79 +1131,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     /* ----------------------------------------------------------------------
-       Page transition for internal links
+       Page transitions
        ---------------------------------------------------------------------- */
 
-    const shouldUsePageTransition = (link) => {
-        if (!link) {
-            return false;
-        }
-
-        const href = link.getAttribute("href");
-
-        if (
-            !href ||
-            href.startsWith("#") ||
-            href.startsWith("mailto:") ||
-            href.startsWith("tel:") ||
-            link.hasAttribute("download") ||
-            link.target === "_blank"
-        ) {
-            return false;
-        }
-
-        let destination;
-
-        try {
-            destination = new URL(
-                href,
-                window.location.href
-            );
-        } catch {
-            return false;
-        }
-
-        return (
-            destination.origin ===
-            window.location.origin
-        );
-    };
-
-    document.addEventListener("click", (event) => {
-        const link = event.target.closest("a");
-
-        if (
-            !link ||
-            event.defaultPrevented ||
-            event.button !== 0 ||
-            event.metaKey ||
-            event.ctrlKey ||
-            event.shiftKey ||
-            event.altKey ||
-            !shouldUsePageTransition(link)
-        ) {
-            return;
-        }
-
-        const destination = link.href;
-
-        if (
-            destination === window.location.href
-        ) {
-            return;
-        }
-
-        if (prefersReducedMotion) {
-            return;
-        }
-
-        event.preventDefault();
-        body.classList.add("page-leaving");
-
-        window.setTimeout(() => {
-            window.location.href = destination;
-        }, 180);
-    });
+    // Internal navigation is handled centrally by page_transitions.js.
+    // Keeping a second click interceptor here prevented the branded loader
+    // from appearing on some routes and in mobile in-app browsers.
 
     /* ----------------------------------------------------------------------
        Restore state when returning from browser cache
@@ -1202,7 +1145,7 @@ document.addEventListener("DOMContentLoaded", () => {
     window.addEventListener("pageshow", (event) => {
         if (event.persisted) {
             body.classList.remove("page-leaving");
-            hidePageLoader();
+            hidePageLoader({ immediate: true });
         }
     });
 
@@ -1260,10 +1203,6 @@ document.addEventListener("DOMContentLoaded", () => {
     // New pages and pages restored from the mobile browser cache must start closed.
     forceClosed();
     window.addEventListener("pageshow", forceClosed);
-    window.addEventListener("pagehide", forceClosed);
-    document.addEventListener("visibilitychange", () => {
-        if (document.visibilityState === "visible") forceClosed();
-    });
 
     if (toggle === headerToggle) {
         toggle.setAttribute("aria-controls", "dashboardSidebar");

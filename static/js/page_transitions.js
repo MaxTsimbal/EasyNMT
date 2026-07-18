@@ -85,6 +85,14 @@
         body.classList.add("easy-transition-loading");
     };
 
+    const closeTransientUi = () => {
+        document.getElementById("dashboardSidebar")?.classList.remove("open");
+        document.getElementById("dashboardSidebarOverlay")?.classList.remove("visible");
+        document.getElementById("mainNavigation")?.classList.remove("open");
+        document.getElementById("mobileMenuButton")?.classList.remove("active");
+        body.classList.remove("dashboard-sidebar-open", "menu-open", "lesson-easy-open");
+    };
+
     const inferTransition = (destination, element) => {
         const explicit = element?.dataset?.transition;
         if (allowedTypes.has(explicit)) return explicit;
@@ -118,15 +126,17 @@
     const startExit = (type, navigate) => {
         if (navigating) return;
         navigating = true;
+        closeTransientUi();
         saveTransition(type);
 
+        revealTransitionLoader();
+
         if (reducedMotion) {
-            navigate();
+            window.setTimeout(navigate, 60);
             return;
         }
 
         body.classList.add("easy-page-leaving", `easy-page-leave-${type}`);
-        window.setTimeout(revealTransitionLoader, 110);
         window.setTimeout(navigate, DURATION);
     };
 
@@ -171,14 +181,15 @@
         const type = submitter?.dataset?.transition || form.dataset.transition || "enter";
         saveTransition(allowedTypes.has(type) ? type : "enter");
 
+        revealTransitionLoader();
         if (!reducedMotion) {
             body.classList.add("easy-page-leaving", `easy-page-leave-${allowedTypes.has(type) ? type : "enter"}`);
-            window.setTimeout(revealTransitionLoader, 110);
         }
         // Do not prevent submission: validation, uploads and POST requests stay native.
     }, true);
 
     window.addEventListener("pageshow", (event) => {
+        closeTransientUi();
         if (event.persisted) {
             navigating = false;
             body.classList.remove(

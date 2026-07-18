@@ -39,10 +39,11 @@
                     {% endfor %}
                 </div>
             </div>
-            <div class="notebook-controls notebook-controls-after-paper" aria-label="Керування поясненням">
-                <button type="button" class="secondary-action" id="notebook-prev" disabled>← Попередній крок</button>
-                <button type="button" class="primary-action" id="notebook-next">Наступний крок →</button>
-            </div>
+        </div>
+
+        <div class="notebook-controls notebook-controls-after-paper" aria-label="Керування поясненням">
+            <button type="button" class="secondary-action" id="notebook-prev" disabled>← Попередній крок</button>
+            <button type="button" class="primary-action" id="notebook-next">Наступний крок →</button>
         </div>
     </section>
 
@@ -60,5 +61,5 @@
         <a href="{{ url_for('theory_detail', lesson_id=lesson.id) }}" class="goal-link"><button class="secondary-action">Повернутися до пояснення</button></a>
     </div>
 </div>
-<script src="{{ url_for('static', filename='js/lesson_board.js') }}"></script>
+<script src="{{ url_for('static', filename='js/lesson_board.js', v='0999-final-fix-2') }}"></script>
 {% endblock %}

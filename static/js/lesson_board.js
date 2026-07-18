@@ -11,14 +11,13 @@
     let index = 0;
 
     function render() {
-        steps.forEach((step, i) => step.classList.toggle('is-visible', i <= index));
+        steps.forEach((step, i) => step.classList.toggle('is-visible', i === index));
         const active = steps[index];
         title.textContent = active.querySelector('h3')?.textContent || `Крок ${index + 1}`;
         note.textContent = active.querySelector('.notebook-note')?.textContent.replace('Зверни увагу: ', '') || '';
         current.textContent = String(index + 1);
         prev.disabled = index === 0;
         next.textContent = index === steps.length - 1 ? 'Усе зрозуміло ✓' : 'Наступний крок →';
-        active.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     prev?.addEventListener('click', () => {

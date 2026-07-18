@@ -9474,112 +9474,213 @@ body.lesson-easy-open { overflow: hidden; }
 }
 
 
-/* EasyNMT v0.9.9.9 · final mobile clarity and lesson flow hotfix */
-/* Keep the learning header welded to the top of the viewport on mobile Safari. */
-body.lesson-active-page .site-header {
-    position: fixed !important;
-    inset: 0 0 auto 0 !important;
-    transform: translateZ(0);
-}
-body.lesson-active-page .main-content {
-    padding-top: 76px !important;
-}
+/* ========================================================================== 
+   EasyNMT v0.9.9.9 · final release-candidate UI fixes
+   Loader clarity, mobile chat viewport, stable cabinet drawer and notebook flow
+   ========================================================================== */
 
-/* Loader clarity: avoid sub-pixel scaling and animated image interpolation on phones. */
+/* The loader is an opaque top layer. No page content may bleed through it. */
+.page-loader {
+    z-index: 12000 !important;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    contain: paint;
+    background:
+        radial-gradient(circle at 50% 44%, rgba(124,58,237,.24), transparent 28%),
+        radial-gradient(circle at 76% 22%, rgba(37,99,235,.16), transparent 22%),
+        linear-gradient(145deg, #020515 0%, #070a22 54%, #020514 100%) !important;
+}
+.page-loader.hidden {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+body.welcome-experience-page .page-loader { display: grid !important; }
+
+/* Keep the actual logo and copy on integer pixels. GPU promotion made iOS blur them. */
+.page-loader-content,
 .page-loader-mascot-wrap,
 .page-loader-copy,
 .page-loader-progress {
-    transform: none !important;
     filter: none !important;
     -webkit-filter: none !important;
+    transform: none !important;
+    backface-visibility: visible !important;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: geometricPrecision;
+}
+.page-loader-mascot-wrap {
+    width: 164px !important;
+    height: 142px !important;
 }
 .page-loader-mascot {
+    width: 154px !important;
     height: auto !important;
-    aspect-ratio: 398 / 330;
+    max-height: 128px;
     object-fit: contain;
-    image-rendering: -webkit-optimize-contrast;
+    animation: none !important;
+    filter: drop-shadow(0 18px 28px rgba(67,56,202,.38)) !important;
+    transform: none !important;
 }
-@media (max-width: 760px) {
-    .page-loader-mascot {
-        width: 124px !important;
-        animation: none !important;
-        transform: none !important;
-        filter: drop-shadow(0 14px 26px rgba(67,56,202,.42)) !important;
-    }
-    .page-loader-copy strong {
-        text-shadow: none !important;
-        letter-spacing: -.025em;
-    }
-    .page-loader-copy p { color: #d3daea !important; }
+.page-loader-orbit { inset: 2px 12px !important; }
+.page-loader-copy strong {
+    font-size: clamp(25px,4vw,34px) !important;
+    line-height: 1.1;
+    text-shadow: 0 3px 14px rgba(0,0,0,.32) !important;
+}
+.page-loader-copy p { color: #cbd5e1 !important; }
+
+/* Dashboard Easy button: explicit high-specificity reset over legacy circular styles. */
+body.dashboard-v0981 .dashboard-floating-chat.dashboard-easy-launcher {
+    display: inline-flex !important;
+    width: auto !important;
+    min-width: 142px !important;
+    height: 62px !important;
+    place-items: initial !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 10px !important;
+    right: 22px !important;
+    bottom: 22px !important;
+    padding: 7px 21px 7px 7px !important;
+    border: 1px solid rgba(167,139,250,.58) !important;
+    border-radius: 999px !important;
+    background: linear-gradient(145deg,#111733,#3d226f) !important;
+    box-shadow: 0 16px 42px rgba(0,0,0,.36),0 0 28px rgba(124,58,237,.27) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    transform: none !important;
+    will-change: auto !important;
+}
+body.dashboard-v0981 .dashboard-floating-chat.dashboard-easy-launcher:hover {
+    transform: translateY(-3px) !important;
+}
+body.dashboard-v0981 .dashboard-easy-robot {
+    width: 48px !important;
+    height: 48px !important;
+    flex: 0 0 48px !important;
+    border-radius: 15px !important;
+    overflow: visible !important;
+}
+body.dashboard-v0981 .dashboard-easy-robot img {
+    width: 46px !important;
+    height: auto !important;
+    filter: drop-shadow(0 5px 9px rgba(76,29,149,.42)) !important;
+}
+body.dashboard-v0981 .dashboard-easy-label {
+    display: inline !important;
+    font-size: 20px !important;
+    letter-spacing: -.025em !important;
 }
 
-/* The lesson chat composer must remain visible above iOS browser chrome and app navigation. */
-.lesson-easy-panel {
-    height: auto;
-    max-height: calc(100dvh - 76px);
-    overflow: hidden;
+/* Cabinet drawer is closed from the first paint and cannot flash after Overview. */
+@media (max-width: 920px) {
+    #dashboardSidebar.dashboard-sidebar:not(.open) {
+        transform: translateX(-108%) !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+    }
+    #dashboardSidebar.dashboard-sidebar.open {
+        transform: translateX(0) !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+    }
+    #dashboardSidebarOverlay.dashboard-sidebar-overlay:not(.visible) {
+        opacity: 0 !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+    }
+    #dashboardSidebarOverlay.dashboard-sidebar-overlay.visible {
+        opacity: 1 !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+    }
 }
-.lesson-easy-composer {
-    position: relative;
-    z-index: 3;
-    flex-shrink: 0;
-}
+
+/* The lesson chat owns the complete mobile visual viewport. */
 @media (max-width: 620px) {
+    body.lesson-easy-open .site-header,
+    body.lesson-easy-open .mobile-app-nav,
+    body.lesson-easy-open .scroll-top-button,
+    body.lesson-easy-open .lesson-easy-launcher {
+        display: none !important;
+    }
+    .lesson-easy-backdrop { z-index: 12900 !important; }
     .lesson-easy-panel {
-        top: 76px !important;
-        bottom: 0 !important;
-        height: calc(100dvh - 76px) !important;
-        max-height: calc(100dvh - 76px) !important;
-        padding-bottom: 0;
+        z-index: 13000 !important;
+        top: var(--easy-visual-top,0px) !important;
+        right: 0 !important;
+        bottom: auto !important;
+        left: 0 !important;
+        width: 100vw !important;
+        height: var(--easy-visual-height,100dvh) !important;
+        max-height: var(--easy-visual-height,100dvh) !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        grid-template-rows: auto minmax(0,1fr) auto !important;
+        overflow: hidden !important;
+    }
+    .lesson-easy-header {
+        min-height: 82px !important;
+        padding: calc(12px + env(safe-area-inset-top)) 15px 12px !important;
+        background: linear-gradient(135deg,rgba(17,20,54,.99),rgba(42,22,84,.99));
     }
     .lesson-easy-messages {
-        padding-bottom: 16px;
         overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 20px !important;
     }
     .lesson-easy-composer {
-        padding: 12px 12px calc(92px + env(safe-area-inset-bottom)) !important;
+        position: relative !important;
+        z-index: 2;
+        padding: 11px 12px calc(12px + env(safe-area-inset-bottom)) !important;
         background: #070a1d !important;
-        box-shadow: 0 -12px 30px rgba(0,0,0,.3);
     }
     .lesson-easy-composer textarea {
-        display: block !important;
-        min-height: 50px !important;
-        color: #fff !important;
-        background: rgba(255,255,255,.075) !important;
+        font-size: 16px !important; /* Prevent Safari input zoom. */
     }
+    .lesson-easy-composer small { display: none !important; }
+
+    body.dashboard-v0981 .dashboard-floating-chat.dashboard-easy-launcher {
+        right: 14px !important;
+        bottom: calc(88px + env(safe-area-inset-bottom)) !important;
+        min-width: 0 !important;
+        width: 58px !important;
+        height: 58px !important;
+        padding: 5px !important;
+        border-radius: 18px !important;
+    }
+    body.dashboard-v0981 .dashboard-easy-label { display: none !important; }
+    body.dashboard-v0981 .dashboard-easy-robot {
+        width: 48px !important;
+        height: 48px !important;
+        flex-basis: 48px !important;
+    }
+    body.dashboard-v0981 .dashboard-easy-status { top: 2px !important; right: 2px !important; }
+
+    .page-loader-mascot-wrap { width: 150px !important; height: 132px !important; }
+    .page-loader-mascot { width: 142px !important; max-height: 118px !important; }
 }
 
-/* Navigation belongs directly after the notebook explanation. */
+/* Navigation appears below the paper and remains a compact, stable control row. */
 .notebook-controls-after-paper {
-    position: static;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin: 16px 0 0;
-    padding: 0;
+    width: 100%;
+    margin-top: 16px;
+    padding: 16px;
+    border: 1px solid rgba(167,139,250,.22);
+    border-radius: 22px;
+    background: rgba(10,14,39,.94);
+    box-shadow: 0 16px 44px rgba(0,0,0,.22);
 }
-.notebook-controls-after-paper button { min-height: 58px; }
-@media (max-width: 900px) {
-    .notebook-controls-after-paper {
-        grid-template-columns: 1fr;
-        margin-top: 14px;
-    }
-}
-
-/* Dashboard Easy launcher: no empty translucent oval, only the intentional pill. */
-.dashboard-floating-chat.dashboard-easy-launcher {
-    overflow: visible !important;
-    opacity: 1 !important;
-    filter: none !important;
-}
-.dashboard-floating-chat.dashboard-easy-launcher::before,
-.dashboard-floating-chat.dashboard-easy-launcher::after {
-    content: none !important;
-    display: none !important;
-}
+.notebook-controls-after-paper button { min-height: 54px; }
 @media (max-width: 620px) {
-    .dashboard-floating-chat.dashboard-easy-launcher {
-        border-radius: 50% !important;
-        background: radial-gradient(circle at 42% 34%, #49309f, #111633 72%) !important;
+    .notebook-controls-after-paper {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+        margin-top: 12px;
+        padding: 12px;
     }
+    .notebook-controls-after-paper button { width: 100%; }
 }
