@@ -19,3 +19,12 @@
 - Відкрити урок і натиснути кнопку Easy справа внизу.
 - Надіслати одне тестове запитання.
 - На телефоні кілька разів перейти між «Огляд», «Сьогодні», «Уроки» та «Профіль» і переконатися, що бокове меню залишається закритим.
+
+
+## Final mobile clarity hotfix
+- Loader mascot and text no longer use animated sub-pixel scaling on phones.
+- Lesson header is fixed to the very top of the app viewport.
+- Easy lesson chat composer stays visible above iOS browser chrome and mobile navigation.
+- Notebook previous/next controls moved below the paper explanation.
+- Dashboard Easy launcher pseudo-elements removed to prevent an empty oval.
+- Mobile drawer is force-closed after page restore and visibility changes.

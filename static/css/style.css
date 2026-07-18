@@ -9472,3 +9472,114 @@ body.lesson-easy-open { overflow: hidden; }
     .page-loader-copy strong { font-size: 27px; }
     .page-loader-copy p { font-size: 13px; }
 }
+
+
+/* EasyNMT v0.9.9.9 · final mobile clarity and lesson flow hotfix */
+/* Keep the learning header welded to the top of the viewport on mobile Safari. */
+body.lesson-active-page .site-header {
+    position: fixed !important;
+    inset: 0 0 auto 0 !important;
+    transform: translateZ(0);
+}
+body.lesson-active-page .main-content {
+    padding-top: 76px !important;
+}
+
+/* Loader clarity: avoid sub-pixel scaling and animated image interpolation on phones. */
+.page-loader-mascot-wrap,
+.page-loader-copy,
+.page-loader-progress {
+    transform: none !important;
+    filter: none !important;
+    -webkit-filter: none !important;
+}
+.page-loader-mascot {
+    height: auto !important;
+    aspect-ratio: 398 / 330;
+    object-fit: contain;
+    image-rendering: -webkit-optimize-contrast;
+}
+@media (max-width: 760px) {
+    .page-loader-mascot {
+        width: 124px !important;
+        animation: none !important;
+        transform: none !important;
+        filter: drop-shadow(0 14px 26px rgba(67,56,202,.42)) !important;
+    }
+    .page-loader-copy strong {
+        text-shadow: none !important;
+        letter-spacing: -.025em;
+    }
+    .page-loader-copy p { color: #d3daea !important; }
+}
+
+/* The lesson chat composer must remain visible above iOS browser chrome and app navigation. */
+.lesson-easy-panel {
+    height: auto;
+    max-height: calc(100dvh - 76px);
+    overflow: hidden;
+}
+.lesson-easy-composer {
+    position: relative;
+    z-index: 3;
+    flex-shrink: 0;
+}
+@media (max-width: 620px) {
+    .lesson-easy-panel {
+        top: 76px !important;
+        bottom: 0 !important;
+        height: calc(100dvh - 76px) !important;
+        max-height: calc(100dvh - 76px) !important;
+        padding-bottom: 0;
+    }
+    .lesson-easy-messages {
+        padding-bottom: 16px;
+        overscroll-behavior: contain;
+    }
+    .lesson-easy-composer {
+        padding: 12px 12px calc(92px + env(safe-area-inset-bottom)) !important;
+        background: #070a1d !important;
+        box-shadow: 0 -12px 30px rgba(0,0,0,.3);
+    }
+    .lesson-easy-composer textarea {
+        display: block !important;
+        min-height: 50px !important;
+        color: #fff !important;
+        background: rgba(255,255,255,.075) !important;
+    }
+}
+
+/* Navigation belongs directly after the notebook explanation. */
+.notebook-controls-after-paper {
+    position: static;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 16px 0 0;
+    padding: 0;
+}
+.notebook-controls-after-paper button { min-height: 58px; }
+@media (max-width: 900px) {
+    .notebook-controls-after-paper {
+        grid-template-columns: 1fr;
+        margin-top: 14px;
+    }
+}
+
+/* Dashboard Easy launcher: no empty translucent oval, only the intentional pill. */
+.dashboard-floating-chat.dashboard-easy-launcher {
+    overflow: visible !important;
+    opacity: 1 !important;
+    filter: none !important;
+}
+.dashboard-floating-chat.dashboard-easy-launcher::before,
+.dashboard-floating-chat.dashboard-easy-launcher::after {
+    content: none !important;
+    display: none !important;
+}
+@media (max-width: 620px) {
+    .dashboard-floating-chat.dashboard-easy-launcher {
+        border-radius: 50% !important;
+        background: radial-gradient(circle at 42% 34%, #49309f, #111633 72%) !important;
+    }
+}

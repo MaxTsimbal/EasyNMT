@@ -1260,6 +1260,10 @@ document.addEventListener("DOMContentLoaded", () => {
     // New pages and pages restored from the mobile browser cache must start closed.
     forceClosed();
     window.addEventListener("pageshow", forceClosed);
+    window.addEventListener("pagehide", forceClosed);
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") forceClosed();
+    });
 
     if (toggle === headerToggle) {
         toggle.setAttribute("aria-controls", "dashboardSidebar");

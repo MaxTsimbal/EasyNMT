@@ -19,10 +19,6 @@
             <h2 id="notebook-step-title">{{ board.steps[0].title }}</h2>
             <p id="notebook-step-note">{{ board.steps[0].note }}</p>
             <div class="notebook-progress"><span id="notebook-current">1</span> / {{ board.steps|length }}</div>
-            <div class="notebook-controls">
-                <button type="button" class="secondary-action" id="notebook-prev" disabled>← Попередній крок</button>
-                <button type="button" class="primary-action" id="notebook-next">Наступний крок →</button>
-            </div>
         </div>
 
         <div class="notebook-paper-wrap">
@@ -42,6 +38,10 @@
                     </article>
                     {% endfor %}
                 </div>
+            </div>
+            <div class="notebook-controls notebook-controls-after-paper" aria-label="Керування поясненням">
+                <button type="button" class="secondary-action" id="notebook-prev" disabled>← Попередній крок</button>
+                <button type="button" class="primary-action" id="notebook-next">Наступний крок →</button>
             </div>
         </div>
     </section>
