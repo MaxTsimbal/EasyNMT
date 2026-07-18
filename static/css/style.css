@@ -9728,3 +9728,20 @@ body.dashboard-v0981 .dashboard-easy-label {
         bottom: 28px !important;
     }
 }
+
+
+/* EasyNMT v0.9.9.9 Final Loader Fix
+   The full-screen loader is opt-in only and never paints a blue frame by default. */
+#pageLoader.page-loader.hidden,
+body.welcome-experience-page #pageLoader.page-loader.hidden {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+#pageLoader.page-loader:not(.hidden) {
+    display: grid !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+}

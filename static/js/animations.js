@@ -100,39 +100,45 @@ document.addEventListener("DOMContentLoaded", () => {
 
     /* ----------------------------------------------------------------------
        Page loader
+       Hidden by default. It appears only when the real browser load lasts
+       longer than 50 ms, and disappears immediately when loading finishes.
        ---------------------------------------------------------------------- */
 
-    const loaderMinimumMs = 700;
-    const navigationStartedAt = 0;
-    let loaderHideTimer = 0;
+    const loaderDelayMs = 50;
+    let initialLoaderTimer = 0;
 
-    const hidePageLoader = ({ immediate = false } = {}) => {
-        if (!pageLoader || pageLoader.classList.contains("hidden")) {
+    const showPageLoader = () => {
+        if (!pageLoader || document.readyState === "complete") {
             return;
         }
 
-        const elapsed = window.performance?.now?.() ?? loaderMinimumMs;
-        const delay = immediate ? 0 : Math.max(0, loaderMinimumMs - (elapsed - navigationStartedAt));
-
-        window.clearTimeout(loaderHideTimer);
-        loaderHideTimer = window.setTimeout(() => {
-            pageLoader.classList.add("hidden");
-            pageLoader.setAttribute("aria-hidden", "true");
-            body.classList.remove("easy-transition-loading");
-            window.dispatchEvent(new CustomEvent("easynmt:loader-hidden"));
-        }, delay);
+        pageLoader.classList.remove("hidden");
+        pageLoader.setAttribute("aria-hidden", "false");
+        body.classList.add("easy-transition-loading");
     };
 
-    const finishInitialLoad = () => hidePageLoader();
+    const hidePageLoader = () => {
+        window.clearTimeout(initialLoaderTimer);
+
+        if (!pageLoader) {
+            return;
+        }
+
+        pageLoader.classList.add("hidden");
+        pageLoader.setAttribute("aria-hidden", "true");
+        body.classList.remove("easy-transition-loading");
+        window.dispatchEvent(new CustomEvent("easynmt:loader-hidden"));
+    };
 
     if (document.readyState === "complete") {
-        finishInitialLoad();
+        hidePageLoader();
     } else {
-        window.addEventListener("load", finishInitialLoad, { once: true });
+        initialLoaderTimer = window.setTimeout(showPageLoader, loaderDelayMs);
+        window.addEventListener("load", hidePageLoader, { once: true });
     }
 
-    // A broken third-party asset must never leave the application blocked.
-    window.setTimeout(() => hidePageLoader({ immediate: true }), 4500);
+    // Safety only: a failed asset must never block the interface.
+    window.setTimeout(hidePageLoader, 4500);
 
     /* ----------------------------------------------------------------------
        Sticky header

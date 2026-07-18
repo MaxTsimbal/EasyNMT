@@ -33,7 +33,7 @@
     <div class="stars stars-small"></div><div class="stars stars-medium"></div><div class="stars stars-large"></div>
     <div class="shooting-star shooting-star-one"></div><div class="shooting-star shooting-star-two"></div>
 </div>
-<div class="page-loader" id="pageLoader" aria-hidden="false">
+<div class="page-loader hidden" id="pageLoader" aria-hidden="true">
     <div class="page-loader-cosmos" aria-hidden="true">
         <span class="page-loader-starfield page-loader-starfield-one"></span>
         <span class="page-loader-starfield page-loader-starfield-two"></span>
@@ -163,8 +163,8 @@
 </script>
 {% endif %}
 <script src="{{ url_for('static', filename='js/main.js', v='0999-final-fix-2') }}"></script>
-<script src="{{ url_for('static', filename='js/animations.js', v='0999-final-fix-2') }}" defer></script>
-<script src="{{ url_for('static', filename='js/page_transitions.js', v='0999-final-fix-2') }}" defer></script>
+<script src="{{ url_for('static', filename='js/animations.js', v='0999-loader-50ms-final') }}" defer></script>
+<script src="{{ url_for('static', filename='js/page_transitions.js', v='0999-loader-50ms-final') }}" defer></script>
 {% block extra_js %}{% endblock %}
 </body>
 </html>

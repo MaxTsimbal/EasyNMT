@@ -2,23 +2,14 @@
 
 (() => {
     const STORAGE_KEY = "easynmtPageTransition";
-    const DURATION = 360;
+    const LOADER_DELAY_MS = 50;
     const body = document.body;
 
     if (!body) return;
 
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const routeOrder = [
-        "/dashboard",
-        "/today",
-        "/library",
-        "/progress",
-        "/mistakes",
-        "/tutor",
-        "/planner",
-        "/achievements",
-        "/profile",
-        "/settings"
+        "/dashboard", "/today", "/library", "/progress", "/mistakes",
+        "/tutor", "/planner", "/achievements", "/profile", "/settings"
     ];
 
     const normalizePath = (value) => {
@@ -35,62 +26,14 @@
         return routeOrder.findIndex((route) => normalized === route || normalized.startsWith(`${route}/`));
     };
 
+    const allowedTypes = new Set(["enter", "exit", "left", "right", "soft"]);
+
     const saveTransition = (type) => {
         try {
             window.sessionStorage.setItem(STORAGE_KEY, type);
         } catch {
-            /* Storage may be disabled. The transition remains graceful. */
+            /* Storage can be disabled without affecting navigation. */
         }
-    };
-
-    const consumeTransition = () => {
-        try {
-            const type = window.sessionStorage.getItem(STORAGE_KEY) || "enter";
-            window.sessionStorage.removeItem(STORAGE_KEY);
-            return type;
-        } catch {
-            return "enter";
-        }
-    };
-
-    const allowedTypes = new Set(["enter", "exit", "left", "right", "soft"]);
-    let restoredType = consumeTransition();
-    restoredType = allowedTypes.has(restoredType) ? restoredType : "enter";
-
-    if (!reducedMotion) {
-        body.classList.add("easy-page-enter", `easy-page-enter-${restoredType}`);
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => body.classList.add("easy-page-visible"));
-        });
-        window.setTimeout(() => {
-            body.classList.remove(
-                "easy-page-enter",
-                "easy-page-enter-enter",
-                "easy-page-enter-exit",
-                "easy-page-enter-left",
-                "easy-page-enter-right",
-                "easy-page-enter-soft",
-                "easy-page-visible"
-            );
-        }, 620);
-    }
-
-    let navigating = false;
-
-    const revealTransitionLoader = () => {
-        const loader = document.getElementById("pageLoader");
-        if (!loader) return;
-        loader.classList.remove("hidden");
-        loader.setAttribute("aria-hidden", "false");
-        body.classList.add("easy-transition-loading");
-    };
-
-    const closeTransientUi = () => {
-        document.getElementById("dashboardSidebar")?.classList.remove("open");
-        document.getElementById("dashboardSidebarOverlay")?.classList.remove("visible");
-        document.getElementById("mainNavigation")?.classList.remove("open");
-        document.getElementById("mobileMenuButton")?.classList.remove("active");
-        body.classList.remove("dashboard-sidebar-open", "menu-open", "lesson-easy-open");
     };
 
     const inferTransition = (destination, element) => {
@@ -101,12 +44,7 @@
         const currentPath = normalizePath(window.location.href);
         const text = (element?.textContent || "").trim().toLowerCase();
 
-        if (
-            path.includes("logout") ||
-            element?.classList?.contains("logout") ||
-            text.includes("вийти") ||
-            text.includes("назад")
-        ) {
+        if (path.includes("logout") || element?.classList?.contains("logout") || text.includes("вийти") || text.includes("назад")) {
             return "exit";
         }
 
@@ -115,29 +53,42 @@
         const currentIndex = routeIndex(currentPath);
         const nextIndex = routeIndex(path);
         if (currentIndex >= 0 && nextIndex >= 0) {
-            if (nextIndex > currentIndex) return "left";
-            if (nextIndex < currentIndex) return "right";
+            return nextIndex > currentIndex ? "left" : "right";
         }
 
         if (path === "/" || path.includes("login") || path.includes("register")) return "exit";
         return "enter";
     };
 
-    const startExit = (type, navigate) => {
-        if (navigating) return;
-        navigating = true;
-        closeTransientUi();
-        saveTransition(type);
+    let loaderTimer = 0;
 
-        revealTransitionLoader();
+    const showLoader = () => {
+        const loader = document.getElementById("pageLoader");
+        if (!loader) return;
+        loader.classList.remove("hidden");
+        loader.setAttribute("aria-hidden", "false");
+        body.classList.add("easy-transition-loading");
+    };
 
-        if (reducedMotion) {
-            window.setTimeout(navigate, 60);
-            return;
-        }
+    const scheduleLoader = () => {
+        window.clearTimeout(loaderTimer);
+        loaderTimer = window.setTimeout(showLoader, LOADER_DELAY_MS);
+    };
 
-        body.classList.add("easy-page-leaving", `easy-page-leave-${type}`);
-        window.setTimeout(navigate, DURATION);
+    const cancelLoader = () => {
+        window.clearTimeout(loaderTimer);
+        const loader = document.getElementById("pageLoader");
+        loader?.classList.add("hidden");
+        loader?.setAttribute("aria-hidden", "true");
+        body.classList.remove("easy-transition-loading");
+    };
+
+    const closeTransientUi = () => {
+        document.getElementById("dashboardSidebar")?.classList.remove("open");
+        document.getElementById("dashboardSidebarOverlay")?.classList.remove("visible");
+        document.getElementById("mainNavigation")?.classList.remove("open");
+        document.getElementById("mobileMenuButton")?.classList.remove("active");
+        body.classList.remove("dashboard-sidebar-open", "menu-open", "lesson-easy-open");
     };
 
     document.addEventListener("click", (event) => {
@@ -151,8 +102,7 @@
         const link = event.target.closest("a[href]");
         if (!link || event.defaultPrevented) return;
         if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-        if (link.hasAttribute("download") || link.target === "_blank") return;
-        if (link.dataset.noTransition !== undefined) return;
+        if (link.hasAttribute("download") || link.target === "_blank" || link.dataset.noTransition !== undefined) return;
 
         const href = link.getAttribute("href");
         if (!href || href.startsWith("#") || href.startsWith("javascript:") || href.startsWith("mailto:") || href.startsWith("tel:")) return;
@@ -164,12 +114,15 @@
             return;
         }
 
-        if (destination.origin !== window.location.origin) return;
-        if (destination.href === window.location.href) return;
+        if (destination.origin !== window.location.origin || destination.href === window.location.href) return;
 
         event.preventDefault();
-        const type = inferTransition(destination.href, link);
-        startExit(type, () => window.location.assign(destination.href));
+        closeTransientUi();
+        saveTransition(inferTransition(destination.href, link));
+        scheduleLoader();
+
+        // Navigation starts immediately. There is no artificial blue-screen delay.
+        window.location.assign(destination.href);
     });
 
     document.addEventListener("submit", (event) => {
@@ -180,30 +133,14 @@
         const submitter = event.submitter;
         const type = submitter?.dataset?.transition || form.dataset.transition || "enter";
         saveTransition(allowedTypes.has(type) ? type : "enter");
-
-        revealTransitionLoader();
-        if (!reducedMotion) {
-            body.classList.add("easy-page-leaving", `easy-page-leave-${allowedTypes.has(type) ? type : "enter"}`);
-        }
-        // Do not prevent submission: validation, uploads and POST requests stay native.
+        scheduleLoader();
+        // Native validation and submission remain untouched.
     }, true);
 
-    window.addEventListener("pageshow", (event) => {
+    window.addEventListener("pageshow", () => {
         closeTransientUi();
-        if (event.persisted) {
-            navigating = false;
-            body.classList.remove(
-                "easy-page-leaving",
-                "easy-page-leave-enter",
-                "easy-page-leave-exit",
-                "easy-page-leave-left",
-                "easy-page-leave-right",
-                "easy-page-leave-soft",
-                "easy-transition-loading"
-            );
-            const loader = document.getElementById("pageLoader");
-            loader?.classList.add("hidden");
-            loader?.setAttribute("aria-hidden", "true");
-        }
+        cancelLoader();
     });
+
+    window.addEventListener("pagehide", () => window.clearTimeout(loaderTimer));
 })();
