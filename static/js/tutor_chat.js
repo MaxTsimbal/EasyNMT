@@ -2,7 +2,7 @@
 
 document.addEventListener("DOMContentLoaded", () => {
     const body = document.body;
-    const app = document.querySelector(".easy-chat-app");
+    const root = document.documentElement;
     const textarea = document.getElementById("aiQuestion");
     const sendButton = document.getElementById("aiSendButton");
     const charCount = document.getElementById("aiCharCount");
@@ -13,137 +13,112 @@ document.addEventListener("DOMContentLoaded", () => {
     const closeButton = document.getElementById("chatSidebarClose");
     const chatScroll = document.getElementById("chatScroll");
 
-    /* The full-screen page loader never belongs inside Easy Chat. */
-    const disablePageLoader = () => {
+    const hideGlobalLoader = () => {
         const loader = document.getElementById("pageLoader");
         loader?.classList.add("hidden");
         loader?.setAttribute("aria-hidden", "true");
         body.classList.remove("easy-transition-loading");
     };
-    disablePageLoader();
-    window.addEventListener("pageshow", disablePageLoader);
 
-    /* Keep the app inside the real iOS/Telegram visual viewport. */
-    const syncVisualViewport = () => {
+    const syncViewport = () => {
         const viewport = window.visualViewport;
         const height = Math.round(viewport?.height || window.innerHeight);
         const top = Math.round(viewport?.offsetTop || 0);
-        const layoutHeight = Math.round(window.innerHeight || height);
-        const keyboardHeight = Math.max(0, layoutHeight - height - top);
-        const keyboardOpen = keyboardHeight > 110;
-
-        document.documentElement.style.setProperty("--easy-chat-height", `${height}px`);
-        document.documentElement.style.setProperty("--easy-chat-top", `${top}px`);
-        document.documentElement.style.setProperty("--easy-keyboard-height", `${keyboardHeight}px`);
-        body.classList.toggle("easy-keyboard-open", keyboardOpen);
-        if (app) app.style.height = `${height}px`;
-        requestAnimationFrame(() => {
-            if (chatScroll) chatScroll.scrollTop = chatScroll.scrollHeight;
-        });
+        root.style.setProperty("--ec-vh", `${height}px`);
+        root.style.setProperty("--ec-top", `${top}px`);
+        body.style.height = `${height}px`;
     };
 
-    syncVisualViewport();
-    window.visualViewport?.addEventListener("resize", syncVisualViewport);
-    window.visualViewport?.addEventListener("scroll", syncVisualViewport);
-    window.addEventListener("orientationchange", () => window.setTimeout(syncVisualViewport, 120));
+    const scrollToBottom = (behavior = "auto") => {
+        if (!chatScroll) return;
+        chatScroll.scrollTo({ top: chatScroll.scrollHeight, behavior });
+    };
 
     const updateComposer = () => {
         if (!textarea) return;
         textarea.style.height = "auto";
-        textarea.style.height = `${Math.min(textarea.scrollHeight, 160)}px`;
+        textarea.style.height = `${Math.min(textarea.scrollHeight, 150)}px`;
         const length = textarea.value.length;
         if (charCount) charCount.textContent = `${length} / 1500`;
         if (sendButton) sendButton.disabled = textarea.value.trim().length === 0;
-        syncVisualViewport();
     };
-
-    textarea?.addEventListener("input", updateComposer);
-    textarea?.addEventListener("focus", () => {
-        window.setTimeout(() => {
-            syncVisualViewport();
-            chatScroll?.scrollTo({ top: chatScroll.scrollHeight, behavior: "smooth" });
-        }, 80);
-    });
-    textarea?.addEventListener("keydown", (event) => {
-        if (event.key === "Enter" && !event.shiftKey) {
-            event.preventDefault();
-            if (textarea.value.trim()) composer?.requestSubmit();
-        }
-    });
-    updateComposer();
 
     const openSidebar = () => {
         sidebar?.classList.add("is-open");
         overlay?.classList.add("is-visible");
-        body.classList.add("ai-sidebar-visible");
+        body.classList.add("ec-sidebar-open");
     };
+
     const closeSidebar = () => {
         sidebar?.classList.remove("is-open");
         overlay?.classList.remove("is-visible");
-        body.classList.remove("ai-sidebar-visible");
+        body.classList.remove("ec-sidebar-open");
     };
+
+    hideGlobalLoader();
+    syncViewport();
+    updateComposer();
+    requestAnimationFrame(() => scrollToBottom());
+
+    window.addEventListener("pageshow", hideGlobalLoader);
+    window.addEventListener("resize", syncViewport, { passive: true });
+    window.visualViewport?.addEventListener("resize", () => {
+        syncViewport();
+        requestAnimationFrame(() => scrollToBottom());
+    });
+    window.visualViewport?.addEventListener("scroll", syncViewport, { passive: true });
+
+    textarea?.addEventListener("input", updateComposer);
+    textarea?.addEventListener("focus", () => {
+        window.setTimeout(() => {
+            syncViewport();
+            scrollToBottom("smooth");
+        }, 120);
+    });
+    textarea?.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+            event.preventDefault();
+            if (textarea.value.trim()) composer?.requestSubmit();
+        }
+    });
 
     openButton?.addEventListener("click", openSidebar);
     closeButton?.addEventListener("click", closeSidebar);
     overlay?.addEventListener("click", closeSidebar);
-
-    const cleanEasyPrefix = (text) => text
-        .replace(/^\s*(?:easy\s*:\s*)+/i, "")
-        .replace(/^\s*(?:easy\s*[—–-]\s*)+/i, "")
-        .trimStart();
-
-    const sleep = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
-
-    const typeAnswer = async (element) => {
-        const raw = cleanEasyPrefix(element.textContent || "");
-        if (!raw || element.dataset.typed === "true") return;
-        element.dataset.typed = "true";
-        element.textContent = "";
-        element.classList.add("is-typing");
-
-        let index = 0;
-        while (index < raw.length) {
-            const remaining = raw.length - index;
-            const chunkSize = remaining > 180 ? 5 : remaining > 70 ? 3 : 2;
-            const chunk = raw.slice(index, index + chunkSize);
-            element.textContent += chunk;
-            index += chunk.length;
-
-            if (chatScroll) chatScroll.scrollTop = chatScroll.scrollHeight;
-
-            const last = chunk.at(-1) || "";
-            if (last === "\n") await sleep(65);
-            else if (/[.!?]/.test(last)) await sleep(55);
-            else if (/[,;:]/.test(last)) await sleep(28);
-            else await sleep(12);
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") closeSidebar();
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+            event.preventDefault();
+            window.location.assign(composer?.action || window.location.pathname);
         }
-
-        element.classList.remove("is-typing");
-        if (chatScroll) chatScroll.scrollTop = chatScroll.scrollHeight;
-    };
-
-    document.querySelectorAll(".ai-answer-text").forEach((element) => {
-        typeAnswer(element);
     });
 
     document.querySelectorAll("[data-copy-answer]").forEach((button) => {
         button.addEventListener("click", async () => {
-            const text = button.closest(".easy-assistant-content")?.querySelector(".ai-answer-text")?.textContent?.trim();
-            if (!text) return;
+            const answer = button.closest(".ec-assistant-body")?.querySelector(".ai-answer-text")?.textContent?.trim();
+            if (!answer) return;
             try {
-                await navigator.clipboard.writeText(text);
-                button.textContent = "✓";
-                window.setTimeout(() => { button.textContent = "⧉"; }, 1400);
-            } catch (_) {
+                await navigator.clipboard.writeText(answer);
+                const label = button.querySelector("span");
+                if (label) label.textContent = "Скопійовано";
+                button.classList.add("is-copied");
+                window.setTimeout(() => {
+                    if (label) label.textContent = "Копіювати";
+                    button.classList.remove("is-copied");
+                }, 1400);
+            } catch (error) {
                 button.title = "Не вдалося скопіювати";
             }
         });
     });
 
-    composer?.addEventListener("submit", () => {
-        disablePageLoader();
+    composer?.addEventListener("submit", (event) => {
+        if (!textarea?.value.trim()) {
+            event.preventDefault();
+            return;
+        }
+        hideGlobalLoader();
         sendButton?.setAttribute("disabled", "disabled");
+        sendButton?.classList.add("is-sending");
     });
-
-    if (chatScroll) chatScroll.scrollTop = chatScroll.scrollHeight;
 });

@@ -274,3 +274,10 @@
 - Kept Easy as a single permanent tab in the mobile bottom navigation.
 - Improved iPhone safe-area spacing and bottom content clearance.
 - Stabilized the desktop Easy launcher position.
+
+## Easy Chat v1.1 Foundation
+- Повністю перебудовано інтерфейс Easy Chat у форматі AI Workspace.
+- Додано нову бокову панель, верхню панель, стартовий екран і картки швидких запитів.
+- Перероблено повідомлення користувача й Easy, composer та мобільну адаптацію.
+- Додано окремий ізольований stylesheet `easy_chat_v11.css` для безпечного розвитку наступних версій.
+- Збережено чинні Flask-маршрути, POST-форми та AI-відповіді.
