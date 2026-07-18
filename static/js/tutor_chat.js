@@ -28,8 +28,14 @@ document.addEventListener("DOMContentLoaded", () => {
         const viewport = window.visualViewport;
         const height = Math.round(viewport?.height || window.innerHeight);
         const top = Math.round(viewport?.offsetTop || 0);
+        const layoutHeight = Math.round(window.innerHeight || height);
+        const keyboardHeight = Math.max(0, layoutHeight - height - top);
+        const keyboardOpen = keyboardHeight > 110;
+
         document.documentElement.style.setProperty("--easy-chat-height", `${height}px`);
         document.documentElement.style.setProperty("--easy-chat-top", `${top}px`);
+        document.documentElement.style.setProperty("--easy-keyboard-height", `${keyboardHeight}px`);
+        body.classList.toggle("easy-keyboard-open", keyboardOpen);
         if (app) app.style.height = `${height}px`;
         requestAnimationFrame(() => {
             if (chatScroll) chatScroll.scrollTop = chatScroll.scrollHeight;

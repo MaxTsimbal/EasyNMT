@@ -9896,3 +9896,29 @@ body.easy-chat-v6 .easy-chat-app {
     .easy-answer.is-typing::after,
     .lesson-easy-streaming::after { animation: none !important; opacity: 1; }
 }
+
+/* EasyNMT v0.9.9.9 · iPhone keyboard dock final fix */
+@media (max-width: 760px) {
+    body.easy-chat-v6 .easy-chat-main {
+        position: relative !important;
+    }
+
+    body.easy-chat-v6 .easy-composer-zone {
+        position: relative !important;
+        bottom: auto !important;
+        margin: 0 !important;
+        padding: 6px 10px max(6px, env(safe-area-inset-bottom)) !important;
+    }
+
+    body.easy-chat-v6.easy-keyboard-open .easy-composer-zone {
+        padding-bottom: 4px !important;
+    }
+
+    body.easy-chat-v6.easy-keyboard-open .easy-composer-box {
+        margin-bottom: 0 !important;
+    }
+
+    body.easy-chat-v6.easy-keyboard-open .easy-conversation-inner {
+        padding-bottom: 12px !important;
+    }
+}

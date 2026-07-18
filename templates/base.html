@@ -17,11 +17,11 @@
     <meta property="og:url" content="{{ request.url_root.rstrip('/') }}{{ request.path }}">
     {% if config.GOOGLE_SITE_VERIFICATION %}<meta name="google-site-verification" content="{{ config.GOOGLE_SITE_VERIFICATION }}">{% endif %}
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/favicon.png') }}">
-    <link rel="preload" as="image" href="{{ url_for('static', filename='images/easynmt-mascot.png', v='0999-final-fix-2') }}">
+    <link rel="preload" as="image" href="{{ url_for('static', filename='images/easynmt-mascot.png', v='0999-keyboard-dock-final') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='0999-final-fix-2') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='0999-keyboard-dock-final') }}">
     {% block structured_data %}{% endblock %}
     {% block extra_css %}{% endblock %}
 </head>
@@ -162,7 +162,7 @@
 })();
 </script>
 {% endif %}
-<script src="{{ url_for('static', filename='js/main.js', v='0999-final-fix-2') }}"></script>
+<script src="{{ url_for('static', filename='js/main.js', v='0999-keyboard-dock-final') }}"></script>
 <script src="{{ url_for('static', filename='js/animations.js', v='0999-chat-mobile-stream-final') }}" defer></script>
 <script src="{{ url_for('static', filename='js/page_transitions.js', v='0999-chat-mobile-stream-final') }}" defer></script>
 {% block extra_js %}{% endblock %}
