@@ -1,3 +1,15 @@
+# EasyNMT Changelog
+
+## Easy Chat v1.2 Native Redesign
+
+- Повністю перебудовано інтерфейс чату під візуальну мову EasyNMT: космічний фон, фірмові фіолетово-сині акценти, компактний AI-викладач і чиста структура.
+- Прибрано повне перезавантаження сторінки під час відповідей. Додано окремий JSON endpoint `/api/tutor-chat`.
+- Повернуто плавний друк відповіді, локальний стан «Easy думає» та кнопку зупинки.
+- Додано адаптивну мобільну версію, коректну роботу з екранною клавіатурою та safe area.
+- Додано збереження поточної розмови в браузері, очищення без перезавантаження і короткий контекст попередніх повідомлень для AI.
+- Додано базове форматування відповідей: заголовки, списки, цитати, жирний текст, inline code та code blocks.
+- Глобальний loader більше не запускається на сторінці чату.
+
 # EasyNMT v0.9.9.9 — Welcome Experience Reliability
 
 - Welcome screen is now shown after email/Google login and after first page load in a new browser session.
@@ -281,3 +293,10 @@
 - Перероблено повідомлення користувача й Easy, composer та мобільну адаптацію.
 - Додано окремий ізольований stylesheet `easy_chat_v11.css` для безпечного розвитку наступних версій.
 - Збережено чинні Flask-маршрути, POST-форми та AI-відповіді.
+
+## Easy Chat v1.1.1 Continuity Hotfix
+- Restored smooth character-by-character rendering of Easy answers.
+- Replaced full-page chat POST reloads with in-place fetch updates.
+- Disabled the global page loader for every Easy Chat form.
+- Added a local three-dot thinking state while the AI response is generated.
+- Preserved the v1.1 visual redesign and existing Flask tutor route.

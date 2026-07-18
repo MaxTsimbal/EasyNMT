@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Sequence
 
 from prompts import EASY_TUTOR_SYSTEM_PROMPT, GRADING_STYLE_PROMPT, LESSON_STYLE_PROMPT
 
@@ -37,6 +37,7 @@ class EasyNMT_AI:
         lesson_goal: str = "",
         fallback: str,
         lesson_context: bool = False,
+        conversation_history: Optional[Sequence[dict]] = None,
     ) -> AIResult:
         if not self.enabled:
             return AIResult(fallback, "demo")
@@ -46,18 +47,39 @@ class EasyNMT_AI:
             prompt_parts.insert(1, LESSON_STYLE_PROMPT)
         system_prompt = "\n\n".join(prompt_parts)
 
+        history_lines = []
+        for item in list(conversation_history or [])[-8:]:
+            if not isinstance(item, dict):
+                continue
+            role = str(item.get("role", "")).strip().lower()
+            text = str(item.get("text", "")).strip()
+            if role not in {"user", "assistant"} or not text:
+                continue
+            speaker = "Учень" if role == "user" else "Easy"
+            history_lines.append(f"{speaker}: {text[:1000]}")
+
+        history_context = ""
+        if history_lines:
+            history_context = (
+                "\nКороткий контекст поточної розмови. Врахуй його, але не повторюй дослівно:\n"
+                + "\n".join(history_lines)
+                + "\n"
+            )
+
         if lesson_context:
             user_prompt = (
                 f"Предмет: {subject}.\n"
                 f"Поточна тема уроку: {lesson_title}.\n"
                 f"Мета уроку: {lesson_goal}.\n"
-                f"Питання учня: {question}"
+                f"{history_context}"
+                f"Нове питання учня: {question}"
             )
         else:
             user_prompt = (
                 f"Напрям підготовки учня: {subject}.\n"
                 "Зараз Easy працює як окремий універсальний помічник, без прив’язки до конкретного уроку.\n"
-                f"Питання учня: {question}"
+                f"{history_context}"
+                f"Нове питання учня: {question}"
             )
 
         try:

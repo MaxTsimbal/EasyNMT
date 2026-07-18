@@ -71,7 +71,7 @@
     };
 
     const scheduleLoader = () => {
-        if (body.classList.contains("easy-chat-v6")) return;
+        if (body.classList.contains("easy-chat-v6") || body.classList.contains("tutor-chat-page")) return;
         window.clearTimeout(loaderTimer);
         loaderTimer = window.setTimeout(showLoader, LOADER_DELAY_MS);
     };

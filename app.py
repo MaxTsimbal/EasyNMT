@@ -2550,6 +2550,85 @@ def tutor():
     )
 
 
+@app.route("/api/tutor-chat", methods=["POST"])
+@require_login
+def tutor_chat_api():
+    """Return an Easy Chat answer as JSON without reloading the chat page."""
+    if not onboarding_complete():
+        return jsonify({"ok": False, "error": "Спочатку заверши налаштування профілю."}), 403
+
+    payload = request.get_json(silent=True) or request.form
+    question = str(payload.get("question", "")).strip()
+    lesson_context = str(payload.get("context", "")).lower() == "lesson"
+    requested_lesson_id = payload.get("lesson_id")
+    raw_history = payload.get("history", []) if isinstance(payload, dict) else []
+    conversation_history = []
+    if isinstance(raw_history, list):
+        for item in raw_history[-8:]:
+            if not isinstance(item, dict):
+                continue
+            role = str(item.get("role", "")).strip().lower()
+            text = str(item.get("text", "")).strip()
+            if role in {"user", "assistant"} and text:
+                conversation_history.append({"role": role, "text": text[:1000]})
+
+    lesson = None
+    lesson_id = None
+    if lesson_context:
+        lesson_id = normalize_lesson_id(requested_lesson_id or session.get("current_lesson_id", 1))
+        lesson = get_lesson_content(lesson_id)
+        session["current_lesson_id"] = lesson_id
+
+    max_chars = app.config["OPENAI_MAX_QUESTION_CHARS"]
+    if not question:
+        return jsonify({"ok": False, "error": "Напиши запитання для Easy."}), 400
+    if len(question) > max_chars:
+        return jsonify({"ok": False, "error": f"Скороти запитання до {max_chars} символів."}), 400
+
+    user_id = session.get("user_id")
+    daily_limit = app.config["OPENAI_DAILY_LIMIT"]
+    used_today = get_ai_usage_today(user_id)
+
+    if ai_service.enabled and used_today >= daily_limit:
+        return jsonify({
+            "ok": True,
+            "answer": "Денний AI-ліміт вичерпано. Продовжимо завтра, а зараз можеш повторити матеріал або поставити коротше уточнювальне питання в демо-режимі.",
+            "mode": "limit",
+            "used": used_today,
+            "limit": daily_limit,
+        })
+
+    fallback = get_easy_answer(
+        question,
+        lesson_context=lesson_context,
+        lesson=lesson,
+    )
+    result = ai_service.answer(
+        question=question,
+        subject=session.get("subject", "НМТ"),
+        lesson_title=lesson["title"] if lesson_context and lesson else "",
+        lesson_goal=lesson.get("goal", "зрозуміти тему") if lesson_context and lesson else "",
+        fallback=fallback,
+        lesson_context=lesson_context,
+        conversation_history=conversation_history,
+    )
+
+    if result.mode == "openai":
+        increment_ai_usage(user_id)
+        used_today += 1
+
+    response = {
+        "ok": True,
+        "answer": result.text,
+        "mode": result.mode,
+        "used": used_today,
+        "limit": daily_limit,
+    }
+    if app.debug and result.error:
+        response["debug_error"] = result.error
+    return jsonify(response)
+
+
 @app.route("/api/lesson-chat", methods=["POST"])
 @require_login
 def lesson_chat_api():
