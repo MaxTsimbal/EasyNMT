@@ -268,3 +268,9 @@
 - Додано JSON endpoint `/api/lesson-chat`, який відповідає в контексті поточного уроку без переходу на окрему сторінку.
 - Кнопку «Відкрити пояснення на аркуші» перетворено на великий акцентний блок.
 - Мобільне меню кабінету примусово закривається після переходів, відновлення сторінки з кешу та нового відкриття сайту.
+
+## v0.9.9.9 Ultimate Polish
+- Removed the duplicate floating Easy launcher on phones and tablets.
+- Kept Easy as a single permanent tab in the mobile bottom navigation.
+- Improved iPhone safe-area spacing and bottom content clearance.
+- Stabilized the desktop Easy launcher position.

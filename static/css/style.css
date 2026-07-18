@@ -9684,3 +9684,47 @@ body.dashboard-v0981 .dashboard-easy-label {
     }
     .notebook-controls-after-paper button { width: 100%; }
 }
+
+/* EasyNMT v0.9.9.9 Ultimate Polish
+   Mobile has one Easy entry only: the permanent bottom-navigation tab.
+   The desktop launcher remains available from wider viewports. */
+@media (max-width: 1024px) {
+    body.dashboard-v0981 .dashboard-floating-chat,
+    body.dashboard-v0981 .dashboard-floating-chat.dashboard-easy-launcher,
+    .dashboard-floating-chat.dashboard-easy-launcher {
+        display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+        opacity: 0 !important;
+        width: 0 !important;
+        height: 0 !important;
+        min-width: 0 !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+    }
+}
+
+@media (max-width: 640px) {
+    .mobile-app-nav {
+        left: 8px !important;
+        right: 8px !important;
+        bottom: max(8px, env(safe-area-inset-bottom)) !important;
+        min-height: 70px !important;
+        padding: 7px !important;
+    }
+
+    body:has(.mobile-app-nav) .main-content {
+        padding-bottom: calc(102px + env(safe-area-inset-bottom)) !important;
+    }
+
+    body:has(.mobile-app-nav) .site-footer {
+        padding-bottom: calc(102px + env(safe-area-inset-bottom)) !important;
+    }
+}
+
+@media (min-width: 1025px) {
+    body.dashboard-v0981 .dashboard-floating-chat.dashboard-easy-launcher {
+        right: 28px !important;
+        bottom: 28px !important;
+    }
+}
