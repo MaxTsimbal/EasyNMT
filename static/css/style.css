@@ -9745,3 +9745,154 @@ body.welcome-experience-page #pageLoader.page-loader.hidden {
     visibility: visible !important;
     pointer-events: auto !important;
 }
+
+
+/* EasyNMT v0.9.9.9 · Mobile Easy Chat + natural response streaming */
+body.easy-chat-v6 #pageLoader {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
+body.easy-chat-v6 {
+    position: fixed;
+    inset: var(--easy-chat-top, 0px) 0 auto 0;
+    width: 100%;
+    height: var(--easy-chat-height, 100dvh);
+    overflow: hidden !important;
+    overscroll-behavior: none;
+}
+
+body.easy-chat-v6 .easy-chat-app {
+    height: var(--easy-chat-height, 100dvh) !important;
+    max-height: var(--easy-chat-height, 100dvh) !important;
+}
+
+.easy-answer.is-typing::after,
+.lesson-easy-streaming::after {
+    content: "";
+    display: inline-block;
+    width: 2px;
+    height: 1.05em;
+    margin-left: 3px;
+    vertical-align: -0.12em;
+    border-radius: 2px;
+    background: #a78bfa;
+    animation: easyStreamingCaret .72s steps(1,end) infinite;
+}
+
+@keyframes easyStreamingCaret {
+    0%, 48% { opacity: 1; }
+    49%, 100% { opacity: 0; }
+}
+
+@media (max-width: 760px) {
+    body.easy-chat-v6 .easy-chat-main {
+        height: var(--easy-chat-height, 100dvh) !important;
+        grid-template-rows: calc(52px + env(safe-area-inset-top)) minmax(0,1fr) auto !important;
+        overflow: hidden !important;
+    }
+
+    body.easy-chat-v6 .easy-chat-header {
+        min-height: calc(52px + env(safe-area-inset-top)) !important;
+        padding: env(safe-area-inset-top) 10px 0 !important;
+        align-items: center !important;
+        background: #0f111a !important;
+    }
+
+    body.easy-chat-v6 .easy-conversation {
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+    }
+
+    body.easy-chat-v6 .easy-conversation-inner {
+        width: calc(100% - 24px) !important;
+        padding: 20px 0 24px !important;
+    }
+
+    body.easy-chat-v6 .easy-welcome {
+        min-height: 100% !important;
+        padding: 28px 0 !important;
+    }
+
+    body.easy-chat-v6 .easy-message {
+        margin-bottom: 22px !important;
+    }
+
+    body.easy-chat-v6 .easy-message-user-bubble {
+        max-width: 88% !important;
+        font-size: 15px !important;
+    }
+
+    body.easy-chat-v6 .easy-message-assistant {
+        gap: 10px !important;
+    }
+
+    body.easy-chat-v6 .easy-assistant-avatar {
+        width: 30px !important;
+        height: 30px !important;
+        border-radius: 10px !important;
+    }
+
+    body.easy-chat-v6 .easy-assistant-avatar img {
+        width: 26px !important;
+        height: 26px !important;
+    }
+
+    body.easy-chat-v6 .easy-assistant-name {
+        margin-bottom: 6px !important;
+    }
+
+    body.easy-chat-v6 .easy-answer {
+        font-size: 15px !important;
+        line-height: 1.68 !important;
+    }
+
+    body.easy-chat-v6 .easy-composer-zone {
+        position: relative !important;
+        z-index: 20 !important;
+        flex: none;
+        padding: 8px 10px calc(8px + env(safe-area-inset-bottom)) !important;
+        background: #0f111a !important;
+        border-top: 1px solid rgba(255,255,255,.055);
+    }
+
+    body.easy-chat-v6 .easy-suggestions {
+        display: none !important;
+    }
+
+    body.easy-chat-v6 .easy-composer-box {
+        padding: 9px 10px 8px !important;
+        border-radius: 22px !important;
+        box-shadow: 0 8px 28px rgba(0,0,0,.32) !important;
+    }
+
+    body.easy-chat-v6 .easy-composer textarea {
+        min-height: 28px !important;
+        max-height: 132px !important;
+        padding: 3px 4px 5px !important;
+        font-size: 16px !important;
+        line-height: 1.42 !important;
+    }
+
+    body.easy-chat-v6 .easy-composer-note {
+        display: none !important;
+    }
+
+    body.easy-chat-v6 .easy-context-label {
+        display: none !important;
+    }
+
+    body.easy-chat-v6 .easy-mode-label {
+        padding: 5px 8px !important;
+        font-size: 10px !important;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .easy-answer.is-typing::after,
+    .lesson-easy-streaming::after { animation: none !important; opacity: 1; }
+}

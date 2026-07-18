@@ -108,7 +108,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let initialLoaderTimer = 0;
 
     const showPageLoader = () => {
-        if (!pageLoader || document.readyState === "complete") {
+        if (body.classList.contains("easy-chat-v6") || !pageLoader || document.readyState === "complete") {
             return;
         }
 

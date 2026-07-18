@@ -17,8 +17,43 @@
     let busy = false;
     let lastFocused = null;
 
-    const scrollToBottom = () => {
-        messages.scrollTop = messages.scrollHeight;
+    const scrollToBottom = ({ smooth = false } = {}) => {
+        messages.scrollTo({
+            top: messages.scrollHeight,
+            behavior: smooth ? "smooth" : "auto"
+        });
+    };
+
+    const cleanEasyPrefix = (text) => text
+        .replace(/^\s*(?:easy\s*:\s*)+/i, "")
+        .replace(/^\s*(?:easy\s*[—–-]\s*)+/i, "")
+        .trimStart();
+
+    const sleep = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+    const typeInto = async (paragraph, sourceText) => {
+        const text = cleanEasyPrefix(sourceText);
+        paragraph.textContent = "";
+        paragraph.classList.add("lesson-easy-streaming");
+
+        let index = 0;
+        while (index < text.length) {
+            const left = text.length - index;
+            const size = left > 180 ? 5 : left > 70 ? 3 : 2;
+            const chunk = text.slice(index, index + size);
+            paragraph.textContent += chunk;
+            index += chunk.length;
+            scrollToBottom();
+
+            const last = chunk.at(-1) || "";
+            if (last === "\n") await sleep(65);
+            else if (/[.!?]/.test(last)) await sleep(55);
+            else if (/[,;:]/.test(last)) await sleep(28);
+            else await sleep(12);
+        }
+
+        paragraph.classList.remove("lesson-easy-streaming");
+        scrollToBottom({ smooth: true });
     };
 
     let lockedScrollY = 0;
@@ -116,7 +151,7 @@
         article.appendChild(content);
         messages.appendChild(article);
         scrollToBottom();
-        return article;
+        return { article, paragraph };
     };
 
     launcher.addEventListener("click", () => setOpen(!panel.classList.contains("is-open")));
@@ -162,11 +197,13 @@
 
             const data = await response.json().catch(() => ({}));
             const text = data.answer || data.error || "Не вдалося отримати відповідь. Спробуй ще раз.";
-            loadingMessage.remove();
-            createMessage("assistant", text);
+            loadingMessage.article.remove();
+            const assistantMessage = createMessage("assistant", "");
+            await typeInto(assistantMessage.paragraph, text);
         } catch (error) {
-            loadingMessage.remove();
-            createMessage("assistant", "Зв’язок перервався. Перевір інтернет і повтори запит.");
+            loadingMessage.article.remove();
+            const assistantMessage = createMessage("assistant", "");
+            await typeInto(assistantMessage.paragraph, "Зв’язок перервався. Перевір інтернет і повтори запит.");
         } finally {
             busy = false;
             sendButton?.removeAttribute("disabled");

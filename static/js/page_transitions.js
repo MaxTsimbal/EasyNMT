@@ -71,6 +71,7 @@
     };
 
     const scheduleLoader = () => {
+        if (body.classList.contains("easy-chat-v6")) return;
         window.clearTimeout(loaderTimer);
         loaderTimer = window.setTimeout(showLoader, LOADER_DELAY_MS);
     };
