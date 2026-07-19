@@ -1,16 +1,20 @@
 """Public contracts for the EasyNMT learning intelligence layer."""
 
 from .cache import AICache, NullAICache, build_cache_key
+from .curriculum import CurriculumRepository, CurriculumService
 from .engines import CurriculumEngine, GradingEngine, LessonEngine, QuizEngine
 from .errors import AIError, AIErrorCode, EngineResult
 from .models import (
     Curriculum,
+    CurriculumStatus,
+    CurriculumUnit,
     Feedback,
     GradeResult,
     LearningPlan,
     Lesson,
     Question,
     Quiz,
+    ReviewCheckpoint,
 )
 from .orchestrator import AIOrchestrator
 from .repository import AIRepository
@@ -29,6 +33,10 @@ __all__ = [
     "AttachmentRef",
     "Curriculum",
     "CurriculumEngine",
+    "CurriculumRepository",
+    "CurriculumService",
+    "CurriculumStatus",
+    "CurriculumUnit",
     "EngineResult",
     "Feedback",
     "GradeResult",
@@ -41,5 +49,6 @@ __all__ = [
     "Question",
     "Quiz",
     "QuizEngine",
+    "ReviewCheckpoint",
     "build_cache_key",
 ]

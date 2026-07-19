@@ -29,6 +29,9 @@ from easynmt_ai import (
     AIRepository,
     AIRequest,
     AIStreamEvent,
+    CurriculumEngine,
+    CurriculumRepository,
+    CurriculumService,
     LearningContext,
 )
 from easynmt_ai.attachments import AttachmentError, normalize_attachment_ids, save_image_upload
@@ -332,6 +335,13 @@ ai_orchestrator = AIOrchestrator(
     repository=ai_repository,
     logger=app.logger,
 )
+curriculum_repository = CurriculumRepository(DB_PATH)
+curriculum_repository.ensure_schema()
+curriculum_engine = CurriculumEngine(
+    ai_orchestrator,
+    max_output_tokens=app.config["OPENAI_CURRICULUM_MAX_OUTPUT_TOKENS"],
+)
+curriculum_service = CurriculumService(curriculum_engine, curriculum_repository)
 vision_grader = VisionGradingEngine(ai_orchestrator)
 AI_UPLOAD_DIR = os.path.join(PERSISTENT_DIR, "ai_uploads")
 os.makedirs(AI_UPLOAD_DIR, exist_ok=True)

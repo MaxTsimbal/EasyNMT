@@ -33,6 +33,9 @@ class Config:
     OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
     OPENAI_VISION_MODEL = os.environ.get("OPENAI_VISION_MODEL", OPENAI_MODEL)
     OPENAI_MAX_OUTPUT_TOKENS = int(os.environ.get("OPENAI_MAX_OUTPUT_TOKENS", "900"))
+    OPENAI_CURRICULUM_MAX_OUTPUT_TOKENS = int(
+        os.environ.get("OPENAI_CURRICULUM_MAX_OUTPUT_TOKENS", "5000")
+    )
     OPENAI_TIMEOUT_SECONDS = float(os.environ.get("OPENAI_TIMEOUT_SECONDS", "45"))
     OPENAI_MAX_RETRIES = int(os.environ.get("OPENAI_MAX_RETRIES", "1"))
     OPENAI_STORE_RESPONSES = os.environ.get("OPENAI_STORE_RESPONSES", "0") == "1"

@@ -10,6 +10,8 @@ from .policy import (
     should_regenerate_curriculum,
     validate_curriculum,
 )
+from .repository import CurriculumRepository, CurriculumStateError
+from .service import CurriculumService, CurriculumValidationOutcome
 from .taxonomy import (
     LEGACY_MATH_LESSON_TOPIC_MAP,
     MathTaxonomy,
@@ -23,7 +25,11 @@ from .taxonomy import (
 
 __all__ = [
     "CurriculumPolicy",
+    "CurriculumRepository",
+    "CurriculumService",
+    "CurriculumStateError",
     "CurriculumValidationIssue",
+    "CurriculumValidationOutcome",
     "CurriculumValidationResult",
     "LEGACY_MATH_LESSON_TOPIC_MAP",
     "MathTaxonomy",
