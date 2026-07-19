@@ -29,6 +29,7 @@
         {% endwith %}
 
         <form method="POST" class="auth-form">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             <label>
                 Імʼя
                 <input type="text" name="name" placeholder="Наприклад, Влад" value="{{ name or '' }}" required>
@@ -41,7 +42,7 @@
 
             <label>
                 Пароль
-                <input type="password" name="password" placeholder="Мінімум 6 символів" required>
+                <input type="password" name="password" placeholder="Мінімум 8 символів" minlength="8" maxlength="128" required>
             </label>
 
             <label>

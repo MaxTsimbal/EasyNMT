@@ -1,7 +1,9 @@
 import os
+import hashlib
 import json
 import random
 import re
+import secrets
 import sqlite3
 import time
 import uuid
@@ -23,7 +25,7 @@ from learning_engine import MAX_SCORE, PASS_SCORE, build_quiz, grade_question
 from lesson_board_engine import build_lesson_board
 from solution_annotation_engine import create_annotated_solution
 from vision_grading_engine import VisionGradingEngine
-from easynmt_ai import AIOrchestrator, AIRepository, AIRequest, AttachmentRef, LearningContext
+from easynmt_ai import AIOrchestrator, AIRepository, AIRequest, LearningContext
 from easynmt_learning import LearningGenerationService, LearningRepository
 from easynmt_ai.attachments import AttachmentError, normalize_attachment_ids, save_image_upload
 
@@ -33,8 +35,9 @@ from easynmt_core.health import health_bp
 
 app = Flask(__name__)
 app.config.from_object(Config)
-# Railway terminates HTTPS at its proxy. ProxyFix lets Flask build correct https:// callback URLs.
-app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+# Railway terminates HTTPS at its proxy. Only trust forwarded headers there.
+if app.config["TRUST_PROXY_HEADERS"]:
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 app.secret_key = app.config["SECRET_KEY"]
 app.register_blueprint(health_bp)
 ai_service = EasyNMT_AI()
@@ -51,6 +54,13 @@ UPLOAD_DIR = os.path.join(PERSISTENT_DIR, "solution_uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024
 ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
+VALID_GOALS = frozenset({"150", "170", "190", "200"})
+VALID_SUBJECTS = frozenset({"math", "ukrainian", "history", "english"})
+VALID_TIME_LEFT = frozenset({"1-month", "2-months", "3-plus", "6-plus"})
+EMAIL_PATTERN = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,189}\.[^@\s]{2,63}$")
+LOGIN_WINDOW_SECONDS = 15 * 60
+LOGIN_FAILURE_LIMIT = 8
+DUMMY_PASSWORD_HASH = generate_password_hash("EasyNMT invalid login sentinel")
 
 
 def get_db_connection():
@@ -253,34 +263,44 @@ def init_db():
     )
 
     conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS auth_login_failures (
+            failure_key TEXT NOT NULL,
+            attempted_at INTEGER NOT NULL
+        )
+        """
+    )
+
+    conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_quiz_attempts_user_subject_lesson "
         "ON quiz_attempts(user_id, subject, lesson_id, submitted_at DESC)"
     )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_auth_login_failures_key_time "
+        "ON auth_login_failures(failure_key, attempted_at)"
+    )
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_ci ON users(lower(email))")
 
     conn.execute("DELETE FROM quiz_sessions WHERE created_at < datetime('now', '-1 day')")
 
-    for column_sql in [
-        "ALTER TABLE user_plans ADD COLUMN streak INTEGER NOT NULL DEFAULT 1",
-        "ALTER TABLE user_plans ADD COLUMN last_activity_date TEXT",
-        "ALTER TABLE user_plans ADD COLUMN diagnostic_required INTEGER NOT NULL DEFAULT 0",
-        "ALTER TABLE users ADD COLUMN google_sub TEXT",
-        "ALTER TABLE users ADD COLUMN avatar_url TEXT",
-        "ALTER TABLE user_subject_progress ADD COLUMN last_lesson_id INTEGER",
-        "ALTER TABLE user_subject_progress ADD COLUMN last_quiz_score INTEGER",
-        "ALTER TABLE user_subject_progress ADD COLUMN last_quiz_total INTEGER",
-    ]:
-        try:
-            conn.execute(column_sql)
-        except sqlite3.OperationalError:
-            pass
+    def ensure_column(table, column, definition):
+        columns = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+        if column not in columns:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
-    try:
-        conn.execute(
-            "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_sub "
-            "ON users(google_sub) WHERE google_sub IS NOT NULL"
-        )
-    except sqlite3.OperationalError:
-        pass
+    ensure_column("user_plans", "streak", "INTEGER NOT NULL DEFAULT 1")
+    ensure_column("user_plans", "last_activity_date", "TEXT")
+    ensure_column("user_plans", "diagnostic_required", "INTEGER NOT NULL DEFAULT 0")
+    ensure_column("users", "google_sub", "TEXT")
+    ensure_column("users", "avatar_url", "TEXT")
+    ensure_column("user_subject_progress", "last_lesson_id", "INTEGER")
+    ensure_column("user_subject_progress", "last_quiz_score", "INTEGER")
+    ensure_column("user_subject_progress", "last_quiz_total", "INTEGER")
+
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_sub "
+        "ON users(google_sub) WHERE google_sub IS NOT NULL"
+    )
 
     # Migrate existing plans into per-subject progress without deleting old data.
     conn.execute(
@@ -308,6 +328,7 @@ learning_repository.ensure_schema()
 learning_service = LearningGenerationService(ai_service.provider, learning_repository)
 AI_UPLOAD_DIR = os.path.join(PERSISTENT_DIR, "ai_uploads")
 os.makedirs(AI_UPLOAD_DIR, exist_ok=True)
+app.config["DATABASE_PATH"] = DB_PATH
 
 
 def current_user_name():
@@ -316,6 +337,75 @@ def current_user_name():
 
 def is_logged_in():
     return "user_id" in session
+
+
+def csrf_token():
+    token = session.get("_csrf_token")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session["_csrf_token"] = token
+    return token
+
+
+@app.before_request
+def protect_unsafe_requests():
+    if request.method in {"GET", "HEAD", "OPTIONS"}:
+        return None
+    expected = session.get("_csrf_token", "")
+    supplied = request.form.get("_csrf_token", "") or request.headers.get("X-CSRF-Token", "")
+    if expected and supplied and secrets.compare_digest(str(expected), str(supplied)):
+        return None
+    if request.path.startswith("/api/"):
+        return jsonify({"ok": False, "error": "csrf_failed"}), 400
+    abort(400, description="Форма застаріла. Онови сторінку й спробуй ще раз.")
+
+
+@app.after_request
+def add_security_headers(response):
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "camera=(self), microphone=(), geolocation=()")
+    if request.is_secure:
+        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    if is_logged_in() and request.endpoint != "static":
+        response.headers.setdefault("Cache-Control", "no-store")
+    return response
+
+
+def wants_json_error():
+    return request.path.startswith("/api/") or request.accept_mimetypes.best == "application/json"
+
+
+@app.errorhandler(400)
+def bad_request_error(error):
+    message = getattr(error, "description", "Некоректний запит.")
+    if wants_json_error():
+        return jsonify({"ok": False, "error": message}), 400
+    return render_template("error.html", status=400, title="Некоректний запит", message=message), 400
+
+
+@app.errorhandler(404)
+def not_found_error(_error):
+    if wants_json_error():
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    return render_template("error.html", status=404, title="Сторінку не знайдено", message="Перевір адресу або повернися до кабінету."), 404
+
+
+@app.errorhandler(413)
+def request_too_large_error(_error):
+    message = "Файл або запит завеликий. Максимальний розмір — 8 МБ."
+    if wants_json_error():
+        return jsonify({"ok": False, "error": message}), 413
+    return render_template("error.html", status=413, title="Файл завеликий", message=message), 413
+
+
+@app.errorhandler(429)
+def too_many_requests_error(error):
+    message = getattr(error, "description", "Забагато запитів. Спробуй трохи пізніше.")
+    if wants_json_error():
+        return jsonify({"ok": False, "error": message}), 429
+    return render_template("error.html", status=429, title="Забагато спроб", message=message), 429
 
 
 def clear_plan_session():
@@ -416,7 +506,7 @@ def ensure_legacy_google_plan(user_id):
         ).fetchone()
         fallback_subject = (
             progress_row["subject"]
-            if progress_row and progress_row["subject"]
+            if progress_row and progress_row["subject"] in VALID_SUBJECTS
             else "math"
         )
 
@@ -507,26 +597,8 @@ def save_plan_to_db():
     conn.commit()
     conn.close()
 
-def reset_user_plan_in_db():
-    user_id = session.get("user_id")
-    if not user_id:
-        return
-
-    conn = get_db_connection()
-    conn.execute("DELETE FROM user_plans WHERE user_id = ?", (user_id,))
-    conn.execute("DELETE FROM completed_lessons WHERE user_id = ?", (user_id,))
-    conn.execute("DELETE FROM achievements WHERE user_id = ?", (user_id,))
-    conn.execute("DELETE FROM quiz_attempts WHERE user_id = ?", (user_id,))
-    conn.execute("DELETE FROM quiz_drafts WHERE user_id = ?", (user_id,))
-    conn.execute("DELETE FROM quiz_sessions WHERE user_id = ?", (user_id,))
-    conn.execute("DELETE FROM lesson_readiness WHERE user_id = ?", (user_id,))
-    conn.execute("DELETE FROM mistakes WHERE user_id = ?", (user_id,))
-    conn.execute("DELETE FROM user_subject_progress WHERE user_id = ?", (user_id,))
-    conn.commit()
-    conn.close()
-
-
 def login_user(user):
+    session.clear()
     session.permanent = True
     session["user_id"] = user["id"]
     session["user_name"] = user["name"]
@@ -536,9 +608,9 @@ def login_user(user):
 
 def onboarding_complete():
     return (
-        session.get("goal") is not None
-        and session.get("subject") is not None
-        and session.get("time_left") is not None
+        session.get("goal") in VALID_GOALS
+        and session.get("subject") in VALID_SUBJECTS
+        and session.get("time_left") in VALID_TIME_LEFT
     )
 
 
@@ -562,23 +634,12 @@ def require_login(view_func):
             flash("Спочатку створи акаунт або увійди, щоб зберегти прогрес.", "error")
             return redirect(url_for("register"))
 
-        # Repair stale Railway sessions after a database/volume replacement.
-        # The same account may still exist under a new numeric id.
         conn = get_db_connection()
         try:
             user = conn.execute(
                 "SELECT * FROM users WHERE id = ?",
                 (session.get("user_id"),),
             ).fetchone()
-            if user is None and session.get("user_email"):
-                user = conn.execute(
-                    "SELECT * FROM users WHERE lower(email) = lower(?)",
-                    (session.get("user_email"),),
-                ).fetchone()
-                if user is not None:
-                    session["user_id"] = user["id"]
-                    session["user_name"] = user["name"]
-                    session["user_email"] = user["email"]
         finally:
             conn.close()
 
@@ -592,6 +653,47 @@ def require_login(view_func):
         return view_func(*args, **kwargs)
 
     return wrapper
+
+
+def login_failure_key(email):
+    source = f"{str(email or '').strip().lower()}|{request.remote_addr or 'unknown'}"
+    return hashlib.sha256(source.encode("utf-8")).hexdigest()
+
+
+def login_is_blocked(failure_key):
+    cutoff = int(time.time()) - LOGIN_WINDOW_SECONDS
+    conn = get_db_connection()
+    try:
+        conn.execute("DELETE FROM auth_login_failures WHERE attempted_at < ?", (cutoff,))
+        row = conn.execute(
+            "SELECT COUNT(*) AS total FROM auth_login_failures WHERE failure_key = ? AND attempted_at >= ?",
+            (failure_key, cutoff),
+        ).fetchone()
+        conn.commit()
+        return int(row["total"] or 0) >= LOGIN_FAILURE_LIMIT
+    finally:
+        conn.close()
+
+
+def record_login_failure(failure_key):
+    conn = get_db_connection()
+    try:
+        conn.execute(
+            "INSERT INTO auth_login_failures (failure_key, attempted_at) VALUES (?, ?)",
+            (failure_key, int(time.time())),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def clear_login_failures(failure_key):
+    conn = get_db_connection()
+    try:
+        conn.execute("DELETE FROM auth_login_failures WHERE failure_key = ?", (failure_key,))
+        conn.commit()
+    finally:
+        conn.close()
 
 
 
@@ -1318,7 +1420,8 @@ EXTRA_QUIZ_QUESTIONS = {
 
 
 def get_subject_key():
-    return session.get("subject", "none")
+    subject_key = session.get("subject", "none")
+    return subject_key if subject_key in VALID_SUBJECTS else "none"
 
 
 def get_lessons_for_subject(subject_key=None):
@@ -1624,22 +1727,13 @@ def inject_global_state():
         "user_name": current_user_name(),
         "is_logged_in": is_logged_in(),
         "has_plan": onboarding_complete(),
+        "csrf_token": csrf_token,
     }
 
 
 @app.route("/")
 def home():
     return render_template("index.html")
-
-
-@app.route("/start")
-@require_login
-def start():
-    clear_plan_session()
-    session["progress"] = 0
-    session["xp"] = 0
-    reset_user_plan_in_db()
-    return redirect(url_for("goal"))
 
 
 @app.route("/register", methods=["GET", "POST"])
@@ -1659,16 +1753,20 @@ def register():
             flash("Заповни всі поля. Пароль потрібно ввести двічі.", "error")
             return render_template("register.html", name=name, email=email)
 
-        if len(password) < 6:
-            flash("Пароль має містити мінімум 6 символів.", "error")
+        if len(name) > 80 or len(email) > 254 or not EMAIL_PATTERN.fullmatch(email):
+            flash("Перевір ім’я та введи коректну email-адресу.", "error")
+            return render_template("register.html", name=name[:80], email=email[:254])
+
+        if len(password) < 8 or len(password) > 128:
+            flash("Пароль має містити від 8 до 128 символів.", "error")
             return render_template("register.html", name=name, email=email)
 
-        if password.strip() != confirm_password.strip():
+        if password != confirm_password:
             flash("Паролі не збігаються. Введи однаковий пароль у два поля.", "error")
             return render_template("register.html", name=name, email=email)
 
         conn = get_db_connection()
-        existing_user = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+        existing_user = conn.execute("SELECT id FROM users WHERE lower(email) = ?", (email,)).fetchone()
 
         if existing_user:
             conn.close()
@@ -1676,13 +1774,19 @@ def register():
             return render_template("register.html")
 
         password_hash = generate_password_hash(password)
-        cursor = conn.execute(
-            "INSERT INTO users (name, email, password_hash, provider) VALUES (?, ?, ?, ?)",
-            (name, email, password_hash, "email"),
-        )
-        conn.commit()
-        user = conn.execute("SELECT * FROM users WHERE id = ?", (cursor.lastrowid,)).fetchone()
-        conn.close()
+        try:
+            cursor = conn.execute(
+                "INSERT INTO users (name, email, password_hash, provider) VALUES (?, ?, ?, ?)",
+                (name, email, password_hash, "email"),
+            )
+            conn.commit()
+            user = conn.execute("SELECT * FROM users WHERE id = ?", (cursor.lastrowid,)).fetchone()
+        except sqlite3.IntegrityError:
+            conn.rollback()
+            flash("Користувач з таким email вже існує. Спробуй увійти.", "error")
+            return render_template("register.html", name=name, email=email)
+        finally:
+            conn.close()
 
         login_user(user)
         clear_plan_session()
@@ -1699,15 +1803,23 @@ def login():
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
+        failure_key = login_failure_key(email)
+
+        if login_is_blocked(failure_key):
+            abort(429, description="Забагато невдалих спроб входу. Спробуй ще раз через 15 хвилин.")
 
         conn = get_db_connection()
-        user = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+        user = conn.execute("SELECT * FROM users WHERE lower(email) = ?", (email,)).fetchone()
         conn.close()
 
-        if user is None or not user["password_hash"] or not check_password_hash(user["password_hash"], password):
+        password_hash = user["password_hash"] if user is not None and user["password_hash"] else DUMMY_PASSWORD_HASH
+        password_valid = check_password_hash(password_hash, password)
+        if user is None or not user["password_hash"] or not password_valid:
+            record_login_failure(failure_key)
             flash("Невірний email або пароль.", "error")
-            return render_template("login.html")
+            return render_template("login.html", email=email)
 
+        clear_login_failures(failure_key)
         login_user(user)
         session.permanent = request.form.get("remember") == "on"
         flash("Ти увійшов в акаунт.", "success")
@@ -1716,7 +1828,8 @@ def login():
     return render_template("login.html")
 
 
-@app.route("/logout")
+@app.route("/logout", methods=["POST"])
+@require_login
 def logout():
     session.clear()
     flash("Ти вийшов з акаунта.", "success")
@@ -1729,12 +1842,21 @@ def google_auth_status():
     status = credentials_status()
     status.update(
         {
-            "callback_url": url_for("google_callback", _external=True, _scheme="https"),
+            "callback_url": google_callback_url(),
             "implementation": "oauth2_pkce_requests",
             "version": "v1.0 Beta",
         }
     )
     return status
+
+
+def google_callback_url():
+    configured = os.environ.get("GOOGLE_REDIRECT_URI", "").strip()
+    if configured:
+        return configured
+    if app.config["TRUST_PROXY_HEADERS"]:
+        return url_for("google_callback", _external=True, _scheme="https")
+    return url_for("google_callback", _external=True)
 
 
 @app.route("/login/google")
@@ -1752,7 +1874,7 @@ def google_login():
         )
         return redirect(url_for("login"))
 
-    callback_url = url_for("google_callback", _external=True, _scheme="https")
+    callback_url = google_callback_url()
     try:
         return redirect(build_authorization_url(callback_url))
     except Exception:
@@ -1768,7 +1890,7 @@ def google_callback():
         flash("Вхід через Google скасовано.", "error")
         return redirect(url_for("login"))
 
-    callback_url = url_for("google_callback", _external=True, _scheme="https")
+    callback_url = google_callback_url()
     try:
         user_info = exchange_callback(
             code=request.args.get("code", ""),
@@ -1800,7 +1922,7 @@ def google_callback():
     conn = get_db_connection()
     try:
         user = conn.execute(
-            "SELECT * FROM users WHERE google_sub = ? OR email = ?",
+            "SELECT * FROM users WHERE google_sub = ? OR lower(email) = ?",
             (google_sub, email),
         ).fetchone()
 
@@ -1855,9 +1977,11 @@ def goal():
     return render_template("goal.html", step=1)
 
 
-@app.route("/set-goal/<goal>")
+@app.route("/set-goal/<goal>", methods=["POST"])
 @require_login
 def set_goal(goal):
+    if goal not in VALID_GOALS:
+        abort(404)
     session["goal"] = goal
     session["progress"] = session.get("progress", 0)
     session["xp"] = session.get("xp", 0)
@@ -1871,9 +1995,11 @@ def subject():
     return render_template("subject.html", step=2)
 
 
-@app.route("/set-subject/<subject>")
+@app.route("/set-subject/<subject>", methods=["POST"])
 @require_login
 def set_subject(subject):
+    if subject not in VALID_SUBJECTS:
+        abort(404)
     previous_subject = session.get("subject")
     if previous_subject and previous_subject != subject:
         save_plan_to_db()
@@ -1892,12 +2018,14 @@ def change_subject():
     return render_template("change_subject.html", **get_user_data())
 
 
-@app.route("/switch-subject/<subject>")
+@app.route("/switch-subject/<subject>", methods=["POST"])
 @require_login
 def switch_subject(subject):
+    if subject not in VALID_SUBJECTS:
+        abort(404)
     save_plan_to_db()
     session["subject"] = subject
-    requested_lesson = request.args.get("lesson", type=int)
+    requested_lesson = request.form.get("lesson", type=int)
     session["current_lesson_id"] = requested_lesson or 1
     load_subject_progress_to_session(session["user_id"], subject)
     if requested_lesson:
@@ -1917,9 +2045,11 @@ def date():
     return render_template("date.html", step=3)
 
 
-@app.route("/set-time/<time_left>")
+@app.route("/set-time/<time_left>", methods=["POST"])
 @require_login
 def set_time(time_left):
+    if time_left not in VALID_TIME_LEFT:
+        abort(404)
     session["time_left"] = time_left
     session["progress"] = session.get("progress", 0)
     session["xp"] = session.get("xp", 0)
@@ -3206,6 +3336,9 @@ def settings():
         goal_value = request.form.get("goal")
         subject_value = request.form.get("subject")
         time_value = request.form.get("time_left")
+
+        if goal_value not in VALID_GOALS or subject_value not in VALID_SUBJECTS or time_value not in VALID_TIME_LEFT:
+            abort(400, description="Невідоме значення налаштувань.")
 
         if goal_value:
             session["goal"] = goal_value

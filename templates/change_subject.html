@@ -22,33 +22,45 @@
 
     <div class="goal-grid">
 
-        <a href="/switch-subject/math" class="goal-link">
+        <form method="post" action="{{ url_for('switch_subject', subject='math') }}" class="goal-link option-action-form">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="card-action-button">
             <div class="goal-card {% if subject_key == 'math' %}premium{% endif %}">
                 <span class="score">📐</span>
                 <span class="desc">Математика</span>
             </div>
-        </a>
+            </button>
+        </form>
 
-        <a href="/switch-subject/ukrainian" class="goal-link">
+        <form method="post" action="{{ url_for('switch_subject', subject='ukrainian') }}" class="goal-link option-action-form">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="card-action-button">
             <div class="goal-card {% if subject_key == 'ukrainian' %}premium{% endif %}">
                 <span class="score">🇺🇦</span>
                 <span class="desc">Українська мова</span>
             </div>
-        </a>
+            </button>
+        </form>
 
-        <a href="/switch-subject/history" class="goal-link">
+        <form method="post" action="{{ url_for('switch_subject', subject='history') }}" class="goal-link option-action-form">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="card-action-button">
             <div class="goal-card {% if subject_key == 'history' %}premium{% endif %}">
                 <span class="score">📜</span>
                 <span class="desc">Історія України</span>
             </div>
-        </a>
+            </button>
+        </form>
 
-        <a href="/switch-subject/english" class="goal-link">
+        <form method="post" action="{{ url_for('switch_subject', subject='english') }}" class="goal-link option-action-form">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="card-action-button">
             <div class="goal-card {% if subject_key == 'english' %}premium{% endif %}">
                 <span class="score">🇬🇧</span>
                 <span class="desc">Англійська мова</span>
             </div>
-        </a>
+            </button>
+        </form>
 
     </div>
 

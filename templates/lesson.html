@@ -61,7 +61,7 @@
     {% if lesson_ready %}
       <a class="button button-primary" href="{{ url_for('quiz', lesson_id=lesson.id) }}">Перейти до тесту →</a>
     {% else %}
-      <form method="post" action="{{ url_for('mark_lesson_ready', lesson_id=lesson.id) }}"><button class="button button-primary" type="submit">Я розібрався. Перевірити себе →</button></form>
+      <form method="post" action="{{ url_for('mark_lesson_ready', lesson_id=lesson.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token() }}"><button class="button button-primary" type="submit">Я розібрався. Перевірити себе →</button></form>
     {% endif %}
   </section>
 </div>

@@ -7,6 +7,7 @@
         <span class="score">⚙️ Налаштування плану</span>
         <span class="desc">Тут можна змінити ціль, основний предмет або час підготовки. Новий акаунт створювати не потрібно.</span>
         <form method="post">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             <label>Ціль</label>
             <select name="goal"><option value="150">150+</option><option value="170">170+</option><option value="190">190+</option><option value="200">200</option></select>
             <label>Предмет</label>

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}{{ status }} · {{ title }} | EasyNMT{% endblock %}
+{% block robots %}noindex, nofollow{% endblock %}
+{% block content %}
+<section class="container" style="padding:72px 20px 96px;max-width:760px">
+  <article class="glass-card" style="padding:32px">
+    <span class="eyebrow">Помилка {{ status }}</span>
+    <h1>{{ title }}</h1>
+    <p>{{ message }}</p>
+    <a class="button button-primary" href="{{ url_for('dashboard') if is_logged_in and has_plan else url_for('home') }}">Повернутися</a>
+  </article>
+</section>
+{% endblock %}

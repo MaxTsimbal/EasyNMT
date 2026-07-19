@@ -29,6 +29,7 @@
         {% endwith %}
 
         <form method="POST" class="auth-form">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             <label>
                 Email
                 <input type="email" name="email" placeholder="you@example.com" required>

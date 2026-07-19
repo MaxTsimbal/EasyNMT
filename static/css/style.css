@@ -9922,3 +9922,44 @@ body.easy-chat-v6 .easy-chat-app {
         padding-bottom: 12px !important;
     }
 }
+.option-grid > form {
+    display: contents;
+}
+
+.option-card[type="submit"],
+.card-action-button,
+.library-lesson-form .mini-lesson-row,
+.nav-action-form .dashboard-nav-link,
+.profile-action-form .profile-action-row {
+    width: 100%;
+    font: inherit;
+    text-align: inherit;
+    cursor: pointer;
+}
+
+.option-card[type="submit"],
+.card-action-button,
+.library-lesson-form .mini-lesson-row,
+.nav-action-form .dashboard-nav-link,
+.profile-action-form .profile-action-row {
+    appearance: none;
+}
+
+.card-action-button,
+.nav-action-form .dashboard-nav-link,
+.profile-action-form .profile-action-row {
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+.library-lesson-form,
+.nav-action-form,
+.profile-action-form,
+.option-action-form {
+    margin: 0;
+}
+
+.library-lesson-form .mini-lesson-row {
+    border: 0;
+}

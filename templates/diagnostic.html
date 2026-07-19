@@ -8,6 +8,7 @@
     <p>Це не іспит і тут немає поганого результату. Відповідай так, як думаєш. EasyNMT використає результат, щоб не давати надто легкі або надто складні пояснення.</p>
   </div>
   <form method="post" class="diagnostic-form">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     {% for q in questions %}{% set qn = loop.index %}
     <article class="diagnostic-question glass-card">
       <span class="diagnostic-number">{{ loop.index }}</span>

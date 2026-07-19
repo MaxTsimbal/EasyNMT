@@ -15,6 +15,7 @@
     </div>
 
     <form method="post" enctype="multipart/form-data" class="quiz-form" data-validate data-quiz-draft-url="{{ url_for('quiz_draft_api', lesson_id=lesson.id) }}">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="attempt_token" value="{{ attempt_token }}">
         {% for question in questions %}
         <input type="hidden" name="question_ids" value="{{ question.id }}">

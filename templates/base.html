@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="theme-color" content="#070b1f">
     <meta name="color-scheme" content="dark">
     <title>{% block title %}EasyNMT — AI-викладач для підготовки до НМТ{% endblock %}</title>
@@ -22,6 +23,22 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='0999-keyboard-dock-final') }}">
+    <script>
+    (() => {
+        const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
+        const originalFetch = window.fetch.bind(window);
+        window.fetch = (input, init = {}) => {
+            const method = String(init.method || (input instanceof Request ? input.method : 'GET')).toUpperCase();
+            const target = new URL(input instanceof Request ? input.url : String(input), window.location.href);
+            if (target.origin === window.location.origin && !['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+                const headers = new Headers(init.headers || (input instanceof Request ? input.headers : undefined));
+                headers.set('X-CSRF-Token', token);
+                init = {...init, headers};
+            }
+            return originalFetch(input, init);
+        };
+    })();
+    </script>
     {% block structured_data %}{% endblock %}
     {% block extra_css %}{% endblock %}
 </head>
@@ -118,7 +135,10 @@
                 <a class="dashboard-nav-link" href="{{ url_for('home') }}#features"><span>✦</span><b>Можливості</b></a>
                 <a class="dashboard-nav-link" href="{{ url_for('home') }}#subjects"><span>▦</span><b>Предмети</b></a>
                 <a class="dashboard-nav-link" href="{{ url_for('home') }}#how-it-works"><span>?</span><b>Як це працює</b></a>
-                <a class="dashboard-nav-link dashboard-nav-logout" href="{{ url_for('logout') }}"><span>↪</span><b>Вийти</b></a>
+                <form class="nav-action-form" method="post" action="{{ url_for('logout') }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <button class="dashboard-nav-link dashboard-nav-logout" type="submit"><span>↪</span><b>Вийти</b></button>
+                </form>
             </nav>
         </div>
     </div>

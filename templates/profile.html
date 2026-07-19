@@ -35,7 +35,10 @@
             <a class="profile-action-row" href="{{ url_for('home') }}#subjects"><span>▦ Предмети</span><b>→</b></a>
             <a class="profile-action-row" href="{{ url_for('home') }}#how-it-works"><span>❔ Як це працює</span><b>→</b></a>
             <a class="profile-action-row" href="{{ url_for('dashboard') }}"><span>← Повернутися в кабінет</span><b></b></a>
-            <a class="profile-action-row profile-logout-row" href="{{ url_for('logout') }}"><span>↪ Вийти з акаунта</span><b>→</b></a>
+            <form class="profile-action-form" method="post" action="{{ url_for('logout') }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <button class="profile-action-row profile-logout-row" type="submit"><span>↪ Вийти з акаунта</span><b>→</b></button>
+            </form>
         </section>
     </div>
 </section>

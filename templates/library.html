@@ -10,9 +10,13 @@
         <span class="desc">Прогрес: {{ block.progress }}%</span>
         <div class="progress-bar" style="margin:16px 0;"><div class="progress-fill" style="width:{{ block.progress }}%;"></div></div>
         {% for lesson in block.lessons %}
-        <a href="{{ url_for('switch_subject', subject=block.key, lesson=lesson.id) }}" class="mini-lesson-row {% if lesson.id in block.completed %}completed-row{% endif %}">
-            <div><div class="mini-lesson-title">{% if lesson.id in block.completed %}✅{% else %}○{% endif %} Урок {{ lesson.id }}: {{ lesson.title }}</div><div class="mini-lesson-meta">{{ lesson.goal }}</div></div><span>→</span>
-        </a>
+        <form method="post" action="{{ url_for('switch_subject', subject=block.key) }}" class="library-lesson-form">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="lesson" value="{{ lesson.id }}">
+            <button type="submit" class="mini-lesson-row {% if lesson.id in block.completed %}completed-row{% endif %}">
+                <span><span class="mini-lesson-title">{% if lesson.id in block.completed %}✅{% else %}○{% endif %} Урок {{ lesson.id }}: {{ lesson.title }}</span><span class="mini-lesson-meta">{{ lesson.goal }}</span></span><span>→</span>
+            </button>
+        </form>
         {% endfor %}
     </div><br>
     {% endfor %}

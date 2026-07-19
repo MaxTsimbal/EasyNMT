@@ -1,3 +1,28 @@
-{% extends "base.html" %}{% block title %}Обери предмет | EasyNMT{% endblock %}{% block body_class %}onboarding-body{% endblock %}{% block content %}
-<section class="onboarding-page"><div class="container onboarding-shell"><article class="onboarding-card glass-card"><div class="onboarding-progress"><span class="onboarding-progress-step active"></span><span class="onboarding-progress-step active"></span><span class="onboarding-progress-step"></span></div><header class="onboarding-header"><span class="eyebrow">Крок 2 із 3</span><h1 class="onboarding-title">Обери предмет</h1><p class="onboarding-subtitle">Обери предмет, з якого хочеш почати. До інших предметів зможеш перейти пізніше.</p></header><div class="option-grid"><a href="{{ url_for('set_subject', subject='math') }}" class="option-card"><span class="option-icon">📐</span><span class="option-content"><b class="option-title">Математика</b><small class="option-description">Формули, задачі, логіка</small></span></a><a href="{{ url_for('set_subject', subject='ukrainian') }}" class="option-card"><span class="option-icon">🇺🇦</span><span class="option-content"><b class="option-title">Українська мова</b><small class="option-description">Правопис і мовні норми</small></span></a><a href="{{ url_for('set_subject', subject='history') }}" class="option-card"><span class="option-icon">📜</span><span class="option-content"><b class="option-title">Історія України</b><small class="option-description">Дати, постаті, події</small></span></a><a href="{{ url_for('set_subject', subject='english') }}" class="option-card"><span class="option-icon">🇬🇧</span><span class="option-content"><b class="option-title">Англійська</b><small class="option-description">Граматика й лексика</small></span></a></div><div class="onboarding-actions"><a class="button button-ghost" href="{{ url_for('goal') }}">← Назад</a></div></article><aside class="onboarding-visual"><div class="tutor-orbit glass-card"><img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="AI-викладач"><div class="tutor-message"><h2 class="tutor-message-title">Обираємо перший предмет 🧭</h2><p class="tutor-message-text">Краще почати з одного предмета. Так буде легше бачити прогрес і не розпорошувати увагу.</p></div></div></aside></div></section>
+{% extends "base.html" %}
+{% block title %}Обери предмет | EasyNMT{% endblock %}
+{% block body_class %}onboarding-body{% endblock %}
+{% block content %}
+<section class="onboarding-page">
+  <div class="container onboarding-shell">
+    <article class="onboarding-card glass-card">
+      <div class="onboarding-progress"><span class="onboarding-progress-step active"></span><span class="onboarding-progress-step active"></span><span class="onboarding-progress-step"></span></div>
+      <header class="onboarding-header"><span class="eyebrow">Крок 2 із 3</span><h1 class="onboarding-title">Обери предмет</h1><p class="onboarding-subtitle">Обери предмет, з якого хочеш почати. До інших предметів зможеш перейти пізніше.</p></header>
+      <div class="option-grid">
+        {% for value, icon, title, description in [
+          ('math', '📐', 'Математика', 'Формули, задачі, логіка'),
+          ('ukrainian', '🇺🇦', 'Українська мова', 'Правопис і мовні норми'),
+          ('history', '📜', 'Історія України', 'Дати, постаті, події'),
+          ('english', '🇬🇧', 'Англійська', 'Граматика й лексика')
+        ] %}
+        <form method="post" action="{{ url_for('set_subject', subject=value) }}">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="option-card"><span class="option-icon">{{ icon }}</span><span class="option-content"><b class="option-title">{{ title }}</b><small class="option-description">{{ description }}</small></span></button>
+        </form>
+        {% endfor %}
+      </div>
+      <div class="onboarding-actions"><a class="button button-ghost" href="{{ url_for('goal') }}">← Назад</a></div>
+    </article>
+    <aside class="onboarding-visual"><div class="tutor-orbit glass-card"><img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="AI-викладач"><div class="tutor-message"><h2 class="tutor-message-title">Обираємо перший предмет 🧭</h2><p class="tutor-message-text">Краще почати з одного предмета. Так буде легше бачити прогрес і не розпорошувати увагу.</p></div></div></aside>
+  </div>
+</section>
 {% endblock %}

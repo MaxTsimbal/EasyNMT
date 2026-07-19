@@ -46,7 +46,10 @@
                         <a class="dashboard-nav-link" href="{{ url_for('home') }}#features"><span class="pro-icon" aria-hidden="true">✦</span><b>Можливості</b></a>
                         <a class="dashboard-nav-link" href="{{ url_for('home') }}#subjects"><span class="pro-icon" aria-hidden="true">▦</span><b>Предмети</b></a>
                         <a class="dashboard-nav-link" href="{{ url_for('home') }}#how-it-works"><span class="pro-icon" aria-hidden="true">?</span><b>Як це працює</b></a>
-                        <a class="dashboard-nav-link dashboard-nav-logout" href="{{ url_for('logout') }}"><span class="pro-icon" aria-hidden="true">↪</span><b>Вийти</b></a>
+                        <form class="nav-action-form" method="post" action="{{ url_for('logout') }}">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <button class="dashboard-nav-link dashboard-nav-logout" type="submit"><span class="pro-icon" aria-hidden="true">↪</span><b>Вийти</b></button>
+                        </form>
                     </nav>
                 </div>
             </div>
