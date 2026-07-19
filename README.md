@@ -1,0 +1,76 @@
+# EasyNMT
+
+EasyNMT is a Flask and SQLite learning platform for structured NMT preparation.
+The active product path combines curated lessons, server-generated quizzes,
+per-subject progress, mistake review, and an optional OpenAI-powered tutor.
+
+This repository is a hardened v1.0 Beta candidate. The core learning flow works
+without an OpenAI key; in that case the tutor exposes an explicit offline mode
+and uses only curated lesson material.
+
+## Architecture
+
+- `app.py` — Flask routes, authentication, onboarding, lesson flow, quiz
+  finalization, progress views, and API orchestration.
+- `learning_engine.py` — canonical quiz construction and deterministic grading.
+- `easynmt_ai/` — OpenAI gateway, prompt/context builder, conversation
+  repository, attachment validation, and streaming orchestration.
+- `easynmt_core/health.py` — separate liveness and database-readiness endpoints.
+- `templates/` and `static/` — server-rendered UI and browser behavior.
+- `tests/` — security, quiz consistency, persistence, API, and route regression
+  coverage.
+
+SQLite is authoritative for progress, quiz attempts, unlock state, AI history,
+and quotas. Flask's signed session stores identity and lightweight navigation
+state; it is not trusted as the source of XP or completion data.
+
+## Local setup
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+Copy-Item .env.example .env
+python app.py
+```
+
+Set a local `SECRET_KEY` in `.env` if sessions should survive process restarts.
+`OPENAI_API_KEY` and Google OAuth credentials are optional for the offline core.
+
+Run the regression suite:
+
+```powershell
+python -m unittest discover -v
+python -m pip check
+```
+
+## Production configuration
+
+The Railway configuration runs one Gunicorn worker with four threads. Attach a
+persistent volume and set at least:
+
+```text
+SECRET_KEY=<random value of at least 32 characters>
+FLASK_DEBUG=0
+SESSION_COOKIE_SECURE=1
+```
+
+Optional integrations:
+
+```text
+OPENAI_API_KEY=
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_VISION_MODEL=gpt-4o-mini
+OPENAI_DAILY_LIMIT=40
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=
+```
+
+- `/health` is a process liveness check.
+- `/ready` returns 200 only when the SQLite database exists and is initialized.
+
+See [DEPLOY_RAILWAY.md](DEPLOY_RAILWAY.md), [OPENAI_SETUP.md](OPENAI_SETUP.md),
+and [GOOGLE_AUTH_SETUP.md](GOOGLE_AUTH_SETUP.md) for integration details.
+The production audit and remaining Beta work are in
+[PRODUCTION_AUDIT_REPORT.md](PRODUCTION_AUDIT_REPORT.md).
