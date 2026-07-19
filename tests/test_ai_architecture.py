@@ -162,16 +162,22 @@ class AIFoundationArchitectureTests(unittest.TestCase):
 
     def test_all_engine_interfaces_return_typed_models(self):
         gateway = FakeGateway(
-            ai_response(CURRICULUM_PAYLOAD),
+            AIResult(
+                "",
+                "offline",
+                "provider unavailable",
+                error_code="disabled",
+            ),
             ai_response(LESSON_PAYLOAD),
             ai_response(QUIZ_PAYLOAD),
             ai_response(GRADE_PAYLOAD),
         )
         orchestrator = AIOrchestrator(_gateway=gateway)
 
-        curriculum = CurriculumEngine(orchestrator).generate(self.context, lesson_count=1)
+        curriculum = CurriculumEngine(orchestrator).generate(self.context)
         self.assertTrue(curriculum.success)
-        plan = curriculum.value.plans[0]
+        self.assertTrue(curriculum.fallback_used)
+        plan = LearningPlan.from_dict(CURRICULUM_PAYLOAD["plans"][0])
 
         lesson = LessonEngine(orchestrator).generate(self.context, plan)
         self.assertTrue(lesson.success)
