@@ -13,6 +13,20 @@ def normalize_text(value: str | None) -> str:
     return text
 
 
+STOP_WORDS = {
+    "а", "але", "бо", "в", "від", "до", "для", "з", "за", "і", "й", "на", "не",
+    "та", "у", "що", "це", "як", "the", "a", "an", "and", "in", "is", "of", "to",
+}
+
+
+def meaningful_tokens(value: str | None) -> set[str]:
+    return {
+        token
+        for token in re.findall(r"[a-zа-яіїєґ0-9-]+", normalize_text(value), flags=re.IGNORECASE)
+        if len(token) > 1 and token not in STOP_WORDS
+    }
+
+
 def _written(question: str, answer: str, explanation: str, points: int = 2,
              accepted: list[str] | None = None, keywords: list[str] | None = None,
              placeholder: str = "Напиши свою відповідь") -> dict[str, Any]:
@@ -161,8 +175,16 @@ def grade_question(question: dict[str, Any], user_answer: str | None) -> tuple[i
         if ratio >= 0.35:
             return max(1, earned), False, "Напрям правильний, але відповідь неповна. " + question.get("explanation", "")
 
-    # Для відкритих гуманітарних відповідей без ключових слів оцінюємо змістовність.
-    if not keywords and len(answer.split()) >= 5:
-        return points, True, "Відповідь змістовна. Звір формулювання з матеріалом уроку."
+    # Without an explicit rubric, require evidence from the reference answer.
+    # Length alone must never award points for unrelated prose.
+    if not keywords:
+        reference_tokens = set().union(*(meaningful_tokens(item) for item in question.get("accepted", [])))
+        answer_tokens = meaningful_tokens(answer)
+        if reference_tokens:
+            overlap = len(reference_tokens & answer_tokens) / len(reference_tokens)
+            if overlap >= 0.8:
+                return points, True, question.get("explanation", "")
+            if overlap >= 0.5:
+                return max(1, points // 2), False, "Відповідь частково правильна. " + question.get("explanation", "")
 
     return 0, False, question.get("explanation", "Перевір правило й спробуй ще раз.")

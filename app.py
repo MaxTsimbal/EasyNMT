@@ -53,7 +53,6 @@ os.makedirs(os.path.dirname(DB_PATH) or BASE_DIR, exist_ok=True)
 UPLOAD_DIR = os.path.join(PERSISTENT_DIR, "solution_uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024
-ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
 VALID_GOALS = frozenset({"150", "170", "190", "200"})
 VALID_SUBJECTS = frozenset({"math", "ukrainian", "history", "english"})
 VALID_TIME_LEFT = frozenset({"1-month", "2-months", "3-plus", "6-plus"})
@@ -229,6 +228,7 @@ def init_db():
             xp_awarded INTEGER NOT NULL DEFAULT 0,
             review_json TEXT NOT NULL DEFAULT '[]',
             submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            finalized_at TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
         )
         """
@@ -296,6 +296,10 @@ def init_db():
     ensure_column("user_subject_progress", "last_lesson_id", "INTEGER")
     ensure_column("user_subject_progress", "last_quiz_score", "INTEGER")
     ensure_column("user_subject_progress", "last_quiz_total", "INTEGER")
+    ensure_column("quiz_attempts", "finalized_at", "TIMESTAMP")
+    conn.execute(
+        "UPDATE quiz_attempts SET finalized_at = submitted_at WHERE finalized_at IS NULL"
+    )
 
     conn.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_sub "
@@ -392,6 +396,13 @@ def not_found_error(_error):
     return render_template("error.html", status=404, title="Сторінку не знайдено", message="Перевір адресу або повернися до кабінету."), 404
 
 
+@app.errorhandler(403)
+def forbidden_error(_error):
+    if wants_json_error():
+        return jsonify({"ok": False, "error": "forbidden"}), 403
+    return render_template("error.html", status=403, title="Доступ закрито", message="Спочатку заверши попередній крок навчального маршруту."), 403
+
+
 @app.errorhandler(413)
 def request_too_large_error(_error):
     message = "Файл або запит завеликий. Максимальний розмір — 8 МБ."
@@ -450,13 +461,24 @@ def load_subject_progress_to_session(user_id, subject):
     session["last_quiz_total"] = int(row["last_quiz_total"] or 0) if row and "last_quiz_total" in row.keys() else 0
 
     # completed_lessons is the source of truth for route completion.
-    try:
-        lesson_total = len(get_lessons_for_subject(subject))
-        completed_total = len(get_completed_lessons(subject))
-        session["progress"] = round((completed_total / max(1, lesson_total)) * 100)
-    except NameError:
-        # During module startup these helpers are not yet defined; later calls reconcile it.
-        pass
+    lesson_total = len(get_lessons_for_subject(subject))
+    completed_total = len(get_completed_lessons(subject))
+    computed_progress = round((completed_total / max(1, lesson_total)) * 100)
+    session["progress"] = computed_progress
+    if row and int(row["progress"] or 0) != computed_progress:
+        conn = get_db_connection()
+        try:
+            conn.execute(
+                "UPDATE user_subject_progress SET progress = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ? AND subject = ?",
+                (computed_progress, user_id, subject),
+            )
+            conn.execute(
+                "UPDATE user_plans SET progress = ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ? AND subject = ?",
+                (computed_progress, user_id, subject),
+            )
+            conn.commit()
+        finally:
+            conn.close()
 
 
 def load_plan_to_session(user_id):
@@ -550,52 +572,70 @@ def save_plan_to_db():
 
     subject = session.get("subject")
     conn = get_db_connection()
-    conn.execute(
-        """
-        INSERT INTO user_plans
-            (user_id, goal, subject, time_left, progress, xp, streak, last_activity_date, diagnostic_required)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(user_id) DO UPDATE SET
-            goal = excluded.goal,
-            subject = excluded.subject,
-            time_left = excluded.time_left,
-            progress = excluded.progress,
-            xp = excluded.xp,
-            streak = excluded.streak,
-            last_activity_date = excluded.last_activity_date,
-            diagnostic_required = excluded.diagnostic_required,
-            updated_at = CURRENT_TIMESTAMP
-        """,
-        (user_id, session.get("goal"), subject, session.get("time_left"),
-         session.get("progress", 0), session.get("xp", 0),
-         session.get("streak", 1), session.get("last_activity_date"),
-         int(bool(session.get("diagnostic_required", False)))),
-    )
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        persisted = None
+        if subject in VALID_SUBJECTS:
+            persisted = conn.execute(
+                "SELECT * FROM user_subject_progress WHERE user_id = ? AND subject = ?",
+                (user_id, subject),
+            ).fetchone()
+        progress = int(persisted["progress"] or 0) if persisted else int(session.get("progress", 0) or 0)
+        xp = int(persisted["xp"] or 0) if persisted else int(session.get("xp", 0) or 0)
+        streak = int(persisted["streak"] or 1) if persisted else int(session.get("streak", 1) or 1)
+        last_activity_date = persisted["last_activity_date"] if persisted else session.get("last_activity_date")
+        last_quiz_score = int(persisted["last_quiz_score"] or 0) if persisted else int(session.get("last_quiz_score", 0) or 0)
+        last_quiz_total = int(persisted["last_quiz_total"] or 0) if persisted else int(session.get("last_quiz_total", 0) or 0)
 
-    if subject:
         conn.execute(
             """
-            INSERT INTO user_subject_progress
-                (user_id, subject, progress, xp, streak, last_activity_date,
-                 last_lesson_id, last_quiz_score, last_quiz_total)
+            INSERT INTO user_plans
+                (user_id, goal, subject, time_left, progress, xp, streak, last_activity_date, diagnostic_required)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(user_id, subject) DO UPDATE SET
+            ON CONFLICT(user_id) DO UPDATE SET
+                goal = excluded.goal,
+                subject = excluded.subject,
+                time_left = excluded.time_left,
                 progress = excluded.progress,
                 xp = excluded.xp,
                 streak = excluded.streak,
                 last_activity_date = excluded.last_activity_date,
-                last_lesson_id = excluded.last_lesson_id,
-                last_quiz_score = excluded.last_quiz_score,
-                last_quiz_total = excluded.last_quiz_total,
+                diagnostic_required = excluded.diagnostic_required,
                 updated_at = CURRENT_TIMESTAMP
             """,
-            (user_id, subject, session.get("progress", 0), session.get("xp", 0),
-             session.get("streak", 1), session.get("last_activity_date"),
-             session.get("current_lesson_id", 1), session.get("last_quiz_score", 0),
-             session.get("last_quiz_total", 0)),
+            (user_id, session.get("goal"), subject, session.get("time_left"), progress, xp,
+             streak, last_activity_date, int(bool(session.get("diagnostic_required", False)))),
         )
-    conn.commit()
-    conn.close()
+
+        if subject in VALID_SUBJECTS:
+            conn.execute(
+                """
+                INSERT INTO user_subject_progress
+                    (user_id, subject, progress, xp, streak, last_activity_date,
+                     last_lesson_id, last_quiz_score, last_quiz_total)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(user_id, subject) DO UPDATE SET
+                    last_lesson_id = excluded.last_lesson_id,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (user_id, subject, progress, xp, streak, last_activity_date,
+                 session.get("current_lesson_id", 1), last_quiz_score, last_quiz_total),
+            )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+    session.update({
+        "progress": progress,
+        "xp": xp,
+        "streak": streak,
+        "last_activity_date": last_activity_date,
+        "last_quiz_score": last_quiz_score,
+        "last_quiz_total": last_quiz_total,
+    })
 
 def login_user(user):
     session.clear()
@@ -732,25 +772,6 @@ def get_completed_lesson_stats(subject_key=None):
     return [dict(row) for row in rows]
 
 
-def unlock_achievement(code, icon, title, description):
-    user_id = session.get("user_id")
-    if not user_id:
-        return False
-
-    conn = get_db_connection()
-    try:
-        conn.execute(
-            "INSERT INTO achievements (user_id, code, icon, title, description) VALUES (?, ?, ?, ?, ?)",
-            (user_id, code, icon, title, description),
-        )
-        conn.commit()
-        return True
-    except sqlite3.IntegrityError:
-        return False
-    finally:
-        conn.close()
-
-
 def get_achievements(limit=None):
     user_id = session.get("user_id")
     if not user_id:
@@ -768,80 +789,185 @@ def get_achievements(limit=None):
     return [dict(row) for row in rows]
 
 
-def update_streak_for_today():
-    today = dt_date.today()
-    last_raw = session.get("last_activity_date")
-    current_streak = int(session.get("streak", 1) or 1)
-
-    if last_raw:
-        try:
-            last_day = datetime.strptime(last_raw, "%Y-%m-%d").date()
-            if last_day == today:
-                session["streak"] = current_streak
-                return current_streak
-            if last_day == today - timedelta(days=1):
-                session["streak"] = current_streak + 1
-            else:
-                session["streak"] = 1
-        except ValueError:
-            session["streak"] = 1
-    else:
-        session["streak"] = 1
-
-    session["last_activity_date"] = today.isoformat()
-    return session["streak"]
+def streak_after_activity(last_raw, current_streak, today=None):
+    today = today or dt_date.today()
+    try:
+        last_day = datetime.strptime(str(last_raw or ""), "%Y-%m-%d").date()
+    except ValueError:
+        return 1, today.isoformat()
+    if last_day == today:
+        return max(1, int(current_streak or 1)), today.isoformat()
+    if last_day == today - timedelta(days=1):
+        return max(1, int(current_streak or 1)) + 1, today.isoformat()
+    return 1, today.isoformat()
 
 
-def complete_lesson(lesson_id, score, total):
-    user_id = session.get("user_id")
-    subject_key = session.get("subject", "none")
-    if not user_id:
-        return {"first_completion": False, "new_achievements": []}
-
-    completed_before = get_completed_lessons(subject_key)
-    first_completion = lesson_id not in completed_before
-
+def finalize_quiz_attempt(*, attempt_token, lesson_id, score, total, passed, review):
+    user_id = int(session["user_id"])
+    subject_key = get_subject_key()
     conn = get_db_connection()
-    conn.execute(
-        """
-        INSERT INTO completed_lessons (user_id, subject, lesson_id, best_score, total)
-        VALUES (?, ?, ?, ?, ?)
-        ON CONFLICT(user_id, subject, lesson_id) DO UPDATE SET
-            best_score = MAX(completed_lessons.best_score, excluded.best_score),
-            total = excluded.total,
-            completed_at = CURRENT_TIMESTAMP
-        """,
-        (user_id, subject_key, lesson_id, score, total),
-    )
-    conn.commit()
-    conn.close()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        existing = conn.execute(
+            """
+            SELECT attempt_token, lesson_id, score, total, passed, xp_awarded,
+                   review_json, submitted_at
+            FROM quiz_attempts
+            WHERE attempt_token = ? AND user_id = ?
+            """,
+            (attempt_token, user_id),
+        ).fetchone()
+        if existing:
+            conn.rollback()
+            return {"duplicate": True, "attempt": dict(existing), "new_achievements": []}
 
-    completed_after = get_completed_lessons(subject_key)
-    lessons_total = len(get_lessons_for_subject(subject_key))
-    progress = round((len(completed_after) / max(1, lessons_total)) * 100)
-    session["progress"] = progress
+        previous_attempts = conn.execute(
+            "SELECT COUNT(*) AS total FROM quiz_attempts WHERE user_id = ? AND subject = ? AND lesson_id = ?",
+            (user_id, subject_key, lesson_id),
+        ).fetchone()["total"]
+        completed_before = conn.execute(
+            "SELECT 1 FROM completed_lessons WHERE user_id = ? AND subject = ? AND lesson_id = ?",
+            (user_id, subject_key, lesson_id),
+        ).fetchone() is not None
 
-    streak = update_streak_for_today()
-    new_achievements = []
+        xp_gain = 0
+        if passed and not completed_before:
+            xp_gain = 50 if previous_attempts else 60
+        elif not passed and not previous_attempts:
+            xp_gain = 10
 
-    def add_achievement(code, icon, title, description):
-        if unlock_achievement(code, icon, title, description):
-            new_achievements.append({"icon": icon, "title": title, "description": description})
+        for item in review:
+            if item["earned"] < item["points"]:
+                conn.execute(
+                    """
+                    INSERT INTO mistakes
+                        (user_id, subject, lesson_id, question, user_answer, correct_answer, explanation)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (user_id, subject_key, lesson_id, item["question"], item["user_answer"],
+                     item["correct_answer"], item["explanation"]),
+                )
 
-    if first_completion:
-        add_achievement("first_lesson", "🥉", "Перший урок", "Ти завершив перший урок в EasyNMT.")
-    if len(completed_after) >= 3:
-        add_achievement("three_lessons", "📚", "Перший маршрут", "Ти завершив 3 уроки з одного предмета.")
-    if score == total and total > 0:
-        add_achievement("perfect_quiz", "💯", "Без помилок", "Усі відповіді правильні. Ти набрав максимальні 24 бали.")
-    if session.get("xp", 0) >= 100:
-        add_achievement("xp_100", "⭐", "100 XP", "Ти набрав перші 100 XP.")
-    if session.get("xp", 0) >= 250:
-        add_achievement("xp_250", "⚡", "250 XP", "Ти вже набрав 250 XP. Видно, що навчання стало регулярним.")
-    if streak >= 3:
-        add_achievement("streak_3", "🔥", "3 дні серії", "Ти займаєшся вже 3 дні поспіль. Продовжуй у такому ж темпі.")
+        conn.execute(
+            """
+            INSERT INTO quiz_attempts
+                (attempt_token, user_id, subject, lesson_id, score, total, passed,
+                 xp_awarded, review_json, finalized_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            """,
+            (attempt_token, user_id, subject_key, lesson_id, score, total, int(passed),
+             xp_gain, json.dumps(review, ensure_ascii=False)),
+        )
 
-    return {"first_completion": first_completion, "new_achievements": new_achievements}
+        if passed:
+            conn.execute(
+                """
+                INSERT INTO completed_lessons (user_id, subject, lesson_id, best_score, total)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(user_id, subject, lesson_id) DO UPDATE SET
+                    best_score = MAX(completed_lessons.best_score, excluded.best_score),
+                    total = CASE
+                        WHEN excluded.best_score >= completed_lessons.best_score THEN excluded.total
+                        ELSE completed_lessons.total
+                    END
+                """,
+                (user_id, subject_key, lesson_id, score, total),
+            )
+
+        progress_row = conn.execute(
+            "SELECT * FROM user_subject_progress WHERE user_id = ? AND subject = ?",
+            (user_id, subject_key),
+        ).fetchone()
+        current_xp = int(progress_row["xp"] or 0) if progress_row else 0
+        current_streak = int(progress_row["streak"] or 1) if progress_row else 1
+        last_activity = progress_row["last_activity_date"] if progress_row else None
+        streak, activity_date = streak_after_activity(last_activity, current_streak)
+        xp = current_xp + xp_gain
+        completed_count = conn.execute(
+            "SELECT COUNT(*) AS total FROM completed_lessons WHERE user_id = ? AND subject = ?",
+            (user_id, subject_key),
+        ).fetchone()["total"]
+        lessons_total = len(get_lessons_for_subject(subject_key))
+        progress = round((int(completed_count) / max(1, lessons_total)) * 100)
+
+        conn.execute(
+            """
+            INSERT INTO user_subject_progress
+                (user_id, subject, progress, xp, streak, last_activity_date,
+                 last_lesson_id, last_quiz_score, last_quiz_total)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, subject) DO UPDATE SET
+                progress = excluded.progress,
+                xp = excluded.xp,
+                streak = excluded.streak,
+                last_activity_date = excluded.last_activity_date,
+                last_lesson_id = excluded.last_lesson_id,
+                last_quiz_score = excluded.last_quiz_score,
+                last_quiz_total = excluded.last_quiz_total,
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            (user_id, subject_key, progress, xp, streak, activity_date, lesson_id, score, total),
+        )
+        conn.execute(
+            """
+            UPDATE user_plans
+            SET progress = ?, xp = ?, streak = ?, last_activity_date = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE user_id = ? AND subject = ?
+            """,
+            (progress, xp, streak, activity_date, user_id, subject_key),
+        )
+
+        new_achievements = []
+
+        def add_achievement(code, icon, title, description):
+            cursor = conn.execute(
+                "INSERT OR IGNORE INTO achievements (user_id, code, icon, title, description) VALUES (?, ?, ?, ?, ?)",
+                (user_id, code, icon, title, description),
+            )
+            if cursor.rowcount:
+                new_achievements.append({"icon": icon, "title": title, "description": description})
+
+        if passed and not completed_before:
+            add_achievement("first_lesson", "🥉", "Перший урок", "Ти завершив перший урок в EasyNMT.")
+        if int(completed_count) >= 3:
+            add_achievement("three_lessons", "📚", "Перший маршрут", "Ти завершив 3 уроки з одного предмета.")
+        if score == total and total > 0:
+            add_achievement("perfect_quiz", "💯", "Без помилок", "Усі відповіді правильні. Ти набрав максимальні 24 бали.")
+        if xp >= 100:
+            add_achievement("xp_100", "⭐", "100 XP", "Ти набрав перші 100 XP.")
+        if xp >= 250:
+            add_achievement("xp_250", "⚡", "250 XP", "Ти вже набрав 250 XP. Видно, що навчання стало регулярним.")
+        if streak >= 3:
+            add_achievement("streak_3", "🔥", "3 дні серії", "Ти займаєшся вже 3 дні поспіль. Продовжуй у такому ж темпі.")
+
+        conn.execute("DELETE FROM quiz_sessions WHERE attempt_token = ? AND user_id = ?", (attempt_token, user_id))
+        conn.execute(
+            "DELETE FROM quiz_drafts WHERE user_id = ? AND subject = ? AND lesson_id = ?",
+            (user_id, subject_key, lesson_id),
+        )
+        conn.commit()
+        return {
+            "duplicate": False,
+            "attempt": {
+                "attempt_token": attempt_token,
+                "lesson_id": lesson_id,
+                "score": score,
+                "total": total,
+                "passed": int(passed),
+                "xp_awarded": xp_gain,
+                "review_json": json.dumps(review, ensure_ascii=False),
+            },
+            "progress": progress,
+            "xp": xp,
+            "streak": streak,
+            "last_activity_date": activity_date,
+            "new_achievements": new_achievements,
+        }
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 
@@ -1119,7 +1245,7 @@ def get_user_data():
         if index == 0 or lessons[index - 1]["id"] in completed_lessons
     }
     lesson_progress = round((completed_count / max(1, lessons_total)) * 100)
-    progress = max(session.get("progress", 0), lesson_progress)
+    progress = lesson_progress
     session["progress"] = progress
 
     achievements = get_achievements(limit=4)
@@ -1427,6 +1553,14 @@ def get_subject_key():
 def get_lessons_for_subject(subject_key=None):
     key = subject_key or get_subject_key()
     return LESSON_CATALOG.get(key, LESSON_CATALOG["none"])
+
+
+def is_valid_lesson_id(lesson_id, subject_key=None):
+    try:
+        requested = int(lesson_id)
+    except (TypeError, ValueError):
+        return False
+    return requested in {item["id"] for item in get_lessons_for_subject(subject_key)}
 
 
 def normalize_lesson_id(lesson_id=None):
@@ -2127,7 +2261,13 @@ def diagnostic():
 @app.route("/lesson/<int:lesson_id>/ready", methods=["POST"])
 @require_login
 def mark_lesson_ready(lesson_id):
+    if not onboarding_complete():
+        return redirect(url_for("goal"))
+    if not is_valid_lesson_id(lesson_id):
+        abort(404)
     lesson_id = normalize_lesson_id(lesson_id)
+    if not is_lesson_unlocked(lesson_id):
+        abort(403)
     conn = get_db_connection()
     conn.execute(
         "INSERT OR IGNORE INTO lesson_readiness (user_id, subject, lesson_id) VALUES (?, ?, ?)",
@@ -2244,6 +2384,8 @@ def lesson(lesson_id=1):
     if not onboarding_complete():
         return redirect(url_for("goal"))
 
+    if not is_valid_lesson_id(lesson_id):
+        abort(404)
     lesson_id = normalize_lesson_id(lesson_id)
     if not is_lesson_unlocked(lesson_id):
         flash("Спочатку заверши попередній урок. Так нова тема не буде висіти в повітрі.", "error")
@@ -2260,14 +2402,16 @@ def lesson(lesson_id=1):
 
 
 def _save_solution_photo(file_storage, user_id, lesson_id, question_id):
-    filename = secure_filename(file_storage.filename or "")
-    extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
-    if extension not in ALLOWED_IMAGE_EXTENSIONS:
-        raise ValueError("Додай фото у форматі JPG, PNG або WEBP.")
-    token = uuid.uuid4().hex
-    safe_name = f"u{user_id}_l{lesson_id}_{question_id}_{token}.{extension}"
+    attachment = save_image_upload(
+        file_storage,
+        UPLOAD_DIR,
+        max_bytes=app.config["AI_MAX_ATTACHMENT_BYTES"],
+    )
+    extension = os.path.splitext(attachment.stored_path)[1].lower()
+    question_fragment = re.sub(r"[^A-Za-z0-9_-]", "", str(question_id))[:60] or "question"
+    safe_name = f"u{user_id}_l{lesson_id}_{question_fragment}_{uuid.uuid4().hex}{extension}"
     path = os.path.join(UPLOAD_DIR, safe_name)
-    file_storage.save(path)
+    os.replace(attachment.stored_path, path)
     return safe_name, path
 
 
@@ -2289,6 +2433,8 @@ def solution_file(filename):
 def quiz_draft_api(lesson_id):
     if not onboarding_complete():
         return {"ok": False, "error": "onboarding_required"}, 403
+    if not is_valid_lesson_id(lesson_id):
+        return {"ok": False, "error": "lesson_not_found"}, 404
     lesson_id = normalize_lesson_id(lesson_id)
     if not is_lesson_unlocked(lesson_id):
         return {"ok": False, "error": "lesson_locked"}, 403
@@ -2309,6 +2455,8 @@ def quiz(lesson_id=None):
     if not onboarding_complete():
         return redirect(url_for("goal"))
 
+    if lesson_id is not None and not is_valid_lesson_id(lesson_id):
+        abort(404)
     lesson_id = normalize_lesson_id(lesson_id)
     if not is_lesson_unlocked(lesson_id):
         flash("Цей урок ще закритий. Заверши попередній, і він відкриється автоматично.", "error")
@@ -2337,6 +2485,7 @@ def quiz(lesson_id=None):
         ).fetchone()
         conn.close()
         if existing:
+            load_subject_progress_to_session(session["user_id"], get_subject_key())
             restore_attempt_to_session(dict(existing))
             flash("Цю спробу вже зараховано. Повторно XP не нараховується.", "info")
             return redirect(url_for("result"))
@@ -2346,8 +2495,9 @@ def quiz(lesson_id=None):
             """
             SELECT quiz_json FROM quiz_sessions
             WHERE attempt_token = ? AND user_id = ? AND subject = ? AND lesson_id = ?
+              AND created_at >= datetime('now', '-1 day')
             """,
-            (attempt_token, session["user_id"], session.get("subject", "none"), lesson_id),
+            (attempt_token, session["user_id"], get_subject_key(), lesson_id),
         ).fetchone()
         conn.close()
         if not quiz_session:
@@ -2361,49 +2511,65 @@ def quiz(lesson_id=None):
             flash("Не вдалося відновити питання тесту. Відкрий його ще раз.", "error")
             return redirect(url_for("quiz", lesson_id=lesson_id))
 
-        question_ids = request.form.getlist("question_ids")
+        question_items = list(active_quiz_map.items())
+        expected_total = sum(
+            int(question.get("points", 0))
+            for _qid, question in question_items
+            if isinstance(question, dict)
+        )
+        if len(question_items) != 12 or expected_total != MAX_SCORE:
+            app.logger.error(
+                "Invalid stored quiz shape: user=%s subject=%s lesson=%s count=%s total=%s",
+                session["user_id"], get_subject_key(), lesson_id, len(question_items), expected_total,
+            )
+            flash("Тест пошкоджено. Відкрий його ще раз, щоб створити нову спробу.", "error")
+            return redirect(url_for("lesson", lesson_id=lesson_id))
+
         score = 0
         total = 0
         review = []
 
-        for qid in question_ids:
-            question = active_quiz_map.get(qid)
-            if not question:
-                continue
+        for qid, question in question_items:
             points = int(question.get("points", 1))
             annotated_url = None
             photo_url = None
             if points == 3:
+                user_answer = request.form.get(f"answer_{qid}", "").strip()
                 photo = request.files.get(f"photo_{qid}")
                 if photo and photo.filename:
                     try:
                         original_name, original_path = _save_solution_photo(photo, session["user_id"], lesson_id, qid)
-                        analysis = vision_grader.grade(
-                            image_path=original_path,
-                            question=question.get("question", "Письмове завдання"),
-                            correct_answer=question.get("answer", ""),
-                            reference_solution=question.get("explanation", ""),
-                        )
-                        earned = max(0, min(points, int(analysis.get("score", 0))))
-                        is_correct = earned == points
-                        feedback = analysis.get("message", "Перевір позначений крок.")
-                        user_answer = "Розв’язання на фото"
                         photo_url = url_for("solution_file", filename=original_name)
-                        annotated_name = f"u{session['user_id']}_annotated_{original_name.rsplit('.', 1)[0]}.jpg"
-                        annotated_path = os.path.join(UPLOAD_DIR, annotated_name)
-                        create_annotated_solution(original_path, annotated_path, analysis)
-                        annotated_url = url_for("solution_file", filename=annotated_name)
-                    except ValueError as exc:
-                        earned, is_correct, feedback = 0, False, str(exc)
-                        user_answer = "Фото не прийнято"
+                        if vision_grader.enabled:
+                            analysis = vision_grader.grade(
+                                image_path=original_path,
+                                question=question.get("question", "Письмове завдання"),
+                                correct_answer=question.get("answer", ""),
+                                reference_solution=question.get("explanation", ""),
+                            )
+                            if analysis.get("mode") == "openai":
+                                earned = max(0, min(points, int(analysis.get("score", 0))))
+                                is_correct = earned == points
+                                feedback = analysis.get("message", "Перевір позначений крок.")
+                                annotated_name = f"u{session['user_id']}_annotated_{original_name.rsplit('.', 1)[0]}.jpg"
+                                annotated_path = os.path.join(UPLOAD_DIR, annotated_name)
+                                create_annotated_solution(original_path, annotated_path, analysis)
+                                annotated_url = url_for("solution_file", filename=annotated_name)
+                            else:
+                                earned, is_correct, feedback = grade_question(question, user_answer)
+                                feedback = "AI-перевірка фото недоступна. Оцінено текстовий розв’язок. " + feedback
+                        else:
+                            earned, is_correct, feedback = grade_question(question, user_answer)
+                            feedback = "Оцінено текстовий розв’язок; фото збережено для перегляду. " + feedback
+                    except (AttachmentError, ValueError) as exc:
+                        earned, is_correct, fallback_feedback = grade_question(question, user_answer)
+                        feedback = f"{exc} {fallback_feedback}"
                     except Exception:
-                        earned, is_correct = 0, False
-                        feedback = "Не вдалося прочитати фото. Зроби новий знімок при хорошому освітленні."
-                        user_answer = "Фото не перевірено"
+                        app.logger.exception("Could not grade solution photo")
+                        earned, is_correct, fallback_feedback = grade_question(question, user_answer)
+                        feedback = "Не вдалося прочитати фото. Оцінено текстовий розв’язок. " + fallback_feedback
                 else:
-                    earned, is_correct = 0, False
-                    feedback = "Для цього завдання потрібно додати фото повного розв’язання на папері."
-                    user_answer = "Фото не додано"
+                    earned, is_correct, feedback = grade_question(question, user_answer)
             else:
                 user_answer = request.form.get(f"answer_{qid}", "").strip()
                 earned, is_correct, feedback = grade_question(question, user_answer)
@@ -2412,7 +2578,7 @@ def quiz(lesson_id=None):
             total += points
             review.append({
                 "question": question.get("question", "Питання"),
-                "user_answer": user_answer or "Відповіді немає",
+                "user_answer": user_answer or ("Розв’язання на фото" if photo_url else "Відповіді немає"),
                 "correct_answer": question.get("answer", "Переглянь матеріал уроку"),
                 "is_correct": is_correct,
                 "earned": earned,
@@ -2424,73 +2590,29 @@ def quiz(lesson_id=None):
             })
 
         passed = score >= PASS_SCORE
-        previous_attempts = get_quiz_attempts(lesson_id)
-        passed_before = lesson_id in get_completed_lessons()
-        xp_gain = 0
-        if passed and not passed_before:
-            # A lesson gives at most 60 XP in total. If the first try failed,
-            # the 10 practice XP are deducted from the first-pass reward.
-            xp_gain = 50 if previous_attempts else 60
-        elif not passed and not previous_attempts:
-            xp_gain = 10
-
-        conn = get_db_connection()
-        try:
-            conn.execute("BEGIN IMMEDIATE")
-            for item in review:
-                if item["earned"] < item["points"]:
-                    conn.execute(
-                        """INSERT INTO mistakes
-                        (user_id, subject, lesson_id, question, user_answer, correct_answer, explanation)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                        (session["user_id"], session.get("subject", "none"), lesson_id,
-                         item["question"], item["user_answer"], item["correct_answer"], item["explanation"]),
-                    )
-            conn.execute(
-                """
-                INSERT INTO quiz_attempts
-                    (attempt_token, user_id, subject, lesson_id, score, total, passed, xp_awarded, review_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (attempt_token, session["user_id"], session.get("subject", "none"), lesson_id,
-                 score, total, int(passed), xp_gain, json.dumps(review, ensure_ascii=False)),
-            )
-            conn.execute("DELETE FROM quiz_sessions WHERE attempt_token = ?", (attempt_token,))
-            conn.commit()
-        except sqlite3.IntegrityError:
-            conn.rollback()
-            existing = conn.execute(
-                """SELECT attempt_token, lesson_id, score, total, passed, xp_awarded, review_json, submitted_at
-                   FROM quiz_attempts WHERE attempt_token = ? AND user_id = ?""",
-                (attempt_token, session["user_id"]),
-            ).fetchone()
-            conn.close()
-            if existing:
-                restore_attempt_to_session(dict(existing))
-                return redirect(url_for("result"))
-            raise
-        finally:
-            try:
-                conn.close()
-            except Exception:
-                pass
-
-        session["xp"] = max(0, int(session.get("xp", 0) or 0)) + xp_gain
-        lesson_update = complete_lesson(lesson_id, score, total) if passed else {"new_achievements": []}
-        update_streak_for_today()
-        session.update({
-            "last_score": score,
-            "last_total": total,
-            "last_quiz_score": score,
-            "last_quiz_total": total,
-            "last_lesson_id": lesson_id,
-            "last_passed": passed,
-            "xp_gain": xp_gain,
-            "new_achievements": lesson_update.get("new_achievements", []),
-            "last_attempt_token": attempt_token,
-        })
-        delete_quiz_draft(lesson_id)
-        save_plan_to_db()
+        finalization = finalize_quiz_attempt(
+            attempt_token=attempt_token,
+            lesson_id=lesson_id,
+            score=score,
+            total=total,
+            passed=passed,
+            review=review,
+        )
+        attempt = finalization["attempt"]
+        if finalization["duplicate"]:
+            load_subject_progress_to_session(session["user_id"], get_subject_key())
+            flash("Цю спробу вже зараховано. Повторно XP не нараховується.", "info")
+        else:
+            session.update({
+                "progress": finalization["progress"],
+                "xp": finalization["xp"],
+                "streak": finalization["streak"],
+                "last_activity_date": finalization["last_activity_date"],
+                "last_quiz_score": score,
+                "last_quiz_total": total,
+            })
+        restore_attempt_to_session(attempt)
+        session["new_achievements"] = finalization["new_achievements"]
         return redirect(url_for("result"))
 
     raw_questions = get_quiz_questions(lesson_id)
@@ -2509,17 +2631,17 @@ def quiz(lesson_id=None):
 
     attempt_token = uuid.uuid4().hex
     conn = get_db_connection()
-    # Keep only recent unfinished test sessions for this user and lesson.
+    # Keep parallel browser tabs valid while pruning abandoned sessions.
     conn.execute(
-        "DELETE FROM quiz_sessions WHERE user_id = ? AND subject = ? AND lesson_id = ?",
-        (session["user_id"], session.get("subject", "none"), lesson_id),
+        "DELETE FROM quiz_sessions WHERE user_id = ? AND created_at < datetime('now', '-1 day')",
+        (session["user_id"],),
     )
     conn.execute(
         """
         INSERT INTO quiz_sessions (attempt_token, user_id, subject, lesson_id, quiz_json)
         VALUES (?, ?, ?, ?, ?)
         """,
-        (attempt_token, session["user_id"], session.get("subject", "none"), lesson_id,
+        (attempt_token, session["user_id"], get_subject_key(), lesson_id,
          json.dumps(active_quiz_map, ensure_ascii=False)),
     )
     conn.commit()
@@ -2530,6 +2652,7 @@ def quiz(lesson_id=None):
         "quiz.html", **get_user_data(), lesson=get_lesson_content(lesson_id),
         questions=prepared_questions, pass_score=PASS_SCORE, max_score=MAX_SCORE,
         attempt_token=attempt_token, draft_answers=draft_answers, attempt_count=attempt_count,
+        vision_enabled=vision_grader.enabled,
     )
 
 
@@ -2597,7 +2720,11 @@ def theory_detail(lesson_id):
     if not onboarding_complete():
         return redirect(url_for("goal"))
 
+    if not is_valid_lesson_id(lesson_id):
+        abort(404)
     lesson_id = normalize_lesson_id(lesson_id)
+    if not is_lesson_unlocked(lesson_id):
+        abort(403)
     session["current_lesson_id"] = lesson_id
 
     return render_template(
@@ -2614,7 +2741,11 @@ def example_detail(lesson_id):
     if not onboarding_complete():
         return redirect(url_for("goal"))
 
+    if not is_valid_lesson_id(lesson_id):
+        abort(404)
     lesson_id = normalize_lesson_id(lesson_id)
+    if not is_lesson_unlocked(lesson_id):
+        abort(403)
     session["current_lesson_id"] = lesson_id
 
     lesson_data = get_lesson_content(lesson_id)

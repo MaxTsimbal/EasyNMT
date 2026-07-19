@@ -41,16 +41,19 @@
                 <div class="paper-task-box">
                     <div class="paper-task-icon">📄</div>
                     <div>
-                        <b>Розв’яжи це завдання на папері</b>
-                        <p>Запиши всі кроки окремими рядками, зроби чітке фото й додай його нижче. EasyNMT перевірить хід розв’язання, а не лише відповідь.</p>
+                        <b>Покажи повний хід розв’язання</b>
+                        <p>{% if vision_enabled %}Запиши кроки текстом або додай чітке фото роботи. EasyNMT перевірить хід, а не лише відповідь.{% else %}AI-перевірка фото зараз недоступна, тому запиши основні кроки текстом.{% endif %}</p>
                     </div>
                 </div>
+                <textarea name="answer_{{ question.id }}" class="written-answer" rows="4" placeholder="Запиши основні кроки та остаточну відповідь">{{ draft_answers.get(question.id, '') }}</textarea>
+                {% if vision_enabled %}
                 <label class="solution-upload">
-                    <input type="file" name="photo_{{ question.id }}" accept="image/png,image/jpeg,image/webp" capture="environment" required>
-                    <span class="solution-upload-button">📷 Зробити або вибрати фото</span>
+                    <input type="file" name="photo_{{ question.id }}" accept="image/png,image/jpeg,image/webp" capture="environment">
+                    <span class="solution-upload-button">📷 Додати фото (необов’язково)</span>
                     <span class="solution-upload-name">Фото ще не вибрано</span>
                 </label>
-                <p class="answer-hint">У кадрі має бути вся робота. Уникай тіней, нахилу та розмитих цифр.</p>
+                <p class="answer-hint">Якщо додаєш фото, у кадрі має бути вся робота без тіней і розмитих символів.</p>
+                {% endif %}
                 {% else %}
                 <input type="text" name="answer_{{ question.id }}" class="written-answer" placeholder="{{ question.placeholder }}" value="{{ draft_answers.get(question.id, '') }}" required>
                 <p class="answer-hint">Пиши коротко, але так, щоб було зрозуміло, як ти отримав відповідь.</p>
