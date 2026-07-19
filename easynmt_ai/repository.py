@@ -18,10 +18,23 @@ class AIRepository:
         self.db_path = db_path
 
     def connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path)
+        # SQLite on Railway may receive overlapping requests from Gunicorn threads.
+        # A generous timeout + WAL prevents short writes from turning into
+        # "database is locked" errors.
+        conn = sqlite3.connect(self.db_path, timeout=30.0)
         conn.row_factory = sqlite3.Row
         conn.execute("PRAGMA foreign_keys = ON")
+        conn.execute("PRAGMA busy_timeout = 30000")
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute("PRAGMA synchronous = NORMAL")
         return conn
+
+    def user_exists(self, user_id: int) -> bool:
+        conn = self.connect()
+        try:
+            return conn.execute("SELECT 1 FROM users WHERE id = ?", (int(user_id),)).fetchone() is not None
+        finally:
+            conn.close()
 
     def ensure_schema(self) -> None:
         conn = self.connect()
@@ -150,22 +163,29 @@ class AIRepository:
     ) -> None:
         now = utc_now()
         conn = self.connect()
-        conn.execute(
-            """
-            INSERT INTO ai_conversations
-                (id, user_id, title, subject, lesson_id, response_mode, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(id, user_id) DO UPDATE SET
-                title = CASE WHEN ai_conversations.title IN ('', 'Нова розмова') THEN excluded.title ELSE ai_conversations.title END,
-                subject = excluded.subject,
-                lesson_id = excluded.lesson_id,
-                response_mode = excluded.response_mode,
-                updated_at = excluded.updated_at
-            """,
-            (conversation_id, user_id, title or "Нова розмова", subject, lesson_id, response_mode, now, now),
-        )
-        conn.commit()
-        conn.close()
+        try:
+            if conn.execute("SELECT 1 FROM users WHERE id = ?", (int(user_id),)).fetchone() is None:
+                raise ValueError(f"AI conversation user does not exist: {user_id}")
+            conn.execute(
+                """
+                INSERT INTO ai_conversations
+                    (id, user_id, title, subject, lesson_id, response_mode, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id, user_id) DO UPDATE SET
+                    title = CASE WHEN ai_conversations.title IN ('', 'Нова розмова') THEN excluded.title ELSE ai_conversations.title END,
+                    subject = excluded.subject,
+                    lesson_id = excluded.lesson_id,
+                    response_mode = excluded.response_mode,
+                    updated_at = excluded.updated_at
+                """,
+                (conversation_id, user_id, title or "Нова розмова", subject, lesson_id, response_mode, now, now),
+            )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
 
     def add_message(
         self,
@@ -181,41 +201,39 @@ class AIRepository:
     ) -> None:
         now = utc_now()
         conn = self.connect()
-        conn.execute(
-            """
-            INSERT INTO ai_messages
-                (id, conversation_id, user_id, role, content, provider_mode, response_id, metadata_json, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(id, user_id) DO UPDATE SET
-                content = excluded.content,
-                provider_mode = excluded.provider_mode,
-                response_id = excluded.response_id,
-                metadata_json = excluded.metadata_json
-            """,
-            (
-                message_id,
-                conversation_id,
-                user_id,
-                role,
-                content,
-                provider_mode,
-                response_id,
-                json.dumps(metadata or {}, ensure_ascii=False),
-                now,
-            ),
-        )
-        if role == "assistant" and response_id:
+        try:
             conn.execute(
-                "UPDATE ai_conversations SET updated_at = ?, last_response_id = ? WHERE id = ? AND user_id = ?",
-                (now, response_id, conversation_id, user_id),
+                """
+                INSERT INTO ai_messages
+                    (id, conversation_id, user_id, role, content, provider_mode, response_id, metadata_json, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id, user_id) DO UPDATE SET
+                    content = excluded.content,
+                    provider_mode = excluded.provider_mode,
+                    response_id = excluded.response_id,
+                    metadata_json = excluded.metadata_json
+                """,
+                (
+                    message_id, conversation_id, user_id, role, content, provider_mode,
+                    response_id, json.dumps(metadata or {}, ensure_ascii=False), now,
+                ),
             )
-        else:
-            conn.execute(
-                "UPDATE ai_conversations SET updated_at = ? WHERE id = ? AND user_id = ?",
-                (now, conversation_id, user_id),
-            )
-        conn.commit()
-        conn.close()
+            if role == "assistant" and response_id:
+                conn.execute(
+                    "UPDATE ai_conversations SET updated_at = ?, last_response_id = ? WHERE id = ? AND user_id = ?",
+                    (now, response_id, conversation_id, user_id),
+                )
+            else:
+                conn.execute(
+                    "UPDATE ai_conversations SET updated_at = ? WHERE id = ? AND user_id = ?",
+                    (now, conversation_id, user_id),
+                )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
 
     def save_attachment(self, *, user_id: int, attachment: AttachmentRef, conversation_id: str = "") -> None:
         conn = self.connect()

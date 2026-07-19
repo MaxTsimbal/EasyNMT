@@ -53,8 +53,12 @@ ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "webp"}
 
 
 def get_db_connection():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30.0)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA busy_timeout = 30000")
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA synchronous = NORMAL")
     return conn
 
 
@@ -553,6 +557,34 @@ def require_login(view_func):
         if not is_logged_in():
             flash("Спочатку створи акаунт або увійди, щоб зберегти прогрес.", "error")
             return redirect(url_for("register"))
+
+        # Repair stale Railway sessions after a database/volume replacement.
+        # The same account may still exist under a new numeric id.
+        conn = get_db_connection()
+        try:
+            user = conn.execute(
+                "SELECT * FROM users WHERE id = ?",
+                (session.get("user_id"),),
+            ).fetchone()
+            if user is None and session.get("user_email"):
+                user = conn.execute(
+                    "SELECT * FROM users WHERE lower(email) = lower(?)",
+                    (session.get("user_email"),),
+                ).fetchone()
+                if user is not None:
+                    session["user_id"] = user["id"]
+                    session["user_name"] = user["name"]
+                    session["user_email"] = user["email"]
+        finally:
+            conn.close()
+
+        if user is None:
+            session.clear()
+            if request.path.startswith("/api/"):
+                return jsonify({"ok": False, "error": "Сесію оновлено. Увійди в акаунт ще раз."}), 401
+            flash("Сесію оновлено. Увійди в акаунт ще раз.", "error")
+            return redirect(url_for("login"))
+
         return view_func(*args, **kwargs)
 
     return wrapper
