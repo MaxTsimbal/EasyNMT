@@ -5,7 +5,9 @@ mounted volume. Railway only needs proof that the web process can answer HTTP.
 """
 from __future__ import annotations
 
-from flask import Blueprint, jsonify
+import sqlite3
+
+from flask import Blueprint, current_app, jsonify
 
 health_bp = Blueprint("health", __name__)
 
@@ -17,5 +19,18 @@ def health() -> tuple[object, int]:
 
 @health_bp.get("/ready")
 def ready() -> tuple[object, int]:
-    """Lightweight readiness endpoint kept separate from external services."""
+    """Report ready only when the application database is reachable and initialized."""
+    database_path = current_app.config.get("DATABASE_PATH")
+    if not database_path:
+        return jsonify(status="not_ready"), 503
+    try:
+        with sqlite3.connect(database_path, timeout=2.0) as connection:
+            schema = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'users'"
+            ).fetchone()
+            if schema is None:
+                return jsonify(status="not_ready"), 503
+    except sqlite3.Error:
+        current_app.logger.exception("Database readiness check failed")
+        return jsonify(status="not_ready"), 503
     return jsonify(status="ready"), 200

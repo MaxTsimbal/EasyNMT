@@ -98,7 +98,7 @@ window.MathJax = {
                 <div class="ec2-usage__top">
                     <span class="ec2-status-dot ec2-status-dot--{{ ai_mode }}" id="ec2SidebarStatusDot" aria-hidden="true"></span>
                     <span class="ec2-usage__copy">
-                        <strong id="ec2SidebarModeLabel">{% if ai_mode == 'openai' %}Easy онлайн{% elif ai_mode == 'limit' %}Ліміт вичерпано{% else %}Демо-режим{% endif %}</strong>
+                        <strong id="ec2SidebarModeLabel">{% if ai_mode == 'openai' %}Easy онлайн{% elif ai_mode == 'limit' %}Ліміт вичерпано{% else %}Локальні матеріали{% endif %}</strong>
                         <small id="ec2UsageLabel">{{ ai_used }} з {{ ai_limit }} запитів</small>
                     </span>
                     <span class="ec2-usage__value" id="ec2UsageValue">{{ ((ai_used / ai_limit * 100) if ai_limit else 0)|round|int }}%</span>

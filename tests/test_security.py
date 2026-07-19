@@ -125,6 +125,18 @@ class SecurityFlowTests(unittest.TestCase):
         self.assertEqual(response.headers["X-Frame-Options"], "DENY")
         self.assertEqual(response.headers["Referrer-Policy"], "strict-origin-when-cross-origin")
 
+    def test_liveness_and_database_readiness_are_distinct(self):
+        self.assertEqual(self.client.get("/health").status_code, 200)
+        self.assertEqual(self.client.get("/ready").status_code, 200)
+        original_path = app_module.app.config["DATABASE_PATH"]
+        try:
+            app_module.app.config["DATABASE_PATH"] = ":memory:"
+            response = self.client.get("/ready")
+            self.assertEqual(response.status_code, 503)
+            self.assertEqual(response.get_json()["status"], "not_ready")
+        finally:
+            app_module.app.config["DATABASE_PATH"] = original_path
+
 
 if __name__ == "__main__":
     unittest.main()

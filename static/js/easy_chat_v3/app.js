@@ -22,7 +22,7 @@
             lessonId: app.dataset.lessonId || "",
             lessonTitle: app.dataset.lessonTitle || "",
             subject: app.dataset.subject || "Підготовка до НМТ",
-            initialMode: app.dataset.aiMode || "demo",
+            initialMode: app.dataset.aiMode || "offline",
             initialUsed: Number(app.dataset.aiUsed || 0),
             initialLimit: Number(app.dataset.aiLimit || 0),
             userName: app.dataset.userName || "друже",
@@ -300,13 +300,13 @@
         };
 
         const updateAiMode = ({ mode = config.initialMode, used = config.initialUsed, limit = config.initialLimit } = {}) => {
-            const normalized = ["openai", "limit", "demo"].includes(mode) ? mode : "demo";
-            const label = normalized === "openai" ? "Easy онлайн" : normalized === "limit" ? "Ліміт вичерпано" : "Демо-режим";
-            const shortLabel = normalized === "openai" ? "Online" : normalized === "limit" ? "Limit" : "Demo";
+            const normalized = ["openai", "limit", "offline"].includes(mode) ? mode : "offline";
+            const label = normalized === "openai" ? "Easy онлайн" : normalized === "limit" ? "Ліміт вичерпано" : "Локальні матеріали";
+            const shortLabel = normalized === "openai" ? "Online" : normalized === "limit" ? "Limit" : "Offline";
 
             [elements.topStatusDot, elements.sidebarStatusDot].forEach((dot) => {
                 if (!dot) return;
-                dot.classList.remove("ec2-status-dot--openai", "ec2-status-dot--limit", "ec2-status-dot--demo");
+                dot.classList.remove("ec2-status-dot--openai", "ec2-status-dot--limit", "ec2-status-dot--offline");
                 dot.classList.add(`ec2-status-dot--${normalized}`);
             });
             if (elements.topModeLabel) elements.topModeLabel.textContent = shortLabel;

@@ -7,7 +7,7 @@ import secrets
 import sqlite3
 import time
 import uuid
-from datetime import date as dt_date, datetime, timedelta
+from datetime import date as dt_date, datetime, timedelta, timezone
 from functools import wraps
 
 from flask import Flask, Response, abort, flash, jsonify, redirect, render_template, request, send_file, session, stream_with_context, url_for
@@ -25,7 +25,7 @@ from learning_engine import MAX_SCORE, PASS_SCORE, build_quiz, grade_question
 from lesson_board_engine import build_lesson_board
 from solution_annotation_engine import create_annotated_solution
 from vision_grading_engine import VisionGradingEngine
-from easynmt_ai import AIOrchestrator, AIRepository, AIRequest, LearningContext
+from easynmt_ai import AIOrchestrator, AIRepository, AIRequest, AIStreamEvent, LearningContext
 from easynmt_learning import LearningGenerationService, LearningRepository
 from easynmt_ai.attachments import AttachmentError, normalize_attachment_ids, save_image_upload
 
@@ -417,6 +417,19 @@ def too_many_requests_error(error):
     if wants_json_error():
         return jsonify({"ok": False, "error": message}), 429
     return render_template("error.html", status=429, title="Забагато спроб", message=message), 429
+
+
+@app.errorhandler(500)
+def internal_server_error(_error):
+    app.logger.exception("Unhandled application error")
+    if wants_json_error():
+        return jsonify({"ok": False, "error": "internal_error"}), 500
+    return render_template(
+        "error.html",
+        status=500,
+        title="Не вдалося виконати запит",
+        message="Сервіс тимчасово недоступний. Спробуй ще раз трохи пізніше.",
+    ), 500
 
 
 def clear_plan_session():
@@ -1783,7 +1796,7 @@ def is_lesson_unlocked(lesson_id, subject_key=None):
 
 
 def get_ai_usage_today(user_id):
-    today = dt_date.today().isoformat()
+    today = datetime.now(timezone.utc).date().isoformat()
     conn = get_db_connection()
     row = conn.execute(
         "SELECT request_count FROM ai_usage WHERE user_id = ? AND usage_date = ?",
@@ -1793,20 +1806,35 @@ def get_ai_usage_today(user_id):
     return int(row["request_count"]) if row else 0
 
 
-def increment_ai_usage(user_id):
-    today = dt_date.today().isoformat()
+def claim_ai_usage(user_id, limit):
+    today = datetime.now(timezone.utc).date().isoformat()
     conn = get_db_connection()
-    conn.execute(
-        """
-        INSERT INTO ai_usage (user_id, usage_date, request_count)
-        VALUES (?, ?, 1)
-        ON CONFLICT(user_id, usage_date) DO UPDATE SET
-            request_count = request_count + 1
-        """,
-        (user_id, today),
-    )
-    conn.commit()
-    conn.close()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        conn.execute(
+            "INSERT INTO ai_usage (user_id, usage_date, request_count) VALUES (?, ?, 0) "
+            "ON CONFLICT(user_id, usage_date) DO NOTHING",
+            (user_id, today),
+        )
+        current = int(conn.execute(
+            "SELECT request_count FROM ai_usage WHERE user_id = ? AND usage_date = ?",
+            (user_id, today),
+        ).fetchone()["request_count"])
+        if current >= max(0, int(limit)):
+            conn.rollback()
+            return None
+        updated = current + 1
+        conn.execute(
+            "UPDATE ai_usage SET request_count = ? WHERE user_id = ? AND usage_date = ?",
+            (updated, user_id, today),
+        )
+        conn.commit()
+        return updated
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def get_easy_answer(question, *, lesson_context=False, lesson=None):
@@ -1814,22 +1842,10 @@ def get_easy_answer(question, *, lesson_context=False, lesson=None):
     clean_question = (question or "").strip()
 
     if not lesson_context:
-        subject_names = {
-            "math": "математики",
-            "ukrainian": "української мови",
-            "history": "історії України",
-            "english": "англійської мови",
-            "none": "підготовки до НМТ",
-        }
-        subject_name = subject_names.get(subject_key, "підготовки до НМТ")
-        if not clean_question:
-            return f"Easy: Запитай будь-що про {subject_name}. Я поясню коротко, просто й без зайвих слів."
-        lowered = clean_question.lower()
-        if "приклад" in lowered:
-            return "Easy: Напиши тему або саме завдання. Я підберу простий приклад і розберу кожен крок."
-        if "прост" in lowered or "легш" in lowered:
-            return "Easy: Скинь правило, речення або задачу. Я приберу складні слова й поясню все маленькими кроками."
-        return f"Easy: Твоє питання: «{clean_question}». Почнемо з головної ідеї, а потім перевіримо її на прикладі."
+        return (
+            "AI-з’єднання зараз недоступне. Відкрий потрібний урок і постав запитання там — "
+            "в офлайн-режимі Easy використає перевірені пояснення та приклади саме з цього уроку."
+        )
 
     lesson = lesson or get_lesson_content()
     starters = {
@@ -2540,7 +2556,13 @@ def quiz(lesson_id=None):
                     try:
                         original_name, original_path = _save_solution_photo(photo, session["user_id"], lesson_id, qid)
                         photo_url = url_for("solution_file", filename=original_name)
-                        if vision_grader.enabled:
+                        if (
+                            vision_grader.enabled
+                            and claim_ai_usage(
+                                int(session["user_id"]),
+                                app.config["OPENAI_DAILY_LIMIT"],
+                            ) is not None
+                        ):
                             analysis = vision_grader.grade(
                                 image_path=original_path,
                                 question=question.get("question", "Письмове завдання"),
@@ -2787,7 +2809,7 @@ def achievements_page():
     )
 
 
-@app.route("/tutor", methods=["GET", "POST"])
+@app.route("/tutor")
 @require_login
 def tutor():
     if not onboarding_complete():
@@ -2801,46 +2823,19 @@ def tutor():
     lesson = None
     lesson_id = None
     if lesson_context:
+        if requested_lesson_id and not is_valid_lesson_id(requested_lesson_id):
+            abort(404)
         lesson_id = normalize_lesson_id(requested_lesson_id or session.get("current_lesson_id", 1))
+        if not is_lesson_unlocked(lesson_id):
+            abort(403)
         lesson = get_lesson_content(lesson_id)
         session["current_lesson_id"] = lesson_id
 
     user_id = session.get("user_id")
     daily_limit = app.config["OPENAI_DAILY_LIMIT"]
     used_today = get_ai_usage_today(user_id)
-    ai_mode = "openai" if ai_service.enabled else "demo"
+    ai_mode = "openai" if ai_service.enabled else "offline"
     ai_error = None
-
-    if request.method == "POST":
-        question = request.form.get("question", "").strip()
-        max_chars = app.config["OPENAI_MAX_QUESTION_CHARS"]
-        if not question:
-            answer = "Напиши питання, і Easy допоможе розібратися."
-        elif len(question) > max_chars:
-            answer = f"Питання завелике. Скороти його до {max_chars} символів."
-        elif ai_service.enabled and used_today >= daily_limit:
-            answer = "Денний AI-ліміт вичерпано. Спробуй завтра або продовжуй у демо-режимі."
-            ai_mode = "limit"
-        else:
-            fallback = get_easy_answer(
-                question,
-                lesson_context=lesson_context,
-                lesson=lesson,
-            )
-            result = ai_service.answer(
-                question=question,
-                subject=session.get("subject", "НМТ"),
-                lesson_title=lesson["title"] if lesson_context and lesson else "",
-                lesson_goal=lesson.get("goal", "зрозуміти тему") if lesson_context and lesson else "",
-                fallback=fallback,
-                lesson_context=lesson_context,
-            )
-            answer = clean_tutor_answer_text(result.text)
-            ai_mode = result.mode
-            ai_error = result.error
-            if result.mode == "openai":
-                increment_ai_usage(user_id)
-                used_today += 1
 
     return render_template(
         "tutor.html",
@@ -2872,8 +2867,8 @@ def clean_tutor_answer_text(value):
     return ai_orchestrator.clean_text(value)
 
 
-def shape_demo_tutor_answer(value, response_mode, *, lesson_context=False, lesson=None):
-    """Make the three UI modes useful even before an OpenAI key is connected."""
+def shape_offline_tutor_answer(value, response_mode, *, lesson_context=False, lesson=None):
+    """Keep curated lesson help useful when no external AI provider is available."""
     text = clean_tutor_answer_text(value)
     if response_mode == "practice":
         first_step = (
@@ -2910,6 +2905,12 @@ def normalize_client_id(value, prefix):
     return text or f"{prefix}-{uuid.uuid4()}"
 
 
+def normalize_existing_client_id(value):
+    raw = str(value or "").strip()
+    normalized = re.sub(r"[^A-Za-z0-9._:-]", "", raw)[:120]
+    return normalized if normalized == raw and normalized else None
+
+
 def build_tutor_learning_context(*, lesson_context, lesson, response_mode):
     data = get_user_data()
     return LearningContext(
@@ -2937,11 +2938,21 @@ def build_tutor_ai_request(payload, *, question, lesson_context, lesson, respons
     conversation_id = normalize_client_id(payload.get("conversation_id"), "chat")
     user_message_id = normalize_client_id(payload.get("user_message_id"), "msg-user")
     assistant_message_id = normalize_client_id(payload.get("assistant_message_id"), "msg-easy")
+    raw_attachment_ids = payload.get("attachment_ids", [])
+    if not isinstance(raw_attachment_ids, list):
+        raise AttachmentError("Некоректний список вкладень.")
+    requested_attachment_ids = list(
+        dict.fromkeys(str(item or "").strip() for item in raw_attachment_ids)
+    )
     attachment_ids = normalize_attachment_ids(
-        payload.get("attachment_ids", []),
+        requested_attachment_ids,
         limit=app.config["AI_MAX_ATTACHMENTS"],
     )
+    if attachment_ids != requested_attachment_ids:
+        raise AttachmentError("Некоректний список вкладень.")
     attachments = ai_repository.get_attachments(user_id=user_id, attachment_ids=attachment_ids)
+    if len(attachments) != len(attachment_ids):
+        raise AttachmentError("Одне або кілька вкладень не знайдено.")
     server_history = ai_repository.get_history(
         user_id=user_id,
         conversation_id=conversation_id,
@@ -2987,6 +2998,21 @@ def tutor_stream_chunks(text):
         yield "".join(bucket)
 
 
+def safe_tutor_ai_stream(ai_request):
+    try:
+        yield from ai_orchestrator.stream(ai_request)
+    except Exception:
+        app.logger.exception("Tutor stream failed")
+        yield AIStreamEvent(
+            "fallback",
+            {"text": ai_request.fallback, "mode": "offline", "error": "internal_error"},
+        )
+        yield AIStreamEvent(
+            "done",
+            {"text": ai_request.fallback, "mode": "offline", "error": "internal_error"},
+        )
+
+
 @app.route("/api/ai/status")
 @require_login
 def ai_status_api():
@@ -2995,13 +3021,13 @@ def ai_status_api():
     return jsonify({
         "ok": True,
         "enabled": ai_orchestrator.enabled,
-        "mode": "openai" if ai_orchestrator.enabled else "demo",
+        "mode": "openai" if ai_orchestrator.enabled else "offline",
         "model": app.config["OPENAI_MODEL"],
         "vision_model": app.config["OPENAI_VISION_MODEL"],
         "used": used,
         "limit": limit,
         "streaming": True,
-        "vision_ready": True,
+        "vision_ready": ai_orchestrator.enabled,
         "vision_enabled": ai_orchestrator.enabled,
         "server_memory": True,
         "upload_limit": app.config["AI_DAILY_UPLOAD_LIMIT"],
@@ -3014,13 +3040,7 @@ def ai_attachment_upload_api():
     if not onboarding_complete():
         return jsonify({"ok": False, "error": "Спочатку заверши налаштування профілю."}), 403
     user_id = int(session.get("user_id"))
-    today_start = f"{datetime.utcnow().date().isoformat()}T00:00:00+00:00"
-    uploaded_today = ai_repository.count_attachments_since(user_id=user_id, since=today_start)
-    if uploaded_today >= app.config["AI_DAILY_UPLOAD_LIMIT"]:
-        return jsonify({
-            "ok": False,
-            "error": "Денний ліміт завантаження фото вичерпано. Спробуй завтра.",
-        }), 429
+    today_start = f"{datetime.now(timezone.utc).date().isoformat()}T00:00:00+00:00"
     try:
         attachment = save_image_upload(
             request.files.get("file"),
@@ -3031,11 +3051,29 @@ def ai_attachment_upload_api():
         return jsonify({"ok": False, "error": str(exc)}), 400
 
     conversation_id = normalize_client_id(request.form.get("conversation_id"), "chat")
-    ai_repository.save_attachment(
-        user_id=user_id,
-        attachment=attachment,
-        conversation_id=conversation_id,
-    )
+    try:
+        saved = ai_repository.save_attachment(
+            user_id=user_id,
+            attachment=attachment,
+            conversation_id=conversation_id,
+            since=today_start,
+            limit=app.config["AI_DAILY_UPLOAD_LIMIT"],
+        )
+    except Exception:
+        try:
+            os.remove(attachment.stored_path)
+        except OSError:
+            pass
+        raise
+    if not saved:
+        try:
+            os.remove(attachment.stored_path)
+        except OSError:
+            pass
+        return jsonify({
+            "ok": False,
+            "error": "Денний ліміт завантаження фото вичерпано. Спробуй завтра.",
+        }), 429
     return jsonify({
         "ok": True,
         "attachment": {
@@ -3060,21 +3098,32 @@ def ai_conversations_api():
 @app.route("/api/ai/conversations/<conversation_id>", methods=["PATCH", "DELETE"])
 @require_login
 def ai_conversation_api(conversation_id):
-    conversation_id = normalize_client_id(conversation_id, "chat")
+    conversation_id = normalize_existing_client_id(conversation_id)
+    if not conversation_id:
+        return jsonify({"ok": False, "error": "not_found"}), 404
     user_id = int(session.get("user_id"))
     if request.method == "DELETE":
-        ai_repository.delete_conversation(user_id=user_id, conversation_id=conversation_id)
+        if not ai_repository.delete_conversation(user_id=user_id, conversation_id=conversation_id):
+            return jsonify({"ok": False, "error": "not_found"}), 404
         return jsonify({"ok": True})
 
     payload = request.get_json(silent=True) or {}
     title = payload.get("title") if "title" in payload else None
-    pinned = bool(payload.get("pinned")) if "pinned" in payload else None
-    ai_repository.update_conversation(
+    pinned = payload.get("pinned") if "pinned" in payload else None
+    if title is None and pinned is None:
+        return jsonify({"ok": False, "error": "empty_update"}), 400
+    if title is not None and not isinstance(title, str):
+        return jsonify({"ok": False, "error": "invalid_title"}), 400
+    if pinned is not None and not isinstance(pinned, bool):
+        return jsonify({"ok": False, "error": "invalid_pinned"}), 400
+    updated = ai_repository.update_conversation(
         user_id=user_id,
         conversation_id=conversation_id,
         title=title,
         pinned=pinned,
     )
+    if not updated:
+        return jsonify({"ok": False, "error": "not_found"}), 404
     return jsonify({"ok": True})
 
 
@@ -3085,9 +3134,12 @@ def ai_message_feedback_api(message_id):
     rating = str(payload.get("rating", "")).strip().lower()
     if rating not in {"up", "down"}:
         return jsonify({"ok": False, "error": "Невідома оцінка."}), 400
+    normalized_message_id = normalize_existing_client_id(message_id)
+    if not normalized_message_id:
+        return jsonify({"ok": False, "error": "not_found"}), 404
     saved = ai_repository.set_feedback(
         user_id=int(session.get("user_id")),
-        message_id=normalize_client_id(message_id, "msg"),
+        message_id=normalized_message_id,
         rating=rating,
     )
     if not saved:
@@ -3115,7 +3167,12 @@ def tutor_chat_api():
 
     lesson = None
     if lesson_context:
-        lesson_id = normalize_lesson_id(payload.get("lesson_id") or session.get("current_lesson_id", 1))
+        requested_lesson_id = payload.get("lesson_id") or session.get("current_lesson_id", 1)
+        if not is_valid_lesson_id(requested_lesson_id):
+            return jsonify({"ok": False, "error": "lesson_not_found"}), 404
+        lesson_id = normalize_lesson_id(requested_lesson_id)
+        if not is_lesson_unlocked(lesson_id):
+            return jsonify({"ok": False, "error": "lesson_locked"}), 403
         lesson = get_lesson_content(lesson_id)
         session["current_lesson_id"] = lesson_id
 
@@ -3123,22 +3180,26 @@ def tutor_chat_api():
     daily_limit = app.config["OPENAI_DAILY_LIMIT"]
     used_today = get_ai_usage_today(user_id)
     raw_fallback = get_easy_answer(question, lesson_context=lesson_context, lesson=lesson)
-    fallback = shape_demo_tutor_answer(
+    fallback = shape_offline_tutor_answer(
         raw_fallback,
         response_mode,
         lesson_context=lesson_context,
         lesson=lesson,
     )
-    ai_request = build_tutor_ai_request(
-        payload,
-        question=question,
-        lesson_context=lesson_context,
-        lesson=lesson,
-        response_mode=response_mode,
-        fallback=fallback,
-    )
+    try:
+        ai_request = build_tutor_ai_request(
+            payload,
+            question=question,
+            lesson_context=lesson_context,
+            lesson=lesson,
+            response_mode=response_mode,
+            fallback=fallback,
+        )
+    except AttachmentError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
 
-    if ai_orchestrator.enabled and used_today >= daily_limit:
+    claimed_usage = claim_ai_usage(user_id, daily_limit) if ai_orchestrator.enabled else None
+    if ai_orchestrator.enabled and claimed_usage is None:
         answer = "Денний AI-ліміт вичерпано. Продовжимо завтра, а зараз відкрий попередню відповідь або повтори урок."
         ai_orchestrator.prepare(ai_request)
         ai_repository.add_message(
@@ -3153,14 +3214,13 @@ def tutor_chat_api():
         error = None
         response_id = None
     else:
+        if claimed_usage is not None:
+            used_today = claimed_usage
         result = ai_orchestrator.complete(ai_request)
         answer = clean_tutor_answer_text(result.text)
         mode = result.mode
         error = result.error
         response_id = result.response_id
-        if mode == "openai":
-            increment_ai_usage(user_id)
-            used_today += 1
 
     response = {
         "ok": True,
@@ -3183,7 +3243,7 @@ def tutor_chat_api():
 @app.route("/api/tutor-chat/stream", methods=["POST"])
 @require_login
 def tutor_chat_stream_api():
-    """SSE endpoint with native OpenAI Responses API deltas and demo fallback."""
+    """SSE endpoint with native OpenAI Responses API deltas and offline fallback."""
     if not onboarding_complete():
         return jsonify({"ok": False, "error": "Спочатку заверши налаштування профілю."}), 403
 
@@ -3200,7 +3260,12 @@ def tutor_chat_stream_api():
 
     lesson = None
     if lesson_context:
-        lesson_id = normalize_lesson_id(payload.get("lesson_id") or session.get("current_lesson_id", 1))
+        requested_lesson_id = payload.get("lesson_id") or session.get("current_lesson_id", 1)
+        if not is_valid_lesson_id(requested_lesson_id):
+            return jsonify({"ok": False, "error": "lesson_not_found"}), 404
+        lesson_id = normalize_lesson_id(requested_lesson_id)
+        if not is_lesson_unlocked(lesson_id):
+            return jsonify({"ok": False, "error": "lesson_locked"}), 403
         lesson = get_lesson_content(lesson_id)
         session["current_lesson_id"] = lesson_id
 
@@ -3208,27 +3273,34 @@ def tutor_chat_stream_api():
     daily_limit = app.config["OPENAI_DAILY_LIMIT"]
     used_today = get_ai_usage_today(user_id)
     raw_fallback = get_easy_answer(question, lesson_context=lesson_context, lesson=lesson)
-    fallback = shape_demo_tutor_answer(
+    fallback = shape_offline_tutor_answer(
         raw_fallback,
         response_mode,
         lesson_context=lesson_context,
         lesson=lesson,
     )
-    ai_request = build_tutor_ai_request(
-        payload,
-        question=question,
-        lesson_context=lesson_context,
-        lesson=lesson,
-        response_mode=response_mode,
-        fallback=fallback,
-    )
+    try:
+        ai_request = build_tutor_ai_request(
+            payload,
+            question=question,
+            lesson_context=lesson_context,
+            lesson=lesson,
+            response_mode=response_mode,
+            fallback=fallback,
+        )
+    except AttachmentError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+
+    claimed_usage = claim_ai_usage(user_id, daily_limit) if ai_orchestrator.enabled else None
+    if claimed_usage is not None:
+        used_today = claimed_usage
 
     @stream_with_context
     def generate():
         nonlocal used_today
         yield tutor_sse_event("status", {"message": "Збираю навчальний контекст"})
 
-        if ai_orchestrator.enabled and used_today >= daily_limit:
+        if ai_orchestrator.enabled and claimed_usage is None:
             answer_text = "Денний AI-ліміт вичерпано. Продовжимо завтра, а зараз відкрий попередню відповідь або повтори урок."
             ai_orchestrator.prepare(ai_request)
             ai_repository.add_message(
@@ -3264,21 +3336,18 @@ def tutor_chat_stream_api():
             "message": "Аналізую фото й умову" if ai_request.attachments else "Будую зрозуміле пояснення"
         })
         final = None
-        for event in ai_orchestrator.stream(ai_request):
+        for event in safe_tutor_ai_stream(ai_request):
             if event.type == "delta":
                 yield tutor_sse_event("delta", {"text": event.data.get("text", "")})
             elif event.type == "fallback":
-                yield tutor_sse_event("status", {"message": "Працюю у безпечному демо-режимі"})
+                yield tutor_sse_event("status", {"message": "Працюю з локальними матеріалами уроку"})
                 for chunk in tutor_stream_chunks(event.data.get("text", fallback)):
                     yield tutor_sse_event("delta", {"text": chunk})
             elif event.type == "done":
                 final = event.data
 
-        final = final or {"text": fallback, "mode": "demo"}
-        mode = str(final.get("mode", "demo"))
-        if mode == "openai":
-            increment_ai_usage(user_id)
-            used_today += 1
+        final = final or {"text": fallback, "mode": "offline"}
+        mode = str(final.get("mode", "offline"))
         yield tutor_sse_event("meta", {
             "mode": mode,
             "used": used_today,
@@ -3319,7 +3388,12 @@ def lesson_chat_api():
 
     payload = request.get_json(silent=True) or request.form
     question = str(payload.get("question", "")).strip()
-    lesson_id = normalize_lesson_id(payload.get("lesson_id") or session.get("current_lesson_id", 1))
+    requested_lesson_id = payload.get("lesson_id") or session.get("current_lesson_id", 1)
+    if not is_valid_lesson_id(requested_lesson_id):
+        return jsonify({"ok": False, "error": "lesson_not_found"}), 404
+    lesson_id = normalize_lesson_id(requested_lesson_id)
+    if not is_lesson_unlocked(lesson_id):
+        return jsonify({"ok": False, "error": "lesson_locked"}), 403
     lesson = get_lesson_content(lesson_id)
     session["current_lesson_id"] = lesson_id
 
@@ -3333,7 +3407,8 @@ def lesson_chat_api():
     daily_limit = app.config["OPENAI_DAILY_LIMIT"]
     used_today = get_ai_usage_today(user_id)
 
-    if ai_service.enabled and used_today >= daily_limit:
+    claimed_usage = claim_ai_usage(user_id, daily_limit) if ai_service.enabled else None
+    if ai_service.enabled and claimed_usage is None:
         return jsonify({
             "ok": True,
             "answer": "Денний AI-ліміт вичерпано. Продовжимо завтра, а зараз можеш повторити матеріал уроку.",
@@ -3352,9 +3427,8 @@ def lesson_chat_api():
         lesson_context=True,
     )
 
-    if result.mode == "openai":
-        increment_ai_usage(user_id)
-        used_today += 1
+    if claimed_usage is not None:
+        used_today = claimed_usage
 
     return jsonify({
         "ok": True,

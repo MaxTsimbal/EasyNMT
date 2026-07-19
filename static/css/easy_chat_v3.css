@@ -728,7 +728,7 @@ button {
     box-shadow: 0 0 0 4px rgba(255, 210, 113, .08), 0 0 12px rgba(255, 210, 113, .4);
 }
 
-.ec2-status-dot--demo {
+.ec2-status-dot--offline {
     background: var(--ec2-violet-bright);
     box-shadow: 0 0 0 4px rgba(180, 154, 255, .08), 0 0 12px rgba(180, 154, 255, .4);
 }

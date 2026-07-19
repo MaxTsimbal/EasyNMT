@@ -90,7 +90,7 @@ class OpenAIResponsesProvider:
         to import or configure the OpenAI SDK.
         """
         if not self.enabled:
-            return AIResult("", "demo", "OpenAI is not configured")
+            return AIResult("", "offline", "OpenAI is not configured")
 
         content = [{"type": "input_text", "text": text}]
         for attachment in attachments:
@@ -119,7 +119,7 @@ class OpenAIResponsesProvider:
             response = self.client.responses.create(**kwargs)
             output = str(getattr(response, "output_text", "") or "").strip()
             if not output:
-                return AIResult("", "demo", "OpenAI returned an empty response")
+                return AIResult("", "offline", "OpenAI returned an empty response")
             return AIResult(
                 text=output,
                 mode="openai",
@@ -131,12 +131,12 @@ class OpenAIResponsesProvider:
 
     def complete(self, request: AIRequest) -> AIResult:
         if not self.enabled:
-            return AIResult(request.fallback, "demo")
+            return AIResult(request.fallback, "offline")
         try:
             response = self.client.responses.create(**self._request_kwargs(request))
             text = str(getattr(response, "output_text", "") or "").strip()
             if not text:
-                return AIResult(request.fallback, "demo", "OpenAI повернув порожню відповідь")
+                return AIResult(request.fallback, "offline", "OpenAI повернув порожню відповідь")
             usage = self._usage_dict(response)
             return AIResult(
                 text=text,
@@ -145,11 +145,11 @@ class OpenAIResponsesProvider:
                 usage=usage,
             )
         except Exception as exc:
-            return AIResult(request.fallback, "demo", str(exc))
+            return AIResult(request.fallback, "offline", str(exc))
 
     def stream(self, request: AIRequest) -> Iterator[AIStreamEvent]:
         if not self.enabled:
-            yield AIStreamEvent("fallback", {"text": request.fallback, "mode": "demo"})
+            yield AIStreamEvent("fallback", {"text": request.fallback, "mode": "offline"})
             return
 
         response_id = None
@@ -177,7 +177,7 @@ class OpenAIResponsesProvider:
 
             text = "".join(collected).strip()
             if not text:
-                yield AIStreamEvent("fallback", {"text": request.fallback, "mode": "demo", "error": "empty_response"})
+                yield AIStreamEvent("fallback", {"text": request.fallback, "mode": "offline", "error": "empty_response"})
                 return
             yield AIStreamEvent("completed", {
                 "text": text,
@@ -190,10 +190,10 @@ class OpenAIResponsesProvider:
             if partial:
                 yield AIStreamEvent("completed", {
                     "text": partial,
-                    "mode": "demo",
+                    "mode": "offline",
                     "response_id": response_id,
                     "usage": usage,
                     "error": str(exc),
                 })
             else:
-                yield AIStreamEvent("fallback", {"text": request.fallback, "mode": "demo", "error": str(exc)})
+                yield AIStreamEvent("fallback", {"text": request.fallback, "mode": "offline", "error": str(exc)})

@@ -61,7 +61,7 @@ class AIRepository:
                 user_id INTEGER NOT NULL,
                 role TEXT NOT NULL CHECK(role IN ('user', 'assistant')),
                 content TEXT NOT NULL,
-                provider_mode TEXT NOT NULL DEFAULT 'demo',
+                provider_mode TEXT NOT NULL DEFAULT 'offline',
                 response_id TEXT,
                 metadata_json TEXT NOT NULL DEFAULT '{}',
                 created_at TEXT NOT NULL,
@@ -121,7 +121,7 @@ class AIRepository:
                     user_id INTEGER NOT NULL,
                     role TEXT NOT NULL CHECK(role IN ('user', 'assistant')),
                     content TEXT NOT NULL,
-                    provider_mode TEXT NOT NULL DEFAULT 'demo',
+                    provider_mode TEXT NOT NULL DEFAULT 'offline',
                     response_id TEXT,
                     metadata_json TEXT NOT NULL DEFAULT '{}',
                     created_at TEXT NOT NULL,
@@ -148,6 +148,8 @@ class AIRepository:
                 ON ai_attachments(user_id, created_at DESC);
             """
         )
+        conn.commit()
+        conn.execute("UPDATE ai_messages SET provider_mode = 'offline' WHERE provider_mode = 'demo'")
         conn.commit()
         conn.close()
 
@@ -195,7 +197,7 @@ class AIRepository:
         user_id: int,
         role: str,
         content: str,
-        provider_mode: str = "demo",
+        provider_mode: str = "offline",
         response_id: Optional[str] = None,
         metadata: Optional[dict] = None,
     ) -> None:
@@ -207,11 +209,7 @@ class AIRepository:
                 INSERT INTO ai_messages
                     (id, conversation_id, user_id, role, content, provider_mode, response_id, metadata_json, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(id, user_id) DO UPDATE SET
-                    content = excluded.content,
-                    provider_mode = excluded.provider_mode,
-                    response_id = excluded.response_id,
-                    metadata_json = excluded.metadata_json
+                ON CONFLICT(id, user_id) DO NOTHING
                 """,
                 (
                     message_id, conversation_id, user_id, role, content, provider_mode,
@@ -235,29 +233,52 @@ class AIRepository:
         finally:
             conn.close()
 
-    def save_attachment(self, *, user_id: int, attachment: AttachmentRef, conversation_id: str = "") -> None:
+    def save_attachment(
+        self,
+        *,
+        user_id: int,
+        attachment: AttachmentRef,
+        conversation_id: str = "",
+        since: Optional[str] = None,
+        limit: Optional[int] = None,
+    ) -> bool:
         conn = self.connect()
-        conn.execute(
-            """
-            INSERT INTO ai_attachments
-                (id, user_id, conversation_id, original_name, stored_path, mime_type, size_bytes, kind, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO NOTHING
-            """,
-            (
-                attachment.id,
-                user_id,
-                conversation_id or None,
-                attachment.original_name,
-                attachment.stored_path,
-                attachment.mime_type,
-                attachment.size_bytes,
-                attachment.kind,
-                utc_now(),
-            ),
-        )
-        conn.commit()
-        conn.close()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            if since is not None and limit is not None:
+                row = conn.execute(
+                    "SELECT COUNT(*) AS total FROM ai_attachments WHERE user_id = ? AND created_at >= ?",
+                    (user_id, since),
+                ).fetchone()
+                if int(row["total"] or 0) >= max(0, int(limit)):
+                    conn.rollback()
+                    return False
+            cursor = conn.execute(
+                """
+                INSERT INTO ai_attachments
+                    (id, user_id, conversation_id, original_name, stored_path, mime_type, size_bytes, kind, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO NOTHING
+                """,
+                (
+                    attachment.id,
+                    user_id,
+                    conversation_id or None,
+                    attachment.original_name,
+                    attachment.stored_path,
+                    attachment.mime_type,
+                    attachment.size_bytes,
+                    attachment.kind,
+                    utc_now(),
+                ),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
 
     def get_attachments(self, *, user_id: int, attachment_ids: Iterable[str]) -> list[AttachmentRef]:
         ids = list(dict.fromkeys(str(item) for item in attachment_ids if item))[:3]
@@ -330,7 +351,7 @@ class AIRepository:
             SELECT role, content
             FROM ai_messages
             WHERE user_id = ? AND conversation_id = ?
-            ORDER BY created_at DESC
+            ORDER BY created_at DESC, rowid DESC
             LIMIT ?
             """,
             (user_id, conversation_id, max(1, min(40, int(limit)))),
@@ -357,8 +378,12 @@ class AIRepository:
             messages = conn.execute(
                 """
                 SELECT id, role, content, provider_mode, created_at
-                FROM ai_messages WHERE user_id = ? AND conversation_id = ?
-                ORDER BY created_at ASC LIMIT 80
+                FROM (
+                    SELECT rowid AS message_rowid, id, role, content, provider_mode, created_at
+                    FROM ai_messages WHERE user_id = ? AND conversation_id = ?
+                    ORDER BY created_at DESC, rowid DESC LIMIT 80
+                )
+                ORDER BY created_at ASC, message_rowid ASC
                 """,
                 (user_id, conversation["id"]),
             ).fetchall()
@@ -411,28 +436,47 @@ class AIRepository:
 
     def delete_conversation(self, *, user_id: int, conversation_id: str) -> bool:
         conn = self.connect()
-        attachment_rows = conn.execute(
-            "SELECT stored_path FROM ai_attachments WHERE user_id = ? AND conversation_id = ?",
-            (user_id, conversation_id),
-        ).fetchall()
-        conn.execute("DELETE FROM ai_messages WHERE user_id = ? AND conversation_id = ?", (user_id, conversation_id))
-        conn.execute("DELETE FROM ai_attachments WHERE user_id = ? AND conversation_id = ?", (user_id, conversation_id))
-        cursor = conn.execute("DELETE FROM ai_conversations WHERE user_id = ? AND id = ?", (user_id, conversation_id))
-        conn.commit()
-        changed = cursor.rowcount > 0
-        conn.close()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            attachment_rows = conn.execute(
+                "SELECT stored_path FROM ai_attachments WHERE user_id = ? AND conversation_id = ?",
+                (user_id, conversation_id),
+            ).fetchall()
+            conn.execute(
+                """
+                DELETE FROM ai_message_feedback
+                WHERE user_id = ? AND message_id IN (
+                    SELECT id FROM ai_messages WHERE user_id = ? AND conversation_id = ?
+                )
+                """,
+                (user_id, user_id, conversation_id),
+            )
+            conn.execute(
+                "DELETE FROM ai_messages WHERE user_id = ? AND conversation_id = ?",
+                (user_id, conversation_id),
+            )
+            conn.execute(
+                "DELETE FROM ai_attachments WHERE user_id = ? AND conversation_id = ?",
+                (user_id, conversation_id),
+            )
+            cursor = conn.execute(
+                "DELETE FROM ai_conversations WHERE user_id = ? AND id = ?",
+                (user_id, conversation_id),
+            )
+            conn.commit()
+            changed = cursor.rowcount > 0
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
         for row in attachment_rows:
             try:
                 os.remove(row["stored_path"])
+            except FileNotFoundError:
+                pass
             except OSError:
+                # The database deletion is authoritative. An inaccessible
+                # orphan can be removed later without restoring deleted data.
                 pass
         return changed
-
-    def count_attachments_since(self, *, user_id: int, since: str) -> int:
-        conn = self.connect()
-        row = conn.execute(
-            "SELECT COUNT(*) AS total FROM ai_attachments WHERE user_id = ? AND created_at >= ?",
-            (user_id, since),
-        ).fetchone()
-        conn.close()
-        return int(row["total"] or 0) if row else 0

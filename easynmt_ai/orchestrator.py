@@ -74,7 +74,7 @@ class AIOrchestrator:
     def stream(self, request: AIRequest) -> Iterator[AIStreamEvent]:
         self.prepare(request)
         final_text = ""
-        final_mode = "demo"
+        final_mode = "offline"
         response_id = None
         usage = None
         fallback_error = None
@@ -92,7 +92,7 @@ class AIOrchestrator:
                 fallback_text = self.clean_text(event.data.get("text", request.fallback))
                 fallback_error = event.data.get("error")
                 final_text = fallback_text
-                final_mode = "demo"
+                final_mode = "offline"
                 yield AIStreamEvent("fallback", {"text": fallback_text, "error": fallback_error})
 
         final_text = self.clean_text(final_text or request.fallback)

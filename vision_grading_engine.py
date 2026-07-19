@@ -43,7 +43,7 @@ class VisionGradingEngine:
                 "message": "Фото збережено, але AI-перевірка зараз недоступна. Перевір, чи OPENAI_API_KEY додано в Railway Variables.",
                 "correct_step": reference_solution or correct_answer,
                 "error_box": {"x": 0.05, "y": 0.05, "width": 0.9, "height": 0.15},
-                "mode": "demo",
+                "mode": "offline",
             }
 
         mime = mimetypes.guess_type(image_path)[0] or "image/jpeg"
