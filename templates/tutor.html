@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
-{% block title %}Easy Chat v2.0 | EasyNMT{% endblock %}
-{% block body_class %}tutor-chat-page easy-chat-v2-page{% endblock %}
+{% block title %}Easy Chat v3.0 Nebula | EasyNMT{% endblock %}
+{% block body_class %}tutor-chat-page easy-chat-v2-page easy-chat-v3-page{% endblock %}
 
 {% set close_url = url_for('lesson', lesson_id=lesson.id) if lesson_context and lesson else url_for('dashboard') %}
 {% set user_display_name = session.get('user_name') or 'друже' %}
@@ -9,7 +9,7 @@
 {% set active_lesson_title = lesson.title if lesson_context and lesson else '' %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/easy_chat_v2.css', v='200-stable-foundation') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/easy_chat_v3.css', v='300-nebula-mobile-first') }}">
 <script>
 window.MathJax = {
     tex: {
@@ -132,7 +132,7 @@ window.MathJax = {
                     <span class="ec2-chat-heading__icon" aria-hidden="true">✦</span>
                     <span class="ec2-chat-heading__copy">
                         <strong id="ec2ActiveTitle">Нова розмова</strong>
-                        <small id="ec2ActiveSubtitle">Easy Chat v2.0</small>
+                        <small id="ec2ActiveSubtitle">Easy Chat v3.0</small>
                     </span>
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7 5 5-5 5"/></svg>
                 </button>
@@ -203,8 +203,11 @@ window.MathJax = {
                         name="question"
                         rows="1"
                         maxlength="1500"
-                        placeholder="Запитай Easy будь-що…"
+                        placeholder="Запитай Easy…"
                         aria-label="Повідомлення для Easy"
+                        enterkeyhint="send"
+                        autocapitalize="sentences"
+                        spellcheck="true"
                     ></textarea>
 
                     <div class="ec2-composer__toolbar">
@@ -282,7 +285,7 @@ window.MathJax = {
             <section class="ec2-settings-card ec2-settings-card--about">
                 <div class="ec2-settings-brand">
                     <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
-                    <div><strong>Easy Chat v2.0</strong><small>Foundation before OpenAI integration</small></div>
+                    <div><strong>Easy Chat v3.0</strong><small>Nebula UI before OpenAI integration</small></div>
                 </div>
                 <p>Інтерфейс підготовлений до Responses API, реального streaming, пам’яті та аналізу фото.</p>
             </section>
@@ -296,7 +299,7 @@ window.MathJax = {
             <h2>Назва розмови</h2>
             <p>Коротка назва допоможе швидко знайти цей чат.</p>
             <label for="ec2RenameInput">Назва</label>
-            <input id="ec2RenameInput" type="text" maxlength="90" autocomplete="off">
+            <input id="ec2RenameInput" type="text" maxlength="90" autocomplete="off" enterkeyhint="done" autocapitalize="sentences">
             <div class="ec2-dialog__actions">
                 <button value="cancel" type="button" data-dialog-cancel>Скасувати</button>
                 <button value="confirm" type="submit">Зберегти</button>
@@ -320,6 +323,12 @@ window.MathJax = {
 
     <template id="ec2WelcomeTemplate">
         <section class="ec2-welcome">
+            <div class="ec3-mobile-intro">
+                <span class="ec3-mobile-intro__eyebrow"><i></i> Easy Chat v3.0</span>
+                <h1>Привіт, {{ user_display_name }}.</h1>
+                <p>{% if lesson_context and lesson %}Тема вже підключена. Що саме розберемо?{% else %}Що хочеш розібрати сьогодні?{% endif %}</p>
+            </div>
+
             <div class="ec2-welcome__hero">
                 <div class="ec2-welcome__visual" aria-hidden="true">
                     <span class="ec2-welcome__halo"></span>
@@ -330,7 +339,7 @@ window.MathJax = {
                     <span class="ec2-welcome__spark ec2-welcome__spark--two">✧</span>
                 </div>
                 <div class="ec2-welcome__copy">
-                    <span class="ec2-welcome__eyebrow"><i></i> Easy Chat v2.0</span>
+                    <span class="ec2-welcome__eyebrow"><i></i> Easy Chat v3.0</span>
                     <h1>Привіт, {{ user_display_name }}.</h1>
                     <p>{% if lesson_context and lesson %}Я вже бачу тему «{{ lesson.title }}». Можемо розібрати правило, задачу або місце, де все почало плутатися.{% else %}Тут можна спокійно розібрати тему, задачу чи помилку. Без стіни складних слів, зате з логікою та кроками.{% endif %}</p>
                     <div class="ec2-welcome__badges">
@@ -379,7 +388,7 @@ window.MathJax = {
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/easy_chat_v2/storage.js', v='200-stable-foundation') }}" defer></script>
-<script src="{{ url_for('static', filename='js/easy_chat_v2/markdown.js', v='200-stable-foundation') }}" defer></script>
-<script src="{{ url_for('static', filename='js/easy_chat_v2/app.js', v='200-stable-foundation') }}" defer></script>
+<script src="{{ url_for('static', filename='js/easy_chat_v3/storage.js', v='300-nebula-mobile-first') }}" defer></script>
+<script src="{{ url_for('static', filename='js/easy_chat_v3/markdown.js', v='300-nebula-mobile-first') }}" defer></script>
+<script src="{{ url_for('static', filename='js/easy_chat_v3/app.js', v='300-nebula-mobile-first') }}" defer></script>
 {% endblock %}

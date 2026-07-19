@@ -1,5 +1,17 @@
 # EasyNMT Changelog
 
+## Easy Chat v3.0 Nebula Mobile-First
+
+- Rebuilt the phone layout around a compact native-style workspace.
+- Replaced the oversized mobile hero with a concise greeting and 2×2 action launcher.
+- Reduced the mobile header to 56 px and tightened thread spacing.
+- Rebuilt the composer as a single-row dock with a 16 px input to prevent iOS focus zoom.
+- Added Visual Viewport keyboard tracking and safe-area handling for Safari and in-app browsers.
+- Reworked rename/delete dialogs as centered desktop-style windows without scale animation.
+- Added `interactive-widget=resizes-content` viewport support where browsers implement it.
+- Preserved v2 local chat history, streaming, commands, export, rename, pin and feedback features.
+- Added dedicated v3 CSS and JavaScript assets so the previous stable files remain available for rollback.
+
 ## Easy Chat v2.0 AI Workspace Foundation
 
 - Повністю перебудовано дизайн чату як окремий AI Workspace у стилі EasyNMT.

@@ -1,6 +1,6 @@
-# EasyNMT v0.9.9.9 + Easy Chat v2.0
+# EasyNMT v0.9.9.9 + Easy Chat v3.0 Nebula
 
-Поточний чат: Easy Chat v2.0 AI Workspace Foundation готовий до виправлення UI-помилок і наступної інтеграції OpenAI.
+Поточний чат: Easy Chat v3.0 Nebula Mobile-First готовий до перевірки на Railway. Після fix pack переходимо до OpenAI Responses API.
 
 - новий дизайн і мобільний UX готові;
 - streaming transport через SSE готовий;
