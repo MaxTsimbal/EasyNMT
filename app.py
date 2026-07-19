@@ -24,6 +24,7 @@ from lesson_board_engine import build_lesson_board
 from solution_annotation_engine import create_annotated_solution
 from vision_grading_engine import VisionGradingEngine
 from easynmt_ai import AIOrchestrator, AIRepository, AIRequest, AttachmentRef, LearningContext
+from easynmt_learning import LearningGenerationService, LearningRepository
 from easynmt_ai.attachments import AttachmentError, normalize_attachment_ids, save_image_upload
 
 from google_oauth import build_authorization_url, credentials_status, exchange_callback
@@ -302,6 +303,9 @@ init_db()
 ai_repository = AIRepository(DB_PATH)
 ai_repository.ensure_schema()
 ai_orchestrator = AIOrchestrator(ai_service.provider, ai_repository)
+learning_repository = LearningRepository(DB_PATH)
+learning_repository.ensure_schema()
+learning_service = LearningGenerationService(ai_service.provider, learning_repository)
 AI_UPLOAD_DIR = os.path.join(PERSISTENT_DIR, "ai_uploads")
 os.makedirs(AI_UPLOAD_DIR, exist_ok=True)
 
@@ -1727,7 +1731,7 @@ def google_auth_status():
         {
             "callback_url": url_for("google_callback", _external=True, _scheme="https"),
             "implementation": "oauth2_pkce_requests",
-            "version": "0.9.9-fix-3",
+            "version": "v1.0 Beta",
         }
     )
     return status
@@ -3258,6 +3262,58 @@ def sitemap_xml():
     return Response(content, mimetype="application/xml")
 
 
+
+
+@app.route("/api/v1-beta/curriculum", methods=["GET", "POST"])
+@require_login
+def v1_beta_curriculum_api():
+    try:
+        uid=int(session["user_id"])
+        if request.method=="GET":
+            cid=request.args.get("id",type=int); data=learning_repository.curriculum_bundle(cid,uid) if cid else None
+            return ({"ok":True,"curriculum":data} if data else ({"ok":False,"error":"not_found"},404))
+        p=request.get_json(silent=True) or {}; data=learning_service.generate_curriculum(uid,str(p.get("subject") or session.get("subject") or "Математика"),str(p.get("goal") or session.get("goal") or "Підготовка до НМТ"),str(p.get("level") or "basic"),bool(p.get("force")))
+        return {"ok":True,"curriculum":data,"version":"v1.0 Beta"}
+    except Exception as exc:
+        app.logger.exception("curriculum generation failed"); return {"ok":False,"error":str(exc)},500
+
+@app.route("/api/v1-beta/topic/<int:topic_id>/lesson", methods=["GET","POST"])
+@require_login
+def v1_beta_lesson_api(topic_id):
+    try:
+        p=request.get_json(silent=True) or {}; data=learning_service.generate_lesson(int(session["user_id"]),topic_id,bool(p.get("force")))
+        return {"ok":True,"lesson":data,"version":"v1.0 Beta"}
+    except Exception as exc:
+        app.logger.exception("lesson generation failed"); return {"ok":False,"error":str(exc)},500
+
+@app.route("/api/v1-beta/topic/<int:topic_id>/quiz", methods=["GET","POST"])
+@require_login
+def v1_beta_quiz_api(topic_id):
+    try:
+        p=request.get_json(silent=True) or {}; data=learning_service.generate_quiz(int(session["user_id"]),topic_id,bool(p.get("force")))
+        safe=dict(data); out=[]
+        for item in safe.get("questions",[]):
+            x=dict(item)
+            for k in ("answer","correct_answer","solution_steps","rubric"): x.pop(k,None)
+            out.append(x)
+        safe["questions"]=out; return {"ok":True,"quiz":safe,"version":"v1.0 Beta"}
+    except Exception as exc:
+        app.logger.exception("quiz generation failed"); return {"ok":False,"error":str(exc)},500
+
+@app.route("/api/v1-beta/quiz/<int:quiz_id>/grade", methods=["POST"])
+@require_login
+def v1_beta_grade_api(quiz_id):
+    try:
+        p=request.get_json(silent=True) or {}; answers=p.get("answers")
+        if not isinstance(answers,(dict,list)): return {"ok":False,"error":"invalid_answers"},400
+        return {"ok":True,"result":learning_service.grade_quiz(int(session["user_id"]),quiz_id,answers),"version":"v1.0 Beta"}
+    except Exception as exc:
+        app.logger.exception("grading failed"); return {"ok":False,"error":str(exc)},500
+
+@app.route("/v1-beta")
+@require_login
+def v1_beta_hub():
+    return render_template("v1_beta.html", **get_user_data(), version="v1.0 Beta")
 
 if __name__ == "__main__":
     app.run(debug=app.config["DEBUG"])

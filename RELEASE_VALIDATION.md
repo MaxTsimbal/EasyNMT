@@ -1,4 +1,4 @@
-# EasyNMT Final Update Before Beta — перевірка релізу
+# EasyNMT v1.0 Beta — перевірка релізу
 
 Дата перевірки: 2026-07-19.
 

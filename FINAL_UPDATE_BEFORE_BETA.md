@@ -1,4 +1,4 @@
-# EasyNMT Final Update Before Beta
+# EasyNMT v1.0 Beta
 
 Це останнє фундаментальне оновлення перед `EasyNMT v1.0 Beta`.
 

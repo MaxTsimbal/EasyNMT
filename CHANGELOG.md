@@ -1,3 +1,7 @@
+# EasyNMT v1.0 Beta
+
+Найбільше оновлення: автономна генерація програми, тем, повних уроків, тестів із 12 питань та AI-перевірка з частковими балами.
+
 # EasyNMT Final Update Before Beta
 
 - Easy Chat перетворено на модуль **AI Викладач**.
@@ -341,3 +345,11 @@
 - Disabled the global page loader for every Easy Chat form.
 - Added a local three-dot thinking state while the AI response is generated.
 - Preserved the v1.1 visual redesign and existing Flask tutor route.
+
+## Easy Tutor Brain Humanization Hotfix
+- Added a local zero-cost intent analyzer for explanation, solving, checking, practice and concise requests.
+- Added detection of confusion and repeated failed explanations.
+- Easy now changes explanation strategy instead of repeating the same answer.
+- Improved natural Ukrainian tutor voice and removed canned chatbot openings/closings.
+- Added smarter clarification behavior for genuinely ambiguous short prompts.
+- Preserved lesson, progress, weak-topic and conversation context in every response.

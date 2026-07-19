@@ -50,7 +50,12 @@ class OpenAIResponsesProvider:
 
         return {
             "model": self.vision_model if request.attachments else self.model,
-            "instructions": build_instructions(request.context, has_images=bool(request.attachments)),
+            "instructions": build_instructions(
+                request.context,
+                question=request.question,
+                history=request.history,
+                has_images=bool(request.attachments),
+            ),
             "input": input_items,
             "max_output_tokens": self.max_output_tokens,
             "store": self.store_responses,

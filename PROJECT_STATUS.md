@@ -1,4 +1,4 @@
-# EasyNMT Final Update Before Beta
+# EasyNMT v1.0 Beta
 
 Статус: **готово до початку інтеграції EasyNMT v1.0 Beta**.
 
@@ -15,7 +15,7 @@
 
 ---
 
-# EasyNMT v0.9.9.9 + Easy Chat v3.0 Nebula
+# EasyNMT v1.0 Beta + Easy Chat v3.0 Nebula
 
 Поточний чат: Easy Chat v3.0 Nebula Mobile-First готовий до перевірки на Railway. Після fix pack переходимо до OpenAI Responses API.
 
@@ -26,7 +26,7 @@
 
 ---
 
-# EasyNMT v0.9.9.9
+# EasyNMT v1.0 Beta
 
 Остання стабільна демонстраційна збірка перед інтеграцією OpenAI та запуском v1.0 Beta.
 
