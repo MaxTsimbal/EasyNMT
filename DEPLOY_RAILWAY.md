@@ -2,7 +2,8 @@
 
 ## Файли вже підготовлені
 - `Procfile` і `railway.json` запускають сайт через Gunicorn.
-- `/health` перевіряє роботу сайту й бази.
+- `/health` перевіряє, що вебпроцес відповідає; `/ready` окремо перевіряє
+  доступність та ініціалізацію SQLite.
 - SQLite автоматично використовує Railway Volume.
 - Локально база лишається в `instance/users.db`.
 
@@ -16,7 +17,7 @@
    - `SESSION_COOKIE_SECURE` = `1`
    - `OPENAI_MODEL` = `gpt-4o-mini`
    - `OPENAI_DAILY_LIMIT` = `40`
-   - `OPENAI_API_KEY` = додаси пізніше, коли підключатимемо OpenAI
+   - `OPENAI_API_KEY` = ключ провайдера (необов’язковий для офлайн-режиму)
 5. В Settings → Networking натисни **Generate Domain**.
 
 Railway автоматично передає `RAILWAY_VOLUME_MOUNT_PATH`, тому EasyNMT збереже базу на підключеному Volume.

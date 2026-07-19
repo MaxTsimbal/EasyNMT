@@ -9,7 +9,10 @@ Stored data:
 - completed lessons and best quiz results;
 - achievements;
 - quiz mistakes;
-- OpenAI daily usage count.
+- quiz attempts, server-side quiz sessions and answer drafts;
+- per-subject progress and lesson readiness;
+- AI conversations, messages, feedback and attachment metadata;
+- daily OpenAI usage and upload limits.
 
 ## Updating an existing EasyNMT folder
 To keep accounts from an older version, copy the old file:
