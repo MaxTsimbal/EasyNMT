@@ -1,219 +1,385 @@
 {% extends "base.html" %}
 
-{% block title %}Easy — AI-викладач | EasyNMT{% endblock %}
-{% block body_class %}tutor-chat-page easy-chat-native{% endblock %}
+{% block title %}Easy Chat v2.0 | EasyNMT{% endblock %}
+{% block body_class %}tutor-chat-page easy-chat-v2-page{% endblock %}
 
 {% set close_url = url_for('lesson', lesson_id=lesson.id) if lesson_context and lesson else url_for('dashboard') %}
 {% set user_display_name = session.get('user_name') or 'друже' %}
+{% set chat_subject = subject if subject and subject != 'Ще не вибрано' else 'Підготовка до НМТ' %}
+{% set active_lesson_title = lesson.title if lesson_context and lesson else '' %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/easy_chat_v12.css', v='120-native-redesign') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/easy_chat_v2.css', v='200-stable-foundation') }}">
+<script>
+window.MathJax = {
+    tex: {
+        inlineMath: [['\\(', '\\)']],
+        displayMath: [['\\[', '\\]']],
+        processEscapes: true
+    },
+    svg: { fontCache: 'global' },
+    startup: { typeset: false }
+};
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
 {% endblock %}
 
 {% block content %}
 <div
-    class="easy-chat-app"
-    id="easyChatApp"
-    data-api-url="{{ url_for('tutor_chat_api') }}"
+    class="ec2-app"
+    id="easyChatV2"
+    data-stream-url="{{ url_for('tutor_chat_stream_api') }}"
+    data-fallback-url="{{ url_for('tutor_chat_api') }}"
+    data-storage-key="easy-chat-v2-user-{{ session.get('user_id', 'guest') }}"
     data-lesson-context="{{ 'true' if lesson_context else 'false' }}"
     data-lesson-id="{{ lesson.id if lesson_context and lesson else '' }}"
-    data-storage-key="easy-chat-v12-{{ 'lesson-' ~ lesson.id if lesson_context and lesson else 'general' }}"
+    data-lesson-title="{{ active_lesson_title }}"
+    data-subject="{{ chat_subject }}"
     data-ai-mode="{{ ai_mode }}"
+    data-ai-used="{{ ai_used }}"
+    data-ai-limit="{{ ai_limit }}"
+    data-user-name="{{ user_display_name }}"
 >
-    <aside class="easy-chat-sidebar" id="easyChatSidebar" aria-label="Навігація Easy">
-        <div class="easy-chat-sidebar__top">
-            <a class="easy-chat-brand" href="{{ url_for('dashboard') }}" data-no-transition aria-label="EasyNMT, у кабінет">
-                <span class="easy-chat-brand__mark" aria-hidden="true">
+    <div class="ec2-atmosphere" aria-hidden="true">
+        <span class="ec2-atmosphere__grid"></span>
+        <span class="ec2-atmosphere__glow ec2-atmosphere__glow--violet"></span>
+        <span class="ec2-atmosphere__glow ec2-atmosphere__glow--blue"></span>
+        <span class="ec2-atmosphere__glow ec2-atmosphere__glow--cyan"></span>
+        <span class="ec2-atmosphere__stars ec2-atmosphere__stars--one"></span>
+        <span class="ec2-atmosphere__stars ec2-atmosphere__stars--two"></span>
+    </div>
+
+    <aside class="ec2-sidebar" id="ec2Sidebar" aria-label="Історія чатів">
+        <div class="ec2-sidebar__header">
+            <a class="ec2-brand" href="{{ url_for('dashboard') }}" data-no-transition aria-label="EasyNMT, у кабінет">
+                <span class="ec2-brand__mark" aria-hidden="true">
                     <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
                 </span>
-                <span class="easy-chat-brand__copy">
+                <span class="ec2-brand__text">
                     <strong>Easy<span>NMT</span></strong>
-                    <small>AI-викладач</small>
+                    <small>AI learning space</small>
                 </span>
             </a>
-
-            <button class="easy-chat-icon-button easy-chat-sidebar__close" id="easyChatSidebarClose" type="button" aria-label="Закрити меню">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"/></svg>
+            <button class="ec2-icon-button ec2-sidebar__mobile-close" id="ec2SidebarClose" type="button" aria-label="Закрити меню">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.8 6.8 17.2 17.2M17.2 6.8 6.8 17.2"/></svg>
             </button>
         </div>
 
-        <button class="easy-chat-new" id="easyChatNew" type="button">
-            <span class="easy-chat-new__icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
-            </span>
-            <span>Нова розмова</span>
-            <kbd>Ctrl K</kbd>
-        </button>
+        <div class="ec2-sidebar__primary">
+            <button class="ec2-new-chat" id="ec2NewChat" type="button">
+                <span class="ec2-new-chat__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                </span>
+                <span class="ec2-new-chat__label">Нова розмова</span>
+                <kbd>Ctrl K</kbd>
+            </button>
 
-        <div class="easy-chat-sidebar__scroll">
-            <section class="easy-chat-sidebar__section">
-                <p class="easy-chat-sidebar__label">Розмова</p>
-                <button class="easy-chat-conversation is-active" type="button">
-                    <span class="easy-chat-conversation__icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24"><path d="M6.5 5h11A2.5 2.5 0 0 1 20 7.5v7a2.5 2.5 0 0 1-2.5 2.5H11l-5 3v-4.2A2.5 2.5 0 0 1 4 13.35V7.5A2.5 2.5 0 0 1 6.5 5Z"/></svg>
-                    </span>
-                    <span class="easy-chat-conversation__copy">
-                        <strong>{% if lesson_context and lesson %}{{ lesson.title }}{% else %}Чат з Easy{% endif %}</strong>
-                        <small id="easyChatConversationStatus">Нова розмова</small>
-                    </span>
-                    <i aria-hidden="true"></i>
-                </button>
-            </section>
-
-            <section class="easy-chat-sidebar__section">
-                <p class="easy-chat-sidebar__label">Швидкі дії</p>
-                <button class="easy-chat-side-action" type="button" data-prompt="{% if lesson_context %}Поясни цю тему з нуля простими словами{% else %}Поясни тему, яку я напишу, з нуля простими словами{% endif %}">
-                    <span aria-hidden="true">✦</span><b>Поясни з нуля</b>
-                </button>
-                <button class="easy-chat-side-action" type="button" data-prompt="{% if lesson_context %}Покажи простий приклад до цієї теми та поясни кожен крок{% else %}Покажи простий приклад і поясни кожен крок{% endif %}">
-                    <span aria-hidden="true">∑</span><b>Розбери приклад</b>
-                </button>
-                <button class="easy-chat-side-action" type="button" data-prompt="Допоможи знайти помилку в моєму розв’язанні. Спочатку попроси мене надіслати його.">
-                    <span aria-hidden="true">◎</span><b>Знайди помилку</b>
-                </button>
-            </section>
-
-            <section class="easy-chat-sidebar__section">
-                <p class="easy-chat-sidebar__label">EasyNMT</p>
-                <a class="easy-chat-side-link" href="{{ url_for('dashboard') }}" data-no-transition>
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11.5 12 5l8 6.5V20h-5v-5H9v5H4Z"/></svg><span>Кабінет</span>
-                </a>
-                <a class="easy-chat-side-link" href="{{ url_for('library') }}" data-no-transition>
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h11.5A2.5 2.5 0 0 1 19 7v12H7.5A2.5 2.5 0 0 1 5 16.5Zm0 12A2.5 2.5 0 0 1 7.5 14H19"/></svg><span>Уроки</span>
-                </a>
-                <a class="easy-chat-side-link" href="{{ url_for('progress_page') }}" data-no-transition>
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 18V9m7 9V5m7 13v-6"/></svg><span>Прогрес</span>
-                </a>
-            </section>
+            <label class="ec2-search" for="ec2HistorySearch">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>
+                <input id="ec2HistorySearch" type="search" placeholder="Пошук в історії" autocomplete="off">
+                <kbd>/</kbd>
+            </label>
         </div>
 
-        <div class="easy-chat-sidebar__bottom">
-            <div class="easy-chat-usage">
-                <div class="easy-chat-usage__head">
-                    <span class="easy-chat-status-dot {{ ai_mode }}" id="easyChatStatusDot" aria-hidden="true"></span>
-                    <strong id="easyChatModeLabel">{% if ai_mode == 'openai' %}Easy онлайн{% elif ai_mode == 'limit' %}Ліміт вичерпано{% else %}Демо-режим{% endif %}</strong>
-                    <span id="easyChatUsageText">{{ ai_used }}/{{ ai_limit }}</span>
+        <div class="ec2-sidebar__scroll" id="ec2SidebarScroll">
+            <div class="ec2-history" id="ec2HistoryList" aria-live="polite"></div>
+            <div class="ec2-history-empty" id="ec2HistoryEmpty" hidden>
+                <span aria-hidden="true">✦</span>
+                <strong>Нічого не знайдено</strong>
+                <p>Спробуй коротший запит.</p>
+            </div>
+        </div>
+
+        <div class="ec2-sidebar__footer">
+            <div class="ec2-usage" title="Ліміт AI-запитів на сьогодні">
+                <div class="ec2-usage__top">
+                    <span class="ec2-status-dot ec2-status-dot--{{ ai_mode }}" id="ec2SidebarStatusDot" aria-hidden="true"></span>
+                    <span class="ec2-usage__copy">
+                        <strong id="ec2SidebarModeLabel">{% if ai_mode == 'openai' %}Easy онлайн{% elif ai_mode == 'limit' %}Ліміт вичерпано{% else %}Демо-режим{% endif %}</strong>
+                        <small id="ec2UsageLabel">{{ ai_used }} з {{ ai_limit }} запитів</small>
+                    </span>
+                    <span class="ec2-usage__value" id="ec2UsageValue">{{ ((ai_used / ai_limit * 100) if ai_limit else 0)|round|int }}%</span>
                 </div>
-                <div class="easy-chat-usage__track" aria-hidden="true"><span id="easyChatUsageBar" style="width: {{ ((ai_used / ai_limit * 100) if ai_limit else 0)|round|int }}%"></span></div>
-                <small>AI-запити сьогодні</small>
+                <div class="ec2-usage__track" aria-hidden="true"><span id="ec2UsageBar" style="width: {{ ((ai_used / ai_limit * 100) if ai_limit else 0)|round|int }}%"></span></div>
             </div>
 
-            <a class="easy-chat-back" href="{{ close_url }}" data-no-transition>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
-                <span>{% if lesson_context %}Повернутися до уроку{% else %}Повернутися в кабінет{% endif %}</span>
-            </a>
+            <div class="ec2-profile-row">
+                <button class="ec2-profile" id="ec2SettingsOpen" type="button" aria-label="Відкрити налаштування чату">
+                    <span class="ec2-profile__avatar">{{ user_display_name[0]|upper }}</span>
+                    <span class="ec2-profile__copy">
+                        <strong>{{ user_display_name }}</strong>
+                        <small>{{ chat_subject }}</small>
+                    </span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>
+                </button>
+                <button class="ec2-icon-button ec2-sidebar-collapse" id="ec2SidebarCollapse" type="button" aria-label="Згорнути бокову панель">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 6-6 6 6 6"/></svg>
+                </button>
+            </div>
         </div>
     </aside>
 
-    <button class="easy-chat-overlay" id="easyChatOverlay" type="button" aria-label="Закрити меню"></button>
+    <button class="ec2-drawer-overlay" id="ec2DrawerOverlay" type="button" aria-label="Закрити меню"></button>
 
-    <main class="easy-chat-main">
-        <header class="easy-chat-topbar">
-            <div class="easy-chat-topbar__left">
-                <button class="easy-chat-icon-button easy-chat-menu-button" id="easyChatSidebarOpen" type="button" aria-label="Відкрити меню">
+    <main class="ec2-main">
+        <header class="ec2-topbar">
+            <div class="ec2-topbar__left">
+                <button class="ec2-icon-button ec2-mobile-menu" id="ec2SidebarOpen" type="button" aria-label="Відкрити історію чатів">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
                 </button>
-                <div class="easy-chat-title">
-                    <span class="easy-chat-title__avatar" aria-hidden="true"><img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt=""></span>
-                    <span class="easy-chat-title__copy">
-                        <strong>Easy</strong>
-                        <small><i class="{{ ai_mode }}"></i><span id="easyChatTopMode">{% if ai_mode == 'openai' %}онлайн{% elif ai_mode == 'limit' %}ліміт вичерпано{% else %}демо-режим{% endif %}</span></small>
+
+                <button class="ec2-chat-heading" id="ec2RenameActive" type="button" title="Перейменувати розмову">
+                    <span class="ec2-chat-heading__icon" aria-hidden="true">✦</span>
+                    <span class="ec2-chat-heading__copy">
+                        <strong id="ec2ActiveTitle">Нова розмова</strong>
+                        <small id="ec2ActiveSubtitle">Easy Chat v2.0</small>
                     </span>
-                </div>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7 5 5-5 5"/></svg>
+                </button>
             </div>
 
-            <div class="easy-chat-topbar__right">
+            <div class="ec2-topbar__center" aria-label="Режим відповіді">
+                <button class="ec2-mode-switch is-active" type="button" data-response-mode="explain">
+                    <span aria-hidden="true">✦</span><b>Пояснення</b>
+                </button>
+                <button class="ec2-mode-switch" type="button" data-response-mode="concise">
+                    <span aria-hidden="true">≡</span><b>Коротко</b>
+                </button>
+                <button class="ec2-mode-switch" type="button" data-response-mode="practice">
+                    <span aria-hidden="true">◎</span><b>Практика</b>
+                </button>
+            </div>
+
+            <div class="ec2-topbar__right">
                 {% if lesson_context and lesson %}
-                <span class="easy-chat-context" title="{{ lesson.title }}">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14v14H5zM8 9h8M8 13h5"/></svg>
+                <span class="ec2-context-chip" title="{{ lesson.title }}">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h14v15H5zM8 8h8M8 12h8M8 16h5"/></svg>
                     <span>{{ lesson.title }}</span>
                 </span>
+                {% else %}
+                <span class="ec2-context-chip ec2-context-chip--general">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 14 8.5 19.5 10 14 12 12 17.5 10 12 4.5 10 10 8.5Z"/></svg>
+                    <span>Універсальний режим</span>
+                </span>
                 {% endif %}
-                <span class="easy-chat-version">v1.2</span>
-                <a class="easy-chat-icon-button" href="{{ close_url }}" data-no-transition aria-label="Закрити чат">
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"/></svg>
+                <span class="ec2-live-state" id="ec2LiveState">
+                    <i class="ec2-status-dot ec2-status-dot--{{ ai_mode }}" id="ec2TopStatusDot" aria-hidden="true"></i>
+                    <span id="ec2TopModeLabel">{% if ai_mode == 'openai' %}Online{% elif ai_mode == 'limit' %}Limit{% else %}Demo{% endif %}</span>
+                </span>
+                <button class="ec2-icon-button" id="ec2ExportChat" type="button" aria-label="Експортувати розмову" title="Експортувати розмову">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>
+                </button>
+                <a class="ec2-icon-button" href="{{ close_url }}" data-no-transition aria-label="Закрити чат" title="Закрити чат">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.8 6.8 17.2 17.2M17.2 6.8 6.8 17.2"/></svg>
                 </a>
             </div>
         </header>
 
-        <section class="easy-chat-thread" id="easyChatThread" aria-live="polite" aria-busy="false">
-            <div class="easy-chat-thread__inner" id="easyChatMessages">
-                <section class="easy-chat-welcome" id="easyChatWelcome">
-                    <div class="easy-chat-welcome__visual" aria-hidden="true">
-                        <span class="easy-chat-welcome__halo"></span>
-                        <span class="easy-chat-welcome__orbit easy-chat-welcome__orbit--one"><i></i></span>
-                        <span class="easy-chat-welcome__orbit easy-chat-welcome__orbit--two"><i></i></span>
-                        <span class="easy-chat-welcome__robot"><img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt=""></span>
-                    </div>
-                    <p class="easy-chat-welcome__eyebrow">Твій AI-викладач</p>
-                    <h1>Привіт, {{ user_display_name }} <span aria-hidden="true">👋</span></h1>
-                    <p>{% if lesson_context and lesson %}Я вже бачу урок «{{ lesson.title }}». Запитай про будь-який крок, формулу або приклад.{% else %}Запитай будь-що про НМТ. Розберемо тему, задачу чи помилку спокійно й по кроках.{% endif %}</p>
-
-                    <div class="easy-chat-starters" aria-label="Швидкі запити">
-                        <button type="button" data-prompt="{% if lesson_context %}Поясни цю тему простими словами з самого початку{% else %}Допоможи мені розібрати нову тему з самого початку{% endif %}"><span>✦</span><b>Поясни тему</b></button>
-                        <button type="button" data-prompt="{% if lesson_context %}Дай типове завдання НМТ до цієї теми та розв’яжи його крок за кроком{% else %}Дай типове завдання НМТ і розв’яжи його крок за кроком{% endif %}"><span>↗</span><b>Розбери задачу</b></button>
-                        <button type="button" data-prompt="Проведи коротку перевірку моїх знань: постав одне питання та зачекай мою відповідь"><span>✓</span><b>Перевір мене</b></button>
-                    </div>
-                </section>
-
-                {% if question %}
-                <article class="easy-chat-message easy-chat-message--user" data-role="user">
-                    <div class="easy-chat-message__user-bubble">{{ question }}</div>
-                </article>
-                {% endif %}
-
-                {% if answer %}
-                <article class="easy-chat-message easy-chat-message--assistant" data-role="assistant">
-                    <div class="easy-chat-message__avatar" aria-hidden="true"><img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt=""></div>
-                    <div class="easy-chat-message__content">
-                        <div class="easy-chat-message__name"><strong>Easy</strong><span>AI-викладач</span></div>
-                        <div class="easy-chat-answer" data-answer-text>{{ answer }}</div>
-                        <div class="easy-chat-message__actions">
-                            <button type="button" data-copy-message><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg><span>Копіювати</span></button>
-                            <button type="button" data-prompt="Поясни попередню відповідь ще простіше"><span>Простіше</span></button>
-                            <button type="button" data-prompt="Покажи попередню відповідь на конкретному прикладі"><span>Приклад</span></button>
-                        </div>
-                    </div>
-                </article>
-                {% endif %}
-            </div>
+        <section class="ec2-thread" id="ec2Thread" aria-live="polite" aria-busy="false">
+            <div class="ec2-thread__viewport" id="ec2Messages"></div>
         </section>
 
-        <div class="easy-chat-jump" id="easyChatJump" aria-hidden="true">
-            <button type="button" aria-label="Перейти до останнього повідомлення">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-            </button>
-        </div>
+        <button class="ec2-jump-bottom" id="ec2JumpBottom" type="button" aria-label="Перейти до останнього повідомлення">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+            <span>Нове повідомлення</span>
+        </button>
 
-        <section class="easy-chat-composer-zone">
-            <form class="easy-chat-composer" id="easyChatComposer" autocomplete="off">
-                <div class="easy-chat-composer__shell">
-                    <textarea id="easyChatInput" name="question" rows="1" maxlength="1500" placeholder="Запитай Easy будь-що…" aria-label="Повідомлення для Easy"></textarea>
-                    <div class="easy-chat-composer__bottom">
-                        <div class="easy-chat-composer__tools">
-                            <button class="easy-chat-tool" id="easyChatAttach" type="button" aria-label="Додати файл" title="Фото та файли з’являться в наступному оновленні">
-                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        <div class="ec2-composer-zone">
+            <div class="ec2-command-menu" id="ec2CommandMenu" hidden>
+                <div class="ec2-command-menu__head">
+                    <span>Швидкі команди</span>
+                    <small>Вибери дію</small>
+                </div>
+                <button type="button" data-command="explain"><span>✦</span><div><b>/explain</b><small>Пояснити тему з нуля</small></div></button>
+                <button type="button" data-command="example"><span>∑</span><div><b>/example</b><small>Розібрати приклад по кроках</small></div></button>
+                <button type="button" data-command="test"><span>◎</span><div><b>/test</b><small>Провести коротку перевірку</small></div></button>
+                <button type="button" data-command="mistake"><span>↻</span><div><b>/mistake</b><small>Знайти помилку в розв’язанні</small></div></button>
+            </div>
+
+            <form class="ec2-composer" id="ec2Composer" novalidate>
+                <div class="ec2-composer__surface">
+                    <textarea
+                        id="ec2Input"
+                        name="question"
+                        rows="1"
+                        maxlength="1500"
+                        placeholder="Запитай Easy будь-що…"
+                        aria-label="Повідомлення для Easy"
+                    ></textarea>
+
+                    <div class="ec2-composer__toolbar">
+                        <div class="ec2-composer__tools">
+                            <button class="ec2-tool-button" id="ec2AttachButton" type="button" aria-label="Додати фото" title="Аналіз фото буде активовано з OpenAI Vision">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8.5 12.5 6.8-6.8a3.2 3.2 0 1 1 4.5 4.5l-9.2 9.2a5 5 0 0 1-7.1-7.1l8.8-8.8"/></svg>
+                                <span>Фото</span>
                             </button>
-                            <span id="easyChatHint">Enter — надіслати</span>
+                            <button class="ec2-tool-button" id="ec2CommandButton" type="button" aria-label="Відкрити швидкі команди" title="Швидкі команди">
+                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h8"/></svg>
+                                <span>Команди</span>
+                            </button>
+                            <span class="ec2-composer__context" id="ec2ComposerContext">
+                                {% if lesson_context and lesson %}Контекст: {{ lesson.title }}{% else %}Контекст: {{ chat_subject }}{% endif %}
+                            </span>
                         </div>
-                        <div class="easy-chat-composer__send-wrap">
-                            <span class="easy-chat-count" id="easyChatCount">0 / 1500</span>
-                            <button class="easy-chat-send" id="easyChatSend" type="submit" aria-label="Надіслати" disabled>
-                                <svg class="easy-chat-send__arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6.5 10.5 12 5l5.5 5.5"/></svg>
-                                <svg class="easy-chat-send__stop" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2"/></svg>
+
+                        <div class="ec2-composer__send-area">
+                            <span class="ec2-char-count" id="ec2CharCount">0 / 1500</span>
+                            <span class="ec2-send-hint" id="ec2SendHint">Enter</span>
+                            <button class="ec2-send-button" id="ec2SendButton" type="submit" disabled aria-label="Надіслати повідомлення">
+                                <span class="ec2-send-button__send" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m5 12 14-7-4.8 14-3-5.2zM11.2 13.8 19 5"/></svg></span>
+                                <span class="ec2-send-button__stop" aria-hidden="true"><i></i></span>
                             </button>
                         </div>
                     </div>
                 </div>
-                <p>Easy може помилятися. Важливі відповіді варто перевіряти.</p>
+                <p class="ec2-composer__note">Easy може помилятися. Важливі формули та факти краще перевіряти.</p>
             </form>
-        </section>
+        </div>
     </main>
 
-    <div class="easy-chat-toast" id="easyChatToast" role="status" aria-live="polite"></div>
+    <aside class="ec2-settings" id="ec2Settings" aria-label="Налаштування Easy Chat" aria-hidden="true">
+        <div class="ec2-settings__header">
+            <div>
+                <span>Easy Chat</span>
+                <h2>Налаштування</h2>
+            </div>
+            <button class="ec2-icon-button" id="ec2SettingsClose" type="button" aria-label="Закрити налаштування">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.8 6.8 17.2 17.2M17.2 6.8 6.8 17.2"/></svg>
+            </button>
+        </div>
+
+        <div class="ec2-settings__body">
+            <section class="ec2-settings-card">
+                <span class="ec2-settings-card__eyebrow">Відповіді</span>
+                <h3>Стиль Easy</h3>
+                <div class="ec2-settings-options">
+                    <button type="button" data-settings-mode="explain"><span>✦</span><div><b>Пояснення</b><small>Спокійно, детально, з прикладом</small></div><i></i></button>
+                    <button type="button" data-settings-mode="concise"><span>≡</span><div><b>Коротко</b><small>Лише суть без зайвих відступів</small></div><i></i></button>
+                    <button type="button" data-settings-mode="practice"><span>◎</span><div><b>Практика</b><small>Запитання, підказки та перевірка</small></div><i></i></button>
+                </div>
+            </section>
+
+            <section class="ec2-settings-card">
+                <span class="ec2-settings-card__eyebrow">Навігація</span>
+                <h3>Бокова панель</h3>
+                <label class="ec2-toggle-row">
+                    <span><b>Компактний режим</b><small>Залишити більше місця для розмови</small></span>
+                    <input id="ec2CompactSidebarToggle" type="checkbox">
+                    <i aria-hidden="true"></i>
+                </label>
+            </section>
+
+            <section class="ec2-settings-card">
+                <span class="ec2-settings-card__eyebrow">Дані</span>
+                <h3>Історія на цьому пристрої</h3>
+                <p>До підключення серверної пам’яті розмови зберігаються лише в цьому браузері.</p>
+                <div class="ec2-settings-actions">
+                    <button type="button" id="ec2ExportSettings"><span>⇩</span> Експортувати чат</button>
+                    <button type="button" class="is-danger" id="ec2ClearHistory"><span>×</span> Очистити історію</button>
+                </div>
+            </section>
+
+            <section class="ec2-settings-card ec2-settings-card--about">
+                <div class="ec2-settings-brand">
+                    <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
+                    <div><strong>Easy Chat v2.0</strong><small>Foundation before OpenAI integration</small></div>
+                </div>
+                <p>Інтерфейс підготовлений до Responses API, реального streaming, пам’яті та аналізу фото.</p>
+            </section>
+        </div>
+    </aside>
+    <button class="ec2-settings-overlay" id="ec2SettingsOverlay" type="button" aria-label="Закрити налаштування"></button>
+
+    <dialog class="ec2-dialog" id="ec2RenameDialog">
+        <form method="dialog" id="ec2RenameForm">
+            <div class="ec2-dialog__icon" aria-hidden="true">✦</div>
+            <h2>Назва розмови</h2>
+            <p>Коротка назва допоможе швидко знайти цей чат.</p>
+            <label for="ec2RenameInput">Назва</label>
+            <input id="ec2RenameInput" type="text" maxlength="90" autocomplete="off">
+            <div class="ec2-dialog__actions">
+                <button value="cancel" type="button" data-dialog-cancel>Скасувати</button>
+                <button value="confirm" type="submit">Зберегти</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog class="ec2-dialog ec2-dialog--danger" id="ec2DeleteDialog">
+        <form method="dialog" id="ec2DeleteForm">
+            <div class="ec2-dialog__icon" aria-hidden="true">×</div>
+            <h2>Видалити розмову?</h2>
+            <p>Цю дію не можна буде скасувати.</p>
+            <div class="ec2-dialog__actions">
+                <button value="cancel" type="button" data-dialog-cancel>Залишити</button>
+                <button value="confirm" type="submit">Видалити</button>
+            </div>
+        </form>
+    </dialog>
+
+    <div class="ec2-toast-stack" id="ec2ToastStack" aria-live="polite"></div>
+
+    <template id="ec2WelcomeTemplate">
+        <section class="ec2-welcome">
+            <div class="ec2-welcome__hero">
+                <div class="ec2-welcome__visual" aria-hidden="true">
+                    <span class="ec2-welcome__halo"></span>
+                    <span class="ec2-welcome__orbit ec2-welcome__orbit--one"><i></i></span>
+                    <span class="ec2-welcome__orbit ec2-welcome__orbit--two"><i></i></span>
+                    <span class="ec2-welcome__mascot"><img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt=""></span>
+                    <span class="ec2-welcome__spark ec2-welcome__spark--one">✦</span>
+                    <span class="ec2-welcome__spark ec2-welcome__spark--two">✧</span>
+                </div>
+                <div class="ec2-welcome__copy">
+                    <span class="ec2-welcome__eyebrow"><i></i> Easy Chat v2.0</span>
+                    <h1>Привіт, {{ user_display_name }}.</h1>
+                    <p>{% if lesson_context and lesson %}Я вже бачу тему «{{ lesson.title }}». Можемо розібрати правило, задачу або місце, де все почало плутатися.{% else %}Тут можна спокійно розібрати тему, задачу чи помилку. Без стіни складних слів, зате з логікою та кроками.{% endif %}</p>
+                    <div class="ec2-welcome__badges">
+                        <span><b>✦</b> Пояснює просто</span>
+                        <span><b>◎</b> Готує до НМТ</span>
+                        <span><b>↻</b> Пам’ятає цей чат</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ec2-starter-grid">
+                <button class="ec2-starter-card ec2-starter-card--primary" type="button" data-starter-prompt="{% if lesson_context %}Поясни цю тему з самого початку простими словами, а потім наведи один зрозумілий приклад.{% else %}Допоможи мені розібрати нову тему з самого початку простими словами.{% endif %}">
+                    <span class="ec2-starter-card__icon">✦</span>
+                    <span class="ec2-starter-card__copy"><b>Поясни з нуля</b><small>Головна ідея, правило та приклад</small></span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+                </button>
+                <button class="ec2-starter-card" type="button" data-starter-prompt="{% if lesson_context %}Дай типове завдання НМТ до цієї теми та розв’яжи його крок за кроком.{% else %}Дай типове завдання НМТ з математики та розв’яжи його крок за кроком.{% endif %}">
+                    <span class="ec2-starter-card__icon">∑</span>
+                    <span class="ec2-starter-card__copy"><b>Розбери задачу</b><small>Від умови до правильної відповіді</small></span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+                </button>
+                <button class="ec2-starter-card" type="button" data-starter-prompt="Проведи коротку перевірку знань: постав одне запитання, дочекайся моєї відповіді та тільки потім перевір її.">
+                    <span class="ec2-starter-card__icon">◎</span>
+                    <span class="ec2-starter-card__copy"><b>Перевір мене</b><small>Одне запитання без підказки</small></span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+                </button>
+                <button class="ec2-starter-card" type="button" data-starter-prompt="Допоможи знайти помилку в моєму розв’язанні. Спочатку попроси мене надіслати хід розв’язання.">
+                    <span class="ec2-starter-card__icon">↻</span>
+                    <span class="ec2-starter-card__copy"><b>Знайди помилку</b><small>Покажи точне місце та поясни чому</small></span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
+                </button>
+            </div>
+
+            <div class="ec2-welcome__tip">
+                <span aria-hidden="true">/</span>
+                <p>Напиши <b>/</b> у полі повідомлення, щоб відкрити швидкі команди.</p>
+            </div>
+        </section>
+    </template>
+
+    <script type="application/json" id="ec2ServerSeed">{
+        "question": {{ question|tojson }},
+        "answer": {{ answer|tojson }}
+    }</script>
 </div>
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/tutor_chat.js', v='120-native-redesign') }}" defer></script>
+<script src="{{ url_for('static', filename='js/easy_chat_v2/storage.js', v='200-stable-foundation') }}" defer></script>
+<script src="{{ url_for('static', filename='js/easy_chat_v2/markdown.js', v='200-stable-foundation') }}" defer></script>
+<script src="{{ url_for('static', filename='js/easy_chat_v2/app.js', v='200-stable-foundation') }}" defer></script>
 {% endblock %}

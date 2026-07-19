@@ -38,6 +38,7 @@ class EasyNMT_AI:
         fallback: str,
         lesson_context: bool = False,
         conversation_history: Optional[Sequence[dict]] = None,
+        response_mode: str = "explain",
     ) -> AIResult:
         if not self.enabled:
             return AIResult(fallback, "demo")
@@ -45,6 +46,22 @@ class EasyNMT_AI:
         prompt_parts = [EASY_TUTOR_SYSTEM_PROMPT, GRADING_STYLE_PROMPT]
         if lesson_context:
             prompt_parts.insert(1, LESSON_STYLE_PROMPT)
+        style_instructions = {
+            "explain": (
+                "Режим відповіді: пояснення. Розкрий логіку спокійно й послідовно, "
+                "використай зрозумілий приклад і короткий підсумок, якщо це доречно."
+            ),
+            "concise": (
+                "Режим відповіді: коротко. Дай лише головну думку, необхідні кроки та відповідь. "
+                "Не додавай довгих вступів."
+            ),
+            "practice": (
+                "Режим відповіді: практика. Не поспішай одразу давати готову відповідь, якщо учень "
+                "може виконати крок сам. Використовуй запитання, короткі підказки та перевірку."
+            ),
+        }
+        response_mode = response_mode if response_mode in style_instructions else "explain"
+        prompt_parts.append(style_instructions[response_mode])
         system_prompt = "\n\n".join(prompt_parts)
 
         history_lines = []

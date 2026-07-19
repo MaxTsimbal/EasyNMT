@@ -1,12 +1,14 @@
 import os
 import json
 import random
+import re
 import sqlite3
+import time
 import uuid
 from datetime import date as dt_date, datetime, timedelta
 from functools import wraps
 
-from flask import Flask, Response, abort, flash, jsonify, redirect, render_template, request, send_file, session, url_for
+from flask import Flask, Response, abort, flash, jsonify, redirect, render_template, request, send_file, session, stream_with_context, url_for
 from dotenv import load_dotenv
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
@@ -2527,7 +2529,7 @@ def tutor():
                 fallback=fallback,
                 lesson_context=lesson_context,
             )
-            answer = result.text
+            answer = clean_tutor_answer_text(result.text)
             ai_mode = result.mode
             ai_error = result.error
             if result.mode == "openai":
@@ -2562,6 +2564,7 @@ def tutor_chat_api():
     lesson_context = str(payload.get("context", "")).lower() == "lesson"
     requested_lesson_id = payload.get("lesson_id")
     raw_history = payload.get("history", []) if isinstance(payload, dict) else []
+    response_mode = normalize_tutor_response_mode(payload.get("response_mode")) if isinstance(payload, dict) else "explain"
     conversation_history = []
     if isinstance(raw_history, list):
         for item in raw_history[-8:]:
@@ -2611,22 +2614,208 @@ def tutor_chat_api():
         fallback=fallback,
         lesson_context=lesson_context,
         conversation_history=conversation_history,
+        response_mode=response_mode,
     )
 
     if result.mode == "openai":
         increment_ai_usage(user_id)
         used_today += 1
 
+    answer_text = shape_demo_tutor_answer(
+        result.text,
+        response_mode,
+        lesson_context=lesson_context,
+        lesson=lesson,
+    ) if result.mode == "demo" else clean_tutor_answer_text(result.text)
+
     response = {
         "ok": True,
-        "answer": result.text,
+        "answer": answer_text,
         "mode": result.mode,
         "used": used_today,
         "limit": daily_limit,
+        "response_mode": response_mode,
     }
     if app.debug and result.error:
         response["debug_error"] = result.error
     return jsonify(response)
+
+
+
+def normalize_tutor_response_mode(value):
+    """Keep the UI response mode small, predictable and prompt-safe."""
+    normalized = str(value or "explain").strip().lower()
+    if normalized not in {"explain", "concise", "practice"}:
+        return "explain"
+    return normalized
+
+
+def clean_tutor_answer_text(value):
+    """Avoid repeating the Easy name because the UI already labels assistant messages."""
+    text = str(value or "").strip()
+    return re.sub(r"^\s*(?:Easy|Ізі)\s*:\s*", "", text, flags=re.IGNORECASE).strip()
+
+
+def shape_demo_tutor_answer(value, response_mode, *, lesson_context=False, lesson=None):
+    """Make the three UI modes visibly useful before a real OpenAI key is connected."""
+    text = clean_tutor_answer_text(value)
+    if response_mode == "practice":
+        first_step = (
+            f"Напиши одним реченням, що ти вже знаєш про тему «{lesson.get('title')}»."
+            if lesson_context and lesson
+            else "Напиши одним реченням, що ти вже знаєш про це."
+        )
+        return (
+            f"Почнемо як на тренуванні. {first_step} "
+            "Після твоєї відповіді я перевірю логіку й дам наступний крок."
+        )
+    if response_mode == "concise":
+        sentences = re.split(r"(?<=[.!?…])\s+", text)
+        return " ".join(sentences[:2]).strip()
+    return text
+
+
+def normalize_tutor_history(raw_history, limit=12):
+    history = []
+    if not isinstance(raw_history, list):
+        return history
+    for item in raw_history[-limit:]:
+        if not isinstance(item, dict):
+            continue
+        role = str(item.get("role", "")).strip().lower()
+        text = str(item.get("text", "")).strip()
+        if role in {"user", "assistant"} and text:
+            history.append({"role": role, "text": text[:1800]})
+    return history
+
+
+def tutor_sse_event(event_name, payload):
+    encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+    return f"event: {event_name}\ndata: {encoded}\n\n"
+
+
+def tutor_stream_chunks(text):
+    """Yield human-sized text chunks. Later this can be replaced by native OpenAI deltas."""
+    tokens = re.findall(r"\S+\s*", str(text or ""))
+    if not tokens:
+        return
+    bucket = []
+    bucket_length = 0
+    for token in tokens:
+        bucket.append(token)
+        bucket_length += len(token)
+        ends_sentence = bool(re.search(r"[.!?…][\"')\]]?\s*$", token))
+        if bucket_length >= 24 or ends_sentence:
+            yield "".join(bucket)
+            bucket = []
+            bucket_length = 0
+    if bucket:
+        yield "".join(bucket)
+
+
+@app.route("/api/tutor-chat/stream", methods=["POST"])
+@require_login
+def tutor_chat_stream_api():
+    """Stream Easy Chat events over SSE without reloading or replacing the page."""
+    if not onboarding_complete():
+        return jsonify({"ok": False, "error": "Спочатку заверши налаштування профілю."}), 403
+
+    payload = request.get_json(silent=True) or {}
+    question = str(payload.get("question", "")).strip()
+    lesson_context = str(payload.get("context", "")).lower() == "lesson"
+    requested_lesson_id = payload.get("lesson_id")
+    conversation_history = normalize_tutor_history(payload.get("history", []))
+    response_mode = normalize_tutor_response_mode(payload.get("response_mode"))
+
+    max_chars = app.config["OPENAI_MAX_QUESTION_CHARS"]
+    if not question:
+        return jsonify({"ok": False, "error": "Напиши запитання для Easy."}), 400
+    if len(question) > max_chars:
+        return jsonify({"ok": False, "error": f"Скороти запитання до {max_chars} символів."}), 400
+
+    lesson = None
+    lesson_id = None
+    if lesson_context:
+        lesson_id = normalize_lesson_id(requested_lesson_id or session.get("current_lesson_id", 1))
+        lesson = get_lesson_content(lesson_id)
+        session["current_lesson_id"] = lesson_id
+
+    user_id = session.get("user_id")
+    daily_limit = app.config["OPENAI_DAILY_LIMIT"]
+    used_today = get_ai_usage_today(user_id)
+    subject = session.get("subject", "НМТ")
+
+    @stream_with_context
+    def generate():
+        nonlocal used_today
+        yield tutor_sse_event("status", {"message": "Аналізую запит і контекст"})
+
+        if ai_service.enabled and used_today >= daily_limit:
+            answer_text = (
+                "Денний AI-ліміт вичерпано. Продовжимо завтра, а зараз можеш "
+                "повторити матеріал або відкрити попередню розмову."
+            )
+            mode = "limit"
+            error = None
+        else:
+            yield tutor_sse_event("status", {"message": "Будую зрозумілу відповідь"})
+            fallback = get_easy_answer(
+                question,
+                lesson_context=lesson_context,
+                lesson=lesson,
+            )
+            result = ai_service.answer(
+                question=question,
+                subject=subject,
+                lesson_title=lesson["title"] if lesson_context and lesson else "",
+                lesson_goal=lesson.get("goal", "зрозуміти тему") if lesson_context and lesson else "",
+                fallback=fallback,
+                lesson_context=lesson_context,
+                conversation_history=conversation_history,
+                response_mode=response_mode,
+            )
+            answer_text = shape_demo_tutor_answer(
+                result.text,
+                response_mode,
+                lesson_context=lesson_context,
+                lesson=lesson,
+            ) if result.mode == "demo" else clean_tutor_answer_text(result.text)
+            mode = result.mode
+            error = result.error
+            if result.mode == "openai":
+                increment_ai_usage(user_id)
+                used_today += 1
+
+        yield tutor_sse_event("meta", {
+            "mode": mode,
+            "used": used_today,
+            "limit": daily_limit,
+            "response_mode": response_mode,
+        })
+        yield tutor_sse_event("status", {"message": "Формулюю відповідь"})
+
+        for chunk in tutor_stream_chunks(answer_text):
+            yield tutor_sse_event("delta", {"text": chunk})
+            # A tiny delay keeps demo/fallback output readable. Native OpenAI streaming will replace it.
+            time.sleep(0.012)
+
+        done_payload = {
+            "ok": True,
+            "answer": answer_text,
+            "mode": mode,
+            "used": used_today,
+            "limit": daily_limit,
+            "response_mode": response_mode,
+        }
+        if app.debug and error:
+            done_payload["debug_error"] = error
+        yield tutor_sse_event("done", done_payload)
+
+    response = Response(generate(), mimetype="text/event-stream")
+    response.headers["Cache-Control"] = "no-cache, no-transform"
+    response.headers["X-Accel-Buffering"] = "no"
+    response.headers["Connection"] = "keep-alive"
+    return response
 
 
 @app.route("/api/lesson-chat", methods=["POST"])
