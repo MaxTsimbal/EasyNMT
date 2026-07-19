@@ -4,9 +4,11 @@ This package is the intelligence boundary for EasyNMT v1.0 Beta. It provides
 the contracts that future AI-first learning modules use while preserving the
 current Flask, SQLite, and server-rendered application.
 
-Task 1 establishes infrastructure only. The new curriculum, lesson, quiz, and
-grading engines are not connected to product routes yet. Existing tutor,
-lesson-chat, and photo-grading behavior continues through the same orchestrator.
+Task 1 established the shared infrastructure. Task 2 adds the production
+mathematics curriculum domain and service without connecting it to product
+routes. Lesson, quiz, and grading generation remain architectural contracts.
+Existing tutor, lesson-chat, and photo-grading behavior continues through the
+same orchestrator.
 
 ## Boundary and data flow
 
@@ -59,9 +61,13 @@ not written to this telemetry record.
 
 ### `CurriculumEngine`
 
-Generates a sequenced `Curriculum` containing `LearningPlan` entries. It may
-recommend ordering and prerequisites. It cannot unlock lessons or save progress.
-Task 2 will add real curriculum policy, persistence, and update behavior.
+Generates a typed, versioned mathematics roadmap constrained to EasyNMT's
+canonical taxonomy. Local policy owns topic eligibility and prerequisites;
+OpenAI may only propose safe pacing, priority, and review placement. A
+deterministic fallback uses the same validation path. The application service
+owns draft validation and atomic publication. See
+[`curriculum/README.md`](curriculum/README.md) for taxonomy, persistence,
+lifecycle, regeneration, and Task 3 integration details.
 
 ### `LessonEngine`
 
@@ -90,14 +96,17 @@ the orchestrator and uses the grading prompt layer.
 - known weaknesses and recent mistakes;
 - XP, language, and difficulty;
 - the available output-token budget.
+- canonical topic completion/mastery and diagnostic results;
+- study capacity, desired exam date, and active curriculum identity.
 
 `LearningContext` extends this contract with fields required by the existing
 tutor UI. It normalizes legacy subject, goal, and lesson values into the shared
 fields so old routes and new engines can coexist.
 
 Reusable models live in `models.py`: `Lesson`, `Quiz`, `Question`, `Curriculum`,
-`GradeResult`, `Feedback`, and `LearningPlan`. Each model validates untrusted
-provider data and can serialize across the cache boundary.
+`CurriculumUnit`, `ReviewCheckpoint`, `GradeResult`, `Feedback`, and
+`LearningPlan`. Each model validates untrusted provider data and can serialize
+across the cache boundary.
 
 ## Prompt layer
 

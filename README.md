@@ -75,5 +75,8 @@ See [DEPLOY_RAILWAY.md](DEPLOY_RAILWAY.md), [OPENAI_SETUP.md](OPENAI_SETUP.md),
 and [GOOGLE_AUTH_SETUP.md](GOOGLE_AUTH_SETUP.md) for integration details.
 The AI engine boundary and extension guide are documented in
 [easynmt_ai/README.md](easynmt_ai/README.md).
+The production mathematics taxonomy, curriculum lifecycle, and Task 3 handoff
+are documented in
+[easynmt_ai/curriculum/README.md](easynmt_ai/curriculum/README.md).
 The production audit and remaining Beta work are in
 [PRODUCTION_AUDIT_REPORT.md](PRODUCTION_AUDIT_REPORT.md).
