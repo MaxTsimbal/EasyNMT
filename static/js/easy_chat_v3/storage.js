@@ -58,7 +58,7 @@
                     },
                 };
             } catch (error) {
-                console.warn("Easy Chat storage could not be loaded:", error);
+                console.warn("AI Teacher storage could not be loaded:", error);
                 return defaultState();
             }
         }
@@ -107,7 +107,7 @@
             try {
                 window.localStorage.setItem(this.storageKey, JSON.stringify(this.state));
             } catch (error) {
-                console.warn("Easy Chat storage is unavailable:", error);
+                console.warn("AI Teacher storage is unavailable:", error);
             }
             window.dispatchEvent(new CustomEvent("easychat:store-change", { detail: this.snapshot() }));
         }
@@ -186,13 +186,14 @@
             return this.state.conversations;
         }
 
-        addMessage(role, text, conversationId = this.state.activeId) {
+        addMessage(role, text, conversationId = this.state.activeId, options = {}) {
             const conversation = this.getConversation(conversationId) || this.getActive();
             const message = this.normalizeMessage({
-                id: makeId("msg"),
+                id: safeText(options.id, 120) || makeId("msg"),
                 role,
                 text,
-                createdAt: nowIso(),
+                createdAt: safeText(options.createdAt, 60) || nowIso(),
+                feedback: options.feedback || null,
             });
             if (!message) return null;
 

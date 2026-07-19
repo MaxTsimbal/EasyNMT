@@ -2,40 +2,54 @@
 
 ## 1. Встановлення
 
-```bash
+```powershell
 python -m venv .venv
-.venv\\Scripts\\activate
+.venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-## 2. Налаштування
+## 2. Локальні змінні
 
-1. Скопіюй `.env.example` у новий файл `.env`.
-2. Встав API-ключ після `OPENAI_API_KEY=`.
-3. Не надсилай `.env` іншим і не завантажуй його на GitHub.
+1. Скопіюй `.env.example` у `.env`.
+2. Встав ключ після `OPENAI_API_KEY=`.
+3. Не коміть `.env` і не надсилай його іншим.
 
-## 3. Запуск
+## 3. Railway
 
-```bash
-python app.py
+У Railway відкрий **Variables** і додай щонайменше:
+
+```text
+OPENAI_API_KEY=твій_ключ
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_VISION_MODEL=gpt-4o-mini
+OPENAI_DAILY_LIMIT=40
+OPENAI_STORE_RESPONSES=0
+AI_DAILY_UPLOAD_LIMIT=20
 ```
 
-Без ключа EasyNMT працює у безкоштовному демо-режимі. З ключем сторінка «Easy, твій помічник» автоматично використовує OpenAI.
+## 4. Перевірка
+
+Після деплою відкрий:
+
+```text
+/api/ai/status
+```
+
+Після входу має бути:
+- `enabled: true`, якщо ключ працює;
+- `streaming: true`;
+- `vision_ready: true`;
+- `server_memory: true`.
+
+Без ключа платформа не падає. AI Викладач переходить у демо-режим.
 
 ## Контроль витрат
 
-- модель за замовчуванням: `gpt-4o-mini`;
-- максимум 40 звернень на користувача за добу;
-- максимум 500 вихідних токенів;
-- довжина питання обмежена 1500 символами;
-- при помилці API вмикається демо-відповідь, сайт не падає.
+- денний ліміт задає `OPENAI_DAILY_LIMIT`;
+- довжину відповіді обмежує `OPENAI_MAX_OUTPUT_TOKENS`;
+- максимум фото в одному запиті задає `AI_MAX_ATTACHMENTS`, розмір — `AI_MAX_ATTACHMENT_BYTES`, денний ліміт — `AI_DAILY_UPLOAD_LIMIT`;
+- усі виклики проходять через `easynmt_ai/service.py`.
 
-## Перевірка фото у v0.9.9
+## Фото
 
-Додай у Railway Variables:
-
-```text
-OPENAI_VISION_MODEL=gpt-4o-mini
-```
-
-Для завдань 9–12 EasyNMT надсилає фото письмового розв’язання в OpenAI, отримує оцінку 0–3 і створює локальну копію фото з позначеною помилкою. Файли зберігаються у `RAILWAY_VOLUME_MOUNT_PATH/solution_uploads`, якщо Railway Volume підключено.
+AI Викладач приймає PNG, JPG, JPEG і WEBP до 5 МБ. Фото зберігаються у `RAILWAY_VOLUME_MOUNT_PATH/ai_uploads`, якщо Railway Volume підключено.

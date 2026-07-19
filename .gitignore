@@ -10,6 +10,8 @@ __pycache__/
 *.pyc
 
 # Local database and user data
+instance/*
+!instance/.gitkeep
 instance/*.db
 instance/*.sqlite
 instance/*.sqlite3

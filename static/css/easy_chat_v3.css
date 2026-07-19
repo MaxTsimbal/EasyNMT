@@ -1,4 +1,4 @@
-/* Easy Chat v2.0
+/* AI Teacher workspace foundation
    Stable visual foundation before the OpenAI integration.
    All selectors are namespaced with ec2 to avoid collisions with the rest of EasyNMT. */
 
@@ -3316,7 +3316,7 @@ body.ec2-sidebar-compact .ec2-thread::before {
 }
 
 /* ========================================================================== 
-   Easy Chat v3.0 Nebula
+   AI Teacher mobile-first foundation
    Mobile-first refinement layer. The v2 selectors remain intact so chat
    history and behaviour survive the redesign without a risky rewrite.
    ========================================================================== */
@@ -3932,5 +3932,131 @@ body.easy-chat-v3-page .ec2-dialog::backdrop {
 
     body.easy-chat-v3-page .ec2-starter-card {
         min-height: 54px;
+    }
+}
+
+/* EasyNMT Final Update Before Beta: photo workflow */
+.ec2-attachment-tray {
+    display: flex;
+    gap: 10px;
+    width: min(860px, calc(100% - 28px));
+    margin: 0 auto 8px;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: thin;
+}
+
+.ec2-attachment-tray[hidden] {
+    display: none !important;
+}
+
+.ec2-attachment-chip {
+    flex: 0 0 auto;
+    min-width: 190px;
+    max-width: 280px;
+    min-height: 58px;
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) 30px;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 9px 9px 10px;
+    border: 1px solid rgba(151, 173, 255, .2);
+    border-radius: 16px;
+    background: rgba(13, 18, 45, .86);
+    box-shadow: 0 14px 30px rgba(4, 7, 22, .2);
+    backdrop-filter: blur(18px);
+}
+
+.ec2-attachment-chip__icon {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border-radius: 12px;
+    color: #d9e2ff;
+    background: linear-gradient(145deg, rgba(115, 95, 255, .28), rgba(54, 191, 255, .18));
+    font-size: 19px;
+}
+
+.ec2-attachment-chip__copy {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+}
+
+.ec2-attachment-chip__copy b,
+.ec2-attachment-chip__copy small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ec2-attachment-chip__copy b {
+    color: #f4f6ff;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.ec2-attachment-chip__copy small {
+    color: rgba(220, 227, 255, .62);
+    font-size: 11px;
+}
+
+.ec2-attachment-chip > button {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border: 0;
+    border-radius: 10px;
+    color: rgba(232, 237, 255, .72);
+    background: transparent;
+    font-size: 20px;
+    cursor: pointer;
+}
+
+.ec2-attachment-chip > button:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, .08);
+}
+
+.ec2-attachment-chip.is-loading {
+    grid-template-columns: 38px minmax(0, 1fr);
+}
+
+.ec2-attachment-chip__loader {
+    width: 24px;
+    height: 24px;
+    margin: auto;
+    border: 2px solid rgba(201, 211, 255, .18);
+    border-top-color: rgba(164, 184, 255, .95);
+    border-radius: 50%;
+    animation: ec2-attachment-spin .8s linear infinite;
+}
+
+@keyframes ec2-attachment-spin {
+    to { transform: rotate(360deg); }
+}
+
+@media (max-width: 720px) {
+    .ec2-attachment-tray {
+        width: calc(100% - 20px);
+        gap: 8px;
+        margin-bottom: 6px;
+        padding-bottom: 2px;
+    }
+
+    .ec2-attachment-chip {
+        min-width: 168px;
+        min-height: 52px;
+        grid-template-columns: 34px minmax(0, 1fr) 28px;
+        border-radius: 14px;
+        padding: 7px;
+    }
+
+    .ec2-attachment-chip__icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
     }
 }

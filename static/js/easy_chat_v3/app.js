@@ -14,6 +14,9 @@
         const config = {
             streamUrl: app.dataset.streamUrl || "",
             fallbackUrl: app.dataset.fallbackUrl || "",
+            attachmentUrl: app.dataset.attachmentUrl || "",
+            conversationsUrl: app.dataset.conversationsUrl || "",
+            feedbackUrlTemplate: app.dataset.feedbackUrlTemplate || "",
             storageKey: app.dataset.storageKey || "easy-chat-v2",
             lessonContext: app.dataset.lessonContext === "true",
             lessonId: app.dataset.lessonId || "",
@@ -52,6 +55,8 @@
             commandMenu: document.getElementById("ec2CommandMenu"),
             commandButton: document.getElementById("ec2CommandButton"),
             attachButton: document.getElementById("ec2AttachButton"),
+            attachmentInput: document.getElementById("ec2AttachmentInput"),
+            attachmentTray: document.getElementById("ec2AttachmentTray"),
             exportChat: document.getElementById("ec2ExportChat"),
             exportSettings: document.getElementById("ec2ExportSettings"),
             settings: document.getElementById("ec2Settings"),
@@ -95,6 +100,8 @@
         let deleteTargetId = null;
         let deleteScope = "conversation";
         let toastSequence = 0;
+        let pendingAttachments = [];
+        let attachmentUploadInFlight = false;
 
         const hideGlobalChrome = () => {
             document.getElementById("pageLoader")?.classList.add("hidden");
@@ -147,6 +154,86 @@
                 toast.classList.remove("is-visible");
                 window.setTimeout(() => toast.remove(), 240);
             }, 2600);
+        };
+
+        const serverJson = async (url, options = {}) => {
+            if (!url) return null;
+            try {
+                const response = await fetch(url, {
+                    credentials: "same-origin",
+                    headers: {
+                        "X-Requested-With": "XMLHttpRequest",
+                        ...(options.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
+                        ...(options.headers || {}),
+                    },
+                    ...options,
+                });
+                const data = await response.json().catch(() => null);
+                if (!response.ok || (data && data.ok === false)) throw new Error(data?.error || `Помилка ${response.status}`);
+                return data;
+            } catch (error) {
+                console.warn("EasyNMT server sync failed:", error);
+                return null;
+            }
+        };
+
+        const formatFileSize = (bytes) => {
+            const size = Number(bytes) || 0;
+            if (size < 1024) return `${size} Б`;
+            if (size < 1024 * 1024) return `${Math.round(size / 1024)} КБ`;
+            return `${(size / (1024 * 1024)).toFixed(1)} МБ`;
+        };
+
+        const renderAttachmentTray = () => {
+            if (!elements.attachmentTray) return;
+            elements.attachmentTray.hidden = pendingAttachments.length === 0 && !attachmentUploadInFlight;
+            elements.attachmentTray.innerHTML = pendingAttachments.map((attachment) => `
+                <div class="ec2-attachment-chip" data-attachment-id="${markdown.escapeHtml(attachment.id)}">
+                    <span class="ec2-attachment-chip__icon" aria-hidden="true">▧</span>
+                    <span class="ec2-attachment-chip__copy"><b>${markdown.escapeHtml(attachment.name || "Фото")}</b><small>${formatFileSize(attachment.size_bytes)}</small></span>
+                    <button type="button" data-remove-attachment="${markdown.escapeHtml(attachment.id)}" aria-label="Прибрати фото">×</button>
+                </div>
+            `).join("") + (attachmentUploadInFlight ? `
+                <div class="ec2-attachment-chip is-loading"><span class="ec2-attachment-chip__loader" aria-hidden="true"></span><span class="ec2-attachment-chip__copy"><b>Завантажую фото</b><small>Готую до аналізу</small></span></div>
+            ` : "");
+            updateInputState();
+        };
+
+        const uploadAttachment = async (file) => {
+            if (!file || attachmentUploadInFlight) return;
+            if (pendingAttachments.length >= 3) {
+                showToast("Можна додати до трьох фото", "info");
+                return;
+            }
+            if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+                showToast("Підтримуються PNG, JPG і WEBP", "error");
+                return;
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                showToast("Фото завелике. Максимум 5 МБ", "error");
+                return;
+            }
+            attachmentUploadInFlight = true;
+            renderAttachmentTray();
+            const formData = new FormData();
+            formData.append("file", file);
+            formData.append("conversation_id", store.state.activeId || "");
+            const data = await serverJson(config.attachmentUrl, { method: "POST", body: formData });
+            attachmentUploadInFlight = false;
+            if (data?.attachment) {
+                pendingAttachments.push(data.attachment);
+                showToast("Фото додано до запиту", "success");
+            } else {
+                showToast("Не вдалося завантажити фото", "error");
+            }
+            if (elements.attachmentInput) elements.attachmentInput.value = "";
+            renderAttachmentTray();
+        };
+
+        const clearPendingAttachments = () => {
+            pendingAttachments = [];
+            attachmentUploadInFlight = false;
+            renderAttachmentTray();
         };
 
         const isNearBottom = () => {
@@ -402,7 +489,7 @@
                 const messageCount = conversation.messages.length;
                 elements.activeSubtitle.textContent = messageCount
                     ? `${Math.ceil(messageCount / 2)} ${messageCount <= 2 ? "відповідь" : "повідомлень"}`
-                    : (conversation.context?.lessonTitle || "Easy Chat v3.0");
+                    : (conversation.context?.lessonTitle || "AI Викладач");
             }
             renderHistory();
 
@@ -424,8 +511,8 @@
             return node;
         };
 
-        const createPendingAssistant = () => {
-            const message = { id: makeId("stream"), role: "assistant", text: "", createdAt: new Date().toISOString(), feedback: null };
+        const createPendingAssistant = (messageId = makeId("stream")) => {
+            const message = { id: messageId, role: "assistant", text: "", createdAt: new Date().toISOString(), feedback: null };
             const node = createAssistantMessageNode(message, { pending: true });
             elements.messages?.appendChild(node);
             return node;
@@ -445,7 +532,7 @@
                 elements.charCount.classList.toggle("is-visible", length > 900);
                 elements.charCount.classList.toggle("is-warning", length > 1380);
             }
-            if (elements.sendButton) elements.sendButton.disabled = !requestInFlight && !input.value.trim();
+            if (elements.sendButton) elements.sendButton.disabled = !requestInFlight && !input.value.trim() && pendingAttachments.length === 0;
             updateCommandMenuFromInput();
         };
 
@@ -552,13 +639,16 @@
             text: message.text.slice(0, 1800),
         }));
 
-        const requestPayload = (question, history) => ({
+        const requestPayload = (question, history, identifiers = {}) => ({
             question,
             context: config.lessonContext ? "lesson" : "general",
             lesson_id: config.lessonId,
             history,
             response_mode: app.dataset.responseMode || "explain",
             conversation_id: store.state.activeId,
+            user_message_id: identifiers.userMessageId || makeId("msg-user"),
+            assistant_message_id: identifiers.assistantMessageId || makeId("msg-easy"),
+            attachment_ids: Array.isArray(identifiers.attachmentIds) ? identifiers.attachmentIds : [],
         });
 
         const requestJsonFallback = async (payload, signal) => {
@@ -578,8 +668,9 @@
         };
 
         const sendQuestion = async (rawQuestion, options = {}) => {
-            const question = String(rawQuestion || "").trim();
-            if (!question || requestInFlight || !elements.messages) return;
+            const typedQuestion = String(rawQuestion || "").trim();
+            const question = typedQuestion || (pendingAttachments.length ? "Допоможи розібрати це фото крок за кроком і знайди місце, яке треба перевірити." : "");
+            if (!question || requestInFlight || attachmentUploadInFlight || !elements.messages) return;
 
             const activeConversationId = store.state.activeId;
             const conversation = store.getActive();
@@ -598,9 +689,13 @@
                 userMessage = store.addMessage("user", question, activeConversationId);
                 if (userMessage) appendMessageNode(userMessage);
                 renderHistory();
+            } else {
+                userMessage = [...conversation.messages].reverse().find((message) => message.role === "user" && message.text.trim() === question) || null;
             }
 
-            const pendingNode = createPendingAssistant();
+            const assistantMessageId = makeId("msg-easy");
+            const attachmentIds = pendingAttachments.map((attachment) => attachment.id);
+            const pendingNode = createPendingAssistant(assistantMessageId);
             streamingNode = pendingNode;
             streamedText = "";
             scrollToBottom("smooth");
@@ -612,7 +707,12 @@
 
             abortController = new AbortController();
             setBusy(true);
-            const payload = requestPayload(question, historyBeforeQuestion);
+            const payload = requestPayload(question, historyBeforeQuestion, {
+                userMessageId: userMessage?.id || makeId("msg-user"),
+                assistantMessageId,
+                attachmentIds,
+            });
+            clearPendingAttachments();
             let finalMeta = null;
 
             try {
@@ -709,12 +809,13 @@
                     errorNode.classList.add("is-error");
                     elements.messages.appendChild(errorNode);
                     showToast("Сталася помилка запиту", "error");
-                    console.error("Easy Chat request failed:", error);
+                    console.error("AI Teacher request failed:", error);
                     return;
                 }
             } finally {
                 if (pendingNode.isConnected && streamedText.trim()) {
-                    const savedMessage = store.addMessage("assistant", streamedText.trim(), activeConversationId);
+                    const persistedAssistantId = finalMeta?.assistant_message_id || assistantMessageId;
+                    const savedMessage = store.addMessage("assistant", streamedText.trim(), activeConversationId, { id: persistedAssistantId });
                     if (savedMessage) {
                         pendingNode.dataset.messageId = savedMessage.id;
                         await finishStreamingVisual(pendingNode, savedMessage.text, savedMessage);
@@ -825,7 +926,7 @@
             await sendQuestion(userMessage.text, { appendUser: false });
         };
 
-        const handleFeedback = (messageId, direction) => {
+        const handleFeedback = async (messageId, direction) => {
             const conversation = store.getActive();
             const message = conversation.messages.find((item) => item.id === messageId);
             if (!message) return;
@@ -834,7 +935,11 @@
             const node = elements.messages?.querySelector(`[data-message-id="${CSS.escape(messageId)}"]`);
             node?.querySelectorAll(".ec2-feedback-button").forEach((button) => button.classList.remove("is-active"));
             if (next) node?.querySelector(`[data-message-action="feedback-${next}"]`)?.classList.add("is-active");
-            if (next) showToast(direction === "up" ? "Дякую за оцінку" : "Врахуємо це в наступних відповідях", "success");
+            if (next) {
+                const feedbackUrl = config.feedbackUrlTemplate.replace("MESSAGE_ID", encodeURIComponent(messageId));
+                await serverJson(feedbackUrl, { method: "POST", body: JSON.stringify({ rating: next }) });
+                showToast(direction === "up" ? "Дякую за оцінку" : "Врахуємо це в наступних відповідях", "success");
+            }
         };
 
         const closeCommandMenu = () => {
@@ -868,6 +973,7 @@
 
         const newConversation = () => {
             stopGeneration();
+            clearPendingAttachments();
             store.createConversation();
             renderConversation();
             closeSidebar();
@@ -875,6 +981,66 @@
             if (elements.input) elements.input.value = "";
             updateInputState();
             window.setTimeout(() => elements.input?.focus({ preventScroll: true }), 80);
+        };
+
+        const hydrateServerHistory = async () => {
+            const data = await serverJson(config.conversationsUrl);
+            if (!data?.conversations?.length) return;
+            let changed = false;
+            data.conversations.forEach((remote) => {
+                if (!remote?.id) return;
+                const existing = store.getConversation(remote.id);
+                const remoteMessages = Array.isArray(remote.messages) ? remote.messages : [];
+                if (existing) {
+                    const byId = new Map(existing.messages.map((message) => [message.id, message]));
+                    remoteMessages.forEach((message) => {
+                        if (!message?.id || byId.has(message.id)) return;
+                        const normalized = store.normalizeMessage({
+                            id: message.id,
+                            role: message.role,
+                            text: message.text,
+                            createdAt: message.createdAt || remote.updated_at,
+                        });
+                        if (normalized) {
+                            existing.messages.push(normalized);
+                            byId.set(normalized.id, normalized);
+                            changed = true;
+                        }
+                    });
+                    existing.messages.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+                    if (remote.title && existing.title === "Нова розмова") existing.title = remote.title;
+                    existing.pinned = Boolean(remote.pinned || existing.pinned);
+                    existing.updatedAt = remote.updated_at || existing.updatedAt;
+                } else {
+                    const normalized = store.normalizeConversation({
+                        id: remote.id,
+                        title: remote.title,
+                        pinned: remote.pinned,
+                        createdAt: remote.created_at,
+                        updatedAt: remote.updated_at,
+                        context: {
+                            lessonContext: Boolean(remote.lesson_id),
+                            lessonId: remote.lesson_id || "",
+                            lessonTitle: "",
+                            subject: remote.subject || config.subject,
+                        },
+                        messages: remoteMessages.map((message) => ({
+                            id: message.id,
+                            role: message.role,
+                            text: message.text,
+                            createdAt: message.createdAt || remote.updated_at,
+                        })),
+                    });
+                    if (normalized) {
+                        store.state.conversations.push(normalized);
+                        changed = true;
+                    }
+                }
+            });
+            if (changed) {
+                store.save();
+                renderConversation({ preserveScroll: true });
+            }
         };
 
         const importServerSeed = () => {
@@ -898,7 +1064,9 @@
         setCompactSidebar(store.getPreference("compactSidebar", false), false);
         updateAiMode();
         renderConversation();
+        renderAttachmentTray();
         updateInputState();
+        hydrateServerHistory();
 
         elements.sidebarOpen?.addEventListener("click", openSidebar);
         elements.sidebarClose?.addEventListener("click", closeSidebar);
@@ -915,7 +1083,8 @@
         elements.exportChat?.addEventListener("click", () => exportConversation());
         elements.exportSettings?.addEventListener("click", () => exportConversation());
         elements.renameActive?.addEventListener("click", () => openRenameDialog(store.state.activeId));
-        elements.attachButton?.addEventListener("click", () => showToast("Аналіз фото активуємо на етапі OpenAI Vision", "info"));
+        elements.attachButton?.addEventListener("click", () => elements.attachmentInput?.click());
+        elements.attachmentInput?.addEventListener("change", () => uploadAttachment(elements.attachmentInput?.files?.[0]));
 
         document.querySelectorAll("[data-response-mode]").forEach((button) => {
             button.addEventListener("click", () => setResponseMode(button.dataset.responseMode));
@@ -979,24 +1148,38 @@
         elements.renameInput?.addEventListener("focus", () => window.setTimeout(scheduleViewportSync, 70));
         elements.renameInput?.addEventListener("blur", () => window.setTimeout(scheduleViewportSync, 120));
 
-        elements.renameForm?.addEventListener("submit", (event) => {
+        elements.renameForm?.addEventListener("submit", async (event) => {
             event.preventDefault();
             const title = elements.renameInput?.value.trim() || "";
             if (!renameTargetId || !title) return;
-            store.rename(renameTargetId, title);
+            const conversationId = renameTargetId;
+            store.rename(conversationId, title);
+            await serverJson(`${config.conversationsUrl}/${encodeURIComponent(conversationId)}`, {
+                method: "PATCH",
+                body: JSON.stringify({ title }),
+            });
             elements.renameDialog?.close();
             renameTargetId = null;
             renderConversation({ preserveScroll: true });
             showToast("Назву оновлено", "success");
         });
 
-        elements.deleteForm?.addEventListener("submit", (event) => {
+        elements.deleteForm?.addEventListener("submit", async (event) => {
             event.preventDefault();
             if (deleteScope === "all") {
+                const remote = await serverJson(config.conversationsUrl);
+                if (remote?.conversations?.length) {
+                    await Promise.all(remote.conversations.map((conversation) => serverJson(
+                        `${config.conversationsUrl}/${encodeURIComponent(conversation.id)}`,
+                        { method: "DELETE" },
+                    )));
+                }
                 store.clearAll();
                 showToast("Історію очищено", "success");
             } else if (deleteTargetId) {
-                store.delete(deleteTargetId);
+                const conversationId = deleteTargetId;
+                store.delete(conversationId);
+                await serverJson(`${config.conversationsUrl}/${encodeURIComponent(conversationId)}`, { method: "DELETE" });
                 showToast("Розмову видалено", "success");
             }
             elements.deleteDialog?.close();
@@ -1023,6 +1206,14 @@
         });
 
         document.addEventListener("click", (event) => {
+            const removeAttachment = event.target.closest("[data-remove-attachment]");
+            if (removeAttachment && app.contains(removeAttachment)) {
+                const attachmentId = removeAttachment.dataset.removeAttachment;
+                pendingAttachments = pendingAttachments.filter((item) => item.id !== attachmentId);
+                renderAttachmentTray();
+                return;
+            }
+
             const starter = event.target.closest("[data-starter-prompt]");
             if (starter && app.contains(starter)) {
                 sendQuestion(starter.dataset.starterPrompt || "");
@@ -1070,7 +1261,14 @@
                 const id = historyAction.dataset.id;
                 closeHistoryPopovers();
                 if (action === "rename") openRenameDialog(id);
-                if (action === "pin") { store.togglePin(id); renderHistory(); }
+                if (action === "pin") {
+                    const pinned = store.togglePin(id);
+                    renderHistory();
+                    serverJson(`${config.conversationsUrl}/${encodeURIComponent(id)}`, {
+                        method: "PATCH",
+                        body: JSON.stringify({ pinned }),
+                    });
+                }
                 if (action === "export") exportConversation(id);
                 if (action === "delete") openDeleteDialog(id);
                 return;

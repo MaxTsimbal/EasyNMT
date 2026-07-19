@@ -10,6 +10,9 @@ from functools import wraps
 
 from flask import Flask, Response, abort, flash, jsonify, redirect, render_template, request, send_file, session, stream_with_context, url_for
 from dotenv import load_dotenv
+
+# Load local development settings before Config reads environment variables.
+load_dotenv()
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -20,8 +23,8 @@ from learning_engine import MAX_SCORE, PASS_SCORE, build_quiz, grade_question
 from lesson_board_engine import build_lesson_board
 from solution_annotation_engine import create_annotated_solution
 from vision_grading_engine import VisionGradingEngine
-
-load_dotenv()
+from easynmt_ai import AIOrchestrator, AIRepository, AIRequest, AttachmentRef, LearningContext
+from easynmt_ai.attachments import AttachmentError, normalize_attachment_ids, save_image_upload
 
 from google_oauth import build_authorization_url, credentials_status, exchange_callback
 from easynmt_core.health import health_bp
@@ -34,7 +37,7 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 app.secret_key = app.config["SECRET_KEY"]
 app.register_blueprint(health_bp)
 ai_service = EasyNMT_AI()
-vision_grader = VisionGradingEngine()
+vision_grader = VisionGradingEngine(ai_service.provider)
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 INSTANCE_DIR = os.path.join(BASE_DIR, "instance")
@@ -42,7 +45,7 @@ INSTANCE_DIR = os.path.join(BASE_DIR, "instance")
 # Locally, EasyNMT continues to use instance/users.db.
 PERSISTENT_DIR = os.environ.get("RAILWAY_VOLUME_MOUNT_PATH", INSTANCE_DIR)
 DB_PATH = os.environ.get("EASYNMT_DB_PATH", os.path.join(PERSISTENT_DIR, "users.db"))
-os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+os.makedirs(os.path.dirname(DB_PATH) or BASE_DIR, exist_ok=True)
 UPLOAD_DIR = os.path.join(PERSISTENT_DIR, "solution_uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024
@@ -291,6 +294,12 @@ def init_db():
 
 
 init_db()
+
+ai_repository = AIRepository(DB_PATH)
+ai_repository.ensure_schema()
+ai_orchestrator = AIOrchestrator(ai_service.provider, ai_repository)
+AI_UPLOAD_DIR = os.path.join(PERSISTENT_DIR, "ai_uploads")
+os.makedirs(AI_UPLOAD_DIR, exist_ok=True)
 
 
 def current_user_name():
@@ -2552,95 +2561,6 @@ def tutor():
     )
 
 
-@app.route("/api/tutor-chat", methods=["POST"])
-@require_login
-def tutor_chat_api():
-    """Return an Easy Chat answer as JSON without reloading the chat page."""
-    if not onboarding_complete():
-        return jsonify({"ok": False, "error": "Спочатку заверши налаштування профілю."}), 403
-
-    payload = request.get_json(silent=True) or request.form
-    question = str(payload.get("question", "")).strip()
-    lesson_context = str(payload.get("context", "")).lower() == "lesson"
-    requested_lesson_id = payload.get("lesson_id")
-    raw_history = payload.get("history", []) if isinstance(payload, dict) else []
-    response_mode = normalize_tutor_response_mode(payload.get("response_mode")) if isinstance(payload, dict) else "explain"
-    conversation_history = []
-    if isinstance(raw_history, list):
-        for item in raw_history[-8:]:
-            if not isinstance(item, dict):
-                continue
-            role = str(item.get("role", "")).strip().lower()
-            text = str(item.get("text", "")).strip()
-            if role in {"user", "assistant"} and text:
-                conversation_history.append({"role": role, "text": text[:1000]})
-
-    lesson = None
-    lesson_id = None
-    if lesson_context:
-        lesson_id = normalize_lesson_id(requested_lesson_id or session.get("current_lesson_id", 1))
-        lesson = get_lesson_content(lesson_id)
-        session["current_lesson_id"] = lesson_id
-
-    max_chars = app.config["OPENAI_MAX_QUESTION_CHARS"]
-    if not question:
-        return jsonify({"ok": False, "error": "Напиши запитання для Easy."}), 400
-    if len(question) > max_chars:
-        return jsonify({"ok": False, "error": f"Скороти запитання до {max_chars} символів."}), 400
-
-    user_id = session.get("user_id")
-    daily_limit = app.config["OPENAI_DAILY_LIMIT"]
-    used_today = get_ai_usage_today(user_id)
-
-    if ai_service.enabled and used_today >= daily_limit:
-        return jsonify({
-            "ok": True,
-            "answer": "Денний AI-ліміт вичерпано. Продовжимо завтра, а зараз можеш повторити матеріал або поставити коротше уточнювальне питання в демо-режимі.",
-            "mode": "limit",
-            "used": used_today,
-            "limit": daily_limit,
-        })
-
-    fallback = get_easy_answer(
-        question,
-        lesson_context=lesson_context,
-        lesson=lesson,
-    )
-    result = ai_service.answer(
-        question=question,
-        subject=session.get("subject", "НМТ"),
-        lesson_title=lesson["title"] if lesson_context and lesson else "",
-        lesson_goal=lesson.get("goal", "зрозуміти тему") if lesson_context and lesson else "",
-        fallback=fallback,
-        lesson_context=lesson_context,
-        conversation_history=conversation_history,
-        response_mode=response_mode,
-    )
-
-    if result.mode == "openai":
-        increment_ai_usage(user_id)
-        used_today += 1
-
-    answer_text = shape_demo_tutor_answer(
-        result.text,
-        response_mode,
-        lesson_context=lesson_context,
-        lesson=lesson,
-    ) if result.mode == "demo" else clean_tutor_answer_text(result.text)
-
-    response = {
-        "ok": True,
-        "answer": answer_text,
-        "mode": result.mode,
-        "used": used_today,
-        "limit": daily_limit,
-        "response_mode": response_mode,
-    }
-    if app.debug and result.error:
-        response["debug_error"] = result.error
-    return jsonify(response)
-
-
 
 def normalize_tutor_response_mode(value):
     """Keep the UI response mode small, predictable and prompt-safe."""
@@ -2652,12 +2572,11 @@ def normalize_tutor_response_mode(value):
 
 def clean_tutor_answer_text(value):
     """Avoid repeating the Easy name because the UI already labels assistant messages."""
-    text = str(value or "").strip()
-    return re.sub(r"^\s*(?:Easy|Ізі)\s*:\s*", "", text, flags=re.IGNORECASE).strip()
+    return ai_orchestrator.clean_text(value)
 
 
 def shape_demo_tutor_answer(value, response_mode, *, lesson_context=False, lesson=None):
-    """Make the three UI modes visibly useful before a real OpenAI key is connected."""
+    """Make the three UI modes useful even before an OpenAI key is connected."""
     text = clean_tutor_answer_text(value)
     if response_mode == "practice":
         first_step = (
@@ -2685,8 +2604,68 @@ def normalize_tutor_history(raw_history, limit=12):
         role = str(item.get("role", "")).strip().lower()
         text = str(item.get("text", "")).strip()
         if role in {"user", "assistant"} and text:
-            history.append({"role": role, "text": text[:1800]})
+            history.append({"role": role, "text": text[:2400]})
     return history
+
+
+def normalize_client_id(value, prefix):
+    text = re.sub(r"[^A-Za-z0-9._:-]", "", str(value or "").strip())[:120]
+    return text or f"{prefix}-{uuid.uuid4()}"
+
+
+def build_tutor_learning_context(*, lesson_context, lesson, response_mode):
+    data = get_user_data()
+    return LearningContext(
+        user_id=int(session.get("user_id")),
+        user_name=str(session.get("user_name") or "Учень"),
+        subject_key=str(session.get("subject") or "none"),
+        subject_name=str(data.get("subject") or "Підготовка до НМТ"),
+        goal=str(data.get("goal") or ""),
+        time_left=str(data.get("time_left") or ""),
+        progress=int(data.get("progress") or 0),
+        xp=int(data.get("xp") or 0),
+        streak=int(data.get("streak") or 1),
+        lesson_id=int(lesson["id"]) if lesson_context and lesson else None,
+        lesson_title=str(lesson.get("title", "")) if lesson_context and lesson else "",
+        lesson_goal=str(lesson.get("goal", "зрозуміти тему")) if lesson_context and lesson else "",
+        weak_topic=str(data.get("weak_topic") or ""),
+        weak_count=int(data.get("weak_count") or 0),
+        response_mode=response_mode,
+        lesson_context=lesson_context,
+    )
+
+
+def build_tutor_ai_request(payload, *, question, lesson_context, lesson, response_mode, fallback):
+    user_id = int(session.get("user_id"))
+    conversation_id = normalize_client_id(payload.get("conversation_id"), "chat")
+    user_message_id = normalize_client_id(payload.get("user_message_id"), "msg-user")
+    assistant_message_id = normalize_client_id(payload.get("assistant_message_id"), "msg-easy")
+    attachment_ids = normalize_attachment_ids(
+        payload.get("attachment_ids", []),
+        limit=app.config["AI_MAX_ATTACHMENTS"],
+    )
+    attachments = ai_repository.get_attachments(user_id=user_id, attachment_ids=attachment_ids)
+    server_history = ai_repository.get_history(
+        user_id=user_id,
+        conversation_id=conversation_id,
+        limit=12,
+    )
+    history = server_history or normalize_tutor_history(payload.get("history", []))
+    context = build_tutor_learning_context(
+        lesson_context=lesson_context,
+        lesson=lesson,
+        response_mode=response_mode,
+    )
+    return AIRequest(
+        question=question,
+        context=context,
+        history=history,
+        attachments=attachments,
+        fallback=fallback,
+        conversation_id=conversation_id,
+        user_message_id=user_message_id,
+        assistant_message_id=assistant_message_id,
+    )
 
 
 def tutor_sse_event(event_name, payload):
@@ -2695,17 +2674,15 @@ def tutor_sse_event(event_name, payload):
 
 
 def tutor_stream_chunks(text):
-    """Yield human-sized text chunks. Later this can be replaced by native OpenAI deltas."""
+    """Readable fallback chunks; OpenAI mode uses native Responses API deltas."""
     tokens = re.findall(r"\S+\s*", str(text or ""))
-    if not tokens:
-        return
     bucket = []
     bucket_length = 0
     for token in tokens:
         bucket.append(token)
         bucket_length += len(token)
         ends_sentence = bool(re.search(r"[.!?…][\"')\]]?\s*$", token))
-        if bucket_length >= 24 or ends_sentence:
+        if bucket_length >= 28 or ends_sentence:
             yield "".join(bucket)
             bucket = []
             bucket_length = 0
@@ -2713,18 +2690,124 @@ def tutor_stream_chunks(text):
         yield "".join(bucket)
 
 
-@app.route("/api/tutor-chat/stream", methods=["POST"])
+@app.route("/api/ai/status")
 @require_login
-def tutor_chat_stream_api():
-    """Stream Easy Chat events over SSE without reloading or replacing the page."""
+def ai_status_api():
+    used = get_ai_usage_today(session.get("user_id"))
+    limit = app.config["OPENAI_DAILY_LIMIT"]
+    return jsonify({
+        "ok": True,
+        "enabled": ai_orchestrator.enabled,
+        "mode": "openai" if ai_orchestrator.enabled else "demo",
+        "model": app.config["OPENAI_MODEL"],
+        "vision_model": app.config["OPENAI_VISION_MODEL"],
+        "used": used,
+        "limit": limit,
+        "streaming": True,
+        "vision_ready": True,
+        "vision_enabled": ai_orchestrator.enabled,
+        "server_memory": True,
+        "upload_limit": app.config["AI_DAILY_UPLOAD_LIMIT"],
+    })
+
+
+@app.route("/api/ai/attachments", methods=["POST"])
+@require_login
+def ai_attachment_upload_api():
+    if not onboarding_complete():
+        return jsonify({"ok": False, "error": "Спочатку заверши налаштування профілю."}), 403
+    user_id = int(session.get("user_id"))
+    today_start = f"{datetime.utcnow().date().isoformat()}T00:00:00+00:00"
+    uploaded_today = ai_repository.count_attachments_since(user_id=user_id, since=today_start)
+    if uploaded_today >= app.config["AI_DAILY_UPLOAD_LIMIT"]:
+        return jsonify({
+            "ok": False,
+            "error": "Денний ліміт завантаження фото вичерпано. Спробуй завтра.",
+        }), 429
+    try:
+        attachment = save_image_upload(
+            request.files.get("file"),
+            AI_UPLOAD_DIR,
+            max_bytes=app.config["AI_MAX_ATTACHMENT_BYTES"],
+        )
+    except AttachmentError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+
+    conversation_id = normalize_client_id(request.form.get("conversation_id"), "chat")
+    ai_repository.save_attachment(
+        user_id=user_id,
+        attachment=attachment,
+        conversation_id=conversation_id,
+    )
+    return jsonify({
+        "ok": True,
+        "attachment": {
+            "id": attachment.id,
+            "name": attachment.original_name,
+            "mime_type": attachment.mime_type,
+            "size_bytes": attachment.size_bytes,
+            "kind": attachment.kind,
+        },
+    })
+
+
+@app.route("/api/ai/conversations")
+@require_login
+def ai_conversations_api():
+    return jsonify({
+        "ok": True,
+        "conversations": ai_repository.list_conversations(user_id=int(session.get("user_id"))),
+    })
+
+
+@app.route("/api/ai/conversations/<conversation_id>", methods=["PATCH", "DELETE"])
+@require_login
+def ai_conversation_api(conversation_id):
+    conversation_id = normalize_client_id(conversation_id, "chat")
+    user_id = int(session.get("user_id"))
+    if request.method == "DELETE":
+        ai_repository.delete_conversation(user_id=user_id, conversation_id=conversation_id)
+        return jsonify({"ok": True})
+
+    payload = request.get_json(silent=True) or {}
+    title = payload.get("title") if "title" in payload else None
+    pinned = bool(payload.get("pinned")) if "pinned" in payload else None
+    ai_repository.update_conversation(
+        user_id=user_id,
+        conversation_id=conversation_id,
+        title=title,
+        pinned=pinned,
+    )
+    return jsonify({"ok": True})
+
+
+@app.route("/api/ai/messages/<message_id>/feedback", methods=["POST"])
+@require_login
+def ai_message_feedback_api(message_id):
+    payload = request.get_json(silent=True) or {}
+    rating = str(payload.get("rating", "")).strip().lower()
+    if rating not in {"up", "down"}:
+        return jsonify({"ok": False, "error": "Невідома оцінка."}), 400
+    saved = ai_repository.set_feedback(
+        user_id=int(session.get("user_id")),
+        message_id=normalize_client_id(message_id, "msg"),
+        rating=rating,
+    )
+    if not saved:
+        return jsonify({"ok": False, "error": "Повідомлення не знайдено."}), 404
+    return jsonify({"ok": True})
+
+
+@app.route("/api/tutor-chat", methods=["POST"])
+@require_login
+def tutor_chat_api():
+    """Non-streaming fallback endpoint backed by the shared AI orchestrator."""
     if not onboarding_complete():
         return jsonify({"ok": False, "error": "Спочатку заверши налаштування профілю."}), 403
 
     payload = request.get_json(silent=True) or {}
     question = str(payload.get("question", "")).strip()
     lesson_context = str(payload.get("context", "")).lower() == "lesson"
-    requested_lesson_id = payload.get("lesson_id")
-    conversation_history = normalize_tutor_history(payload.get("history", []))
     response_mode = normalize_tutor_response_mode(payload.get("response_mode"))
 
     max_chars = app.config["OPENAI_MAX_QUESTION_CHARS"]
@@ -2734,81 +2817,192 @@ def tutor_chat_stream_api():
         return jsonify({"ok": False, "error": f"Скороти запитання до {max_chars} символів."}), 400
 
     lesson = None
-    lesson_id = None
     if lesson_context:
-        lesson_id = normalize_lesson_id(requested_lesson_id or session.get("current_lesson_id", 1))
+        lesson_id = normalize_lesson_id(payload.get("lesson_id") or session.get("current_lesson_id", 1))
         lesson = get_lesson_content(lesson_id)
         session["current_lesson_id"] = lesson_id
 
-    user_id = session.get("user_id")
+    user_id = int(session.get("user_id"))
     daily_limit = app.config["OPENAI_DAILY_LIMIT"]
     used_today = get_ai_usage_today(user_id)
-    subject = session.get("subject", "НМТ")
+    raw_fallback = get_easy_answer(question, lesson_context=lesson_context, lesson=lesson)
+    fallback = shape_demo_tutor_answer(
+        raw_fallback,
+        response_mode,
+        lesson_context=lesson_context,
+        lesson=lesson,
+    )
+    ai_request = build_tutor_ai_request(
+        payload,
+        question=question,
+        lesson_context=lesson_context,
+        lesson=lesson,
+        response_mode=response_mode,
+        fallback=fallback,
+    )
+
+    if ai_orchestrator.enabled and used_today >= daily_limit:
+        answer = "Денний AI-ліміт вичерпано. Продовжимо завтра, а зараз відкрий попередню відповідь або повтори урок."
+        ai_orchestrator.prepare(ai_request)
+        ai_repository.add_message(
+            message_id=ai_request.assistant_message_id,
+            conversation_id=ai_request.conversation_id,
+            user_id=user_id,
+            role="assistant",
+            content=answer,
+            provider_mode="limit",
+        )
+        mode = "limit"
+        error = None
+        response_id = None
+    else:
+        result = ai_orchestrator.complete(ai_request)
+        answer = clean_tutor_answer_text(result.text)
+        mode = result.mode
+        error = result.error
+        response_id = result.response_id
+        if mode == "openai":
+            increment_ai_usage(user_id)
+            used_today += 1
+
+    response = {
+        "ok": True,
+        "answer": answer,
+        "mode": mode,
+        "used": used_today,
+        "limit": daily_limit,
+        "response_mode": response_mode,
+        "conversation_id": ai_request.conversation_id,
+        "user_message_id": ai_request.user_message_id,
+        "assistant_message_id": ai_request.assistant_message_id,
+        "response_id": response_id,
+        "attachments": [item.id for item in ai_request.attachments],
+    }
+    if app.debug and error:
+        response["debug_error"] = error
+    return jsonify(response)
+
+
+@app.route("/api/tutor-chat/stream", methods=["POST"])
+@require_login
+def tutor_chat_stream_api():
+    """SSE endpoint with native OpenAI Responses API deltas and demo fallback."""
+    if not onboarding_complete():
+        return jsonify({"ok": False, "error": "Спочатку заверши налаштування профілю."}), 403
+
+    payload = request.get_json(silent=True) or {}
+    question = str(payload.get("question", "")).strip()
+    lesson_context = str(payload.get("context", "")).lower() == "lesson"
+    response_mode = normalize_tutor_response_mode(payload.get("response_mode"))
+
+    max_chars = app.config["OPENAI_MAX_QUESTION_CHARS"]
+    if not question:
+        return jsonify({"ok": False, "error": "Напиши запитання для Easy."}), 400
+    if len(question) > max_chars:
+        return jsonify({"ok": False, "error": f"Скороти запитання до {max_chars} символів."}), 400
+
+    lesson = None
+    if lesson_context:
+        lesson_id = normalize_lesson_id(payload.get("lesson_id") or session.get("current_lesson_id", 1))
+        lesson = get_lesson_content(lesson_id)
+        session["current_lesson_id"] = lesson_id
+
+    user_id = int(session.get("user_id"))
+    daily_limit = app.config["OPENAI_DAILY_LIMIT"]
+    used_today = get_ai_usage_today(user_id)
+    raw_fallback = get_easy_answer(question, lesson_context=lesson_context, lesson=lesson)
+    fallback = shape_demo_tutor_answer(
+        raw_fallback,
+        response_mode,
+        lesson_context=lesson_context,
+        lesson=lesson,
+    )
+    ai_request = build_tutor_ai_request(
+        payload,
+        question=question,
+        lesson_context=lesson_context,
+        lesson=lesson,
+        response_mode=response_mode,
+        fallback=fallback,
+    )
 
     @stream_with_context
     def generate():
         nonlocal used_today
-        yield tutor_sse_event("status", {"message": "Аналізую запит і контекст"})
+        yield tutor_sse_event("status", {"message": "Збираю навчальний контекст"})
 
-        if ai_service.enabled and used_today >= daily_limit:
-            answer_text = (
-                "Денний AI-ліміт вичерпано. Продовжимо завтра, а зараз можеш "
-                "повторити матеріал або відкрити попередню розмову."
+        if ai_orchestrator.enabled and used_today >= daily_limit:
+            answer_text = "Денний AI-ліміт вичерпано. Продовжимо завтра, а зараз відкрий попередню відповідь або повтори урок."
+            ai_orchestrator.prepare(ai_request)
+            ai_repository.add_message(
+                message_id=ai_request.assistant_message_id,
+                conversation_id=ai_request.conversation_id,
+                user_id=user_id,
+                role="assistant",
+                content=answer_text,
+                provider_mode="limit",
             )
-            mode = "limit"
-            error = None
-        else:
-            yield tutor_sse_event("status", {"message": "Будую зрозумілу відповідь"})
-            fallback = get_easy_answer(
-                question,
-                lesson_context=lesson_context,
-                lesson=lesson,
-            )
-            result = ai_service.answer(
-                question=question,
-                subject=subject,
-                lesson_title=lesson["title"] if lesson_context and lesson else "",
-                lesson_goal=lesson.get("goal", "зрозуміти тему") if lesson_context and lesson else "",
-                fallback=fallback,
-                lesson_context=lesson_context,
-                conversation_history=conversation_history,
-                response_mode=response_mode,
-            )
-            answer_text = shape_demo_tutor_answer(
-                result.text,
-                response_mode,
-                lesson_context=lesson_context,
-                lesson=lesson,
-            ) if result.mode == "demo" else clean_tutor_answer_text(result.text)
-            mode = result.mode
-            error = result.error
-            if result.mode == "openai":
-                increment_ai_usage(user_id)
-                used_today += 1
+            yield tutor_sse_event("meta", {
+                "mode": "limit",
+                "used": used_today,
+                "limit": daily_limit,
+                "response_mode": response_mode,
+            })
+            for chunk in tutor_stream_chunks(answer_text):
+                yield tutor_sse_event("delta", {"text": chunk})
+            yield tutor_sse_event("done", {
+                "ok": True,
+                "answer": answer_text,
+                "mode": "limit",
+                "used": used_today,
+                "limit": daily_limit,
+                "response_mode": response_mode,
+                "conversation_id": ai_request.conversation_id,
+                "user_message_id": ai_request.user_message_id,
+                "assistant_message_id": ai_request.assistant_message_id,
+            })
+            return
 
+        yield tutor_sse_event("status", {
+            "message": "Аналізую фото й умову" if ai_request.attachments else "Будую зрозуміле пояснення"
+        })
+        final = None
+        for event in ai_orchestrator.stream(ai_request):
+            if event.type == "delta":
+                yield tutor_sse_event("delta", {"text": event.data.get("text", "")})
+            elif event.type == "fallback":
+                yield tutor_sse_event("status", {"message": "Працюю у безпечному демо-режимі"})
+                for chunk in tutor_stream_chunks(event.data.get("text", fallback)):
+                    yield tutor_sse_event("delta", {"text": chunk})
+            elif event.type == "done":
+                final = event.data
+
+        final = final or {"text": fallback, "mode": "demo"}
+        mode = str(final.get("mode", "demo"))
+        if mode == "openai":
+            increment_ai_usage(user_id)
+            used_today += 1
         yield tutor_sse_event("meta", {
             "mode": mode,
             "used": used_today,
             "limit": daily_limit,
             "response_mode": response_mode,
         })
-        yield tutor_sse_event("status", {"message": "Формулюю відповідь"})
-
-        for chunk in tutor_stream_chunks(answer_text):
-            yield tutor_sse_event("delta", {"text": chunk})
-            # A tiny delay keeps demo/fallback output readable. Native OpenAI streaming will replace it.
-            time.sleep(0.012)
-
         done_payload = {
             "ok": True,
-            "answer": answer_text,
+            "answer": clean_tutor_answer_text(final.get("text", fallback)),
             "mode": mode,
             "used": used_today,
             "limit": daily_limit,
             "response_mode": response_mode,
+            "conversation_id": ai_request.conversation_id,
+            "user_message_id": ai_request.user_message_id,
+            "assistant_message_id": ai_request.assistant_message_id,
+            "response_id": final.get("response_id"),
+            "attachments": [item.id for item in ai_request.attachments],
         }
-        if app.debug and error:
-            done_payload["debug_error"] = error
+        if app.debug and final.get("error"):
+            done_payload["debug_error"] = final.get("error")
         yield tutor_sse_event("done", done_payload)
 
     response = Response(generate(), mimetype="text/event-stream")
@@ -2816,6 +3010,7 @@ def tutor_chat_stream_api():
     response.headers["X-Accel-Buffering"] = "no"
     response.headers["Connection"] = "keep-alive"
     return response
+
 
 
 @app.route("/api/lesson-chat", methods=["POST"])
@@ -3003,7 +3198,7 @@ def beta_check():
         {"icon": "✅", "title": "Онбординг", "desc": "Реєстрація, ціль, предмет і час працюють."},
         {"icon": "✅", "title": "Уроки", "desc": "Є теорія, приклади, тести й результат."},
         {"icon": "✅", "title": "Прогрес", "desc": "XP, серія, уроки та досягнення зберігаються."},
-        {"icon": "✅", "title": "OpenAI-ready", "desc": "Є API-модуль, демо-режим, ліміт запитів і безпечна конфігурація."},
+        {"icon": "✅", "title": "AI Викладач", "desc": "Готові Responses API, streaming, серверна пам’ять, фото та навчальний контекст."},
         {"icon": "✅", "title": "Публікація", "desc": "Збірка підготовлена до Railway: Gunicorn, health-check і постійна база даних."},
     ]
     return render_template("beta_check.html", **get_user_data(), checks=checks)

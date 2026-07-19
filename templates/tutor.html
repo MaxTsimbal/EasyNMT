@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Easy Chat v3.0 Nebula | EasyNMT{% endblock %}
+{% block title %}AI Викладач | EasyNMT{% endblock %}
 {% block body_class %}tutor-chat-page easy-chat-v2-page easy-chat-v3-page{% endblock %}
 
 {% set close_url = url_for('lesson', lesson_id=lesson.id) if lesson_context and lesson else url_for('dashboard') %}
@@ -9,7 +9,7 @@
 {% set active_lesson_title = lesson.title if lesson_context and lesson else '' %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/easy_chat_v3.css', v='300-nebula-mobile-first') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/easy_chat_v3.css', v='final-before-beta-100') }}">
 <script>
 window.MathJax = {
     tex: {
@@ -30,6 +30,9 @@ window.MathJax = {
     id="easyChatV2"
     data-stream-url="{{ url_for('tutor_chat_stream_api') }}"
     data-fallback-url="{{ url_for('tutor_chat_api') }}"
+    data-attachment-url="{{ url_for('ai_attachment_upload_api') }}"
+    data-conversations-url="{{ url_for('ai_conversations_api') }}"
+    data-feedback-url-template="{{ url_for('ai_message_feedback_api', message_id='MESSAGE_ID') }}"
     data-storage-key="easy-chat-v2-user-{{ session.get('user_id', 'guest') }}"
     data-lesson-context="{{ 'true' if lesson_context else 'false' }}"
     data-lesson-id="{{ lesson.id if lesson_context and lesson else '' }}"
@@ -57,7 +60,7 @@ window.MathJax = {
                 </span>
                 <span class="ec2-brand__text">
                     <strong>Easy<span>NMT</span></strong>
-                    <small>AI learning space</small>
+                    <small>навчальний AI-викладач</small>
                 </span>
             </a>
             <button class="ec2-icon-button ec2-sidebar__mobile-close" id="ec2SidebarClose" type="button" aria-label="Закрити меню">
@@ -132,7 +135,7 @@ window.MathJax = {
                     <span class="ec2-chat-heading__icon" aria-hidden="true">✦</span>
                     <span class="ec2-chat-heading__copy">
                         <strong id="ec2ActiveTitle">Нова розмова</strong>
-                        <small id="ec2ActiveSubtitle">Easy Chat v3.0</small>
+                        <small id="ec2ActiveSubtitle">AI Викладач</small>
                     </span>
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 7 5 5-5 5"/></svg>
                 </button>
@@ -197,6 +200,8 @@ window.MathJax = {
             </div>
 
             <form class="ec2-composer" id="ec2Composer" novalidate>
+                <input id="ec2AttachmentInput" type="file" accept="image/png,image/jpeg,image/webp" hidden>
+                <div class="ec2-attachment-tray" id="ec2AttachmentTray" hidden aria-live="polite"></div>
                 <div class="ec2-composer__surface">
                     <textarea
                         id="ec2Input"
@@ -212,7 +217,7 @@ window.MathJax = {
 
                     <div class="ec2-composer__toolbar">
                         <div class="ec2-composer__tools">
-                            <button class="ec2-tool-button" id="ec2AttachButton" type="button" aria-label="Додати фото" title="Аналіз фото буде активовано з OpenAI Vision">
+                            <button class="ec2-tool-button" id="ec2AttachButton" type="button" aria-label="Додати фото" title="Додати фото розв’язання">
                                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8.5 12.5 6.8-6.8a3.2 3.2 0 1 1 4.5 4.5l-9.2 9.2a5 5 0 0 1-7.1-7.1l8.8-8.8"/></svg>
                                 <span>Фото</span>
                             </button>
@@ -235,15 +240,15 @@ window.MathJax = {
                         </div>
                     </div>
                 </div>
-                <p class="ec2-composer__note">Easy може помилятися. Важливі формули та факти краще перевіряти.</p>
+                <p class="ec2-composer__note">Easy допомагає вчитися, але важливі формули та факти варто перевіряти в матеріалах уроку.</p>
             </form>
         </div>
     </main>
 
-    <aside class="ec2-settings" id="ec2Settings" aria-label="Налаштування Easy Chat" aria-hidden="true">
+    <aside class="ec2-settings" id="ec2Settings" aria-label="Налаштування AI Викладача" aria-hidden="true">
         <div class="ec2-settings__header">
             <div>
-                <span>Easy Chat</span>
+                <span>AI Викладач</span>
                 <h2>Налаштування</h2>
             </div>
             <button class="ec2-icon-button" id="ec2SettingsClose" type="button" aria-label="Закрити налаштування">
@@ -274,8 +279,8 @@ window.MathJax = {
 
             <section class="ec2-settings-card">
                 <span class="ec2-settings-card__eyebrow">Дані</span>
-                <h3>Історія на цьому пристрої</h3>
-                <p>До підключення серверної пам’яті розмови зберігаються лише в цьому браузері.</p>
+                <h3>Синхронізація навчання</h3>
+                <p>Нові повідомлення зберігаються у захищеній базі EasyNMT та локально в браузері. Це готує персональну пам’ять до Beta.</p>
                 <div class="ec2-settings-actions">
                     <button type="button" id="ec2ExportSettings"><span>⇩</span> Експортувати чат</button>
                     <button type="button" class="is-danger" id="ec2ClearHistory"><span>×</span> Очистити історію</button>
@@ -285,9 +290,9 @@ window.MathJax = {
             <section class="ec2-settings-card ec2-settings-card--about">
                 <div class="ec2-settings-brand">
                     <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
-                    <div><strong>Easy Chat v3.0</strong><small>Nebula UI before OpenAI integration</small></div>
+                    <div><strong>EasyNMT Final Update Before Beta</strong><small>OpenAI-ready learning foundation</small></div>
                 </div>
-                <p>Інтерфейс підготовлений до Responses API, реального streaming, пам’яті та аналізу фото.</p>
+                <p>Готові Responses API, нативний streaming, серверна пам’ять, контекст прогресу та безпечний канал аналізу фото.</p>
             </section>
         </div>
     </aside>
@@ -324,7 +329,7 @@ window.MathJax = {
     <template id="ec2WelcomeTemplate">
         <section class="ec2-welcome">
             <div class="ec3-mobile-intro">
-                <span class="ec3-mobile-intro__eyebrow"><i></i> Easy Chat v3.0</span>
+                <span class="ec3-mobile-intro__eyebrow"><i></i> AI Викладач EasyNMT</span>
                 <h1>Привіт, {{ user_display_name }}.</h1>
                 <p>{% if lesson_context and lesson %}Тема вже підключена. Що саме розберемо?{% else %}Що хочеш розібрати сьогодні?{% endif %}</p>
             </div>
@@ -339,13 +344,13 @@ window.MathJax = {
                     <span class="ec2-welcome__spark ec2-welcome__spark--two">✧</span>
                 </div>
                 <div class="ec2-welcome__copy">
-                    <span class="ec2-welcome__eyebrow"><i></i> Easy Chat v3.0</span>
+                    <span class="ec2-welcome__eyebrow"><i></i> AI Викладач EasyNMT</span>
                     <h1>Привіт, {{ user_display_name }}.</h1>
                     <p>{% if lesson_context and lesson %}Я вже бачу тему «{{ lesson.title }}». Можемо розібрати правило, задачу або місце, де все почало плутатися.{% else %}Тут можна спокійно розібрати тему, задачу чи помилку. Без стіни складних слів, зате з логікою та кроками.{% endif %}</p>
                     <div class="ec2-welcome__badges">
                         <span><b>✦</b> Пояснює просто</span>
                         <span><b>◎</b> Готує до НМТ</span>
-                        <span><b>↻</b> Пам’ятає цей чат</span>
+                        <span><b>↻</b> Враховує твій прогрес</span>
                     </div>
                 </div>
             </div>
@@ -388,7 +393,7 @@ window.MathJax = {
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', filename='js/easy_chat_v3/storage.js', v='300-nebula-mobile-first') }}" defer></script>
-<script src="{{ url_for('static', filename='js/easy_chat_v3/markdown.js', v='300-nebula-mobile-first') }}" defer></script>
-<script src="{{ url_for('static', filename='js/easy_chat_v3/app.js', v='300-nebula-mobile-first') }}" defer></script>
+<script src="{{ url_for('static', filename='js/easy_chat_v3/storage.js', v='final-before-beta-100') }}" defer></script>
+<script src="{{ url_for('static', filename='js/easy_chat_v3/markdown.js', v='final-before-beta-100') }}" defer></script>
+<script src="{{ url_for('static', filename='js/easy_chat_v3/app.js', v='final-before-beta-100') }}" defer></script>
 {% endblock %}

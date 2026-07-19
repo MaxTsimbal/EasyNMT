@@ -1,3 +1,20 @@
+# EasyNMT Final Update Before Beta
+
+Статус: **готово до початку інтеграції EasyNMT v1.0 Beta**.
+
+- чат перейменовано й переосмислено як **AI Викладач**;
+- додано модульний пакет `easynmt_ai`;
+- Responses API із нативним streaming підготовлено;
+- серверна пам’ять розмов і повідомлень працює;
+- фото розв’язань завантажуються через окремий безпечний endpoint;
+- модель отримує навчальний контекст EasyNMT, а не лише текст чату;
+- без ключа зберігається стабільний демо-режим;
+- наступна версія: **EasyNMT v1.0 Beta**.
+
+Деталі: `FINAL_UPDATE_BEFORE_BETA.md` та `OPENAI_INTEGRATION_MAP.md`.
+
+---
+
 # EasyNMT v0.9.9.9 + Easy Chat v3.0 Nebula
 
 Поточний чат: Easy Chat v3.0 Nebula Mobile-First готовий до перевірки на Railway. Після fix pack переходимо до OpenAI Responses API.

@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Release Check | EasyNMT{% endblock %}
+{% block title %}Final Update Before Beta | EasyNMT{% endblock %}
 {% block content %}
 <div class="lesson-page">
     <div class="logo">EasyNMT</div>
-    <div class="lesson-header fade-up"><span class="pill">🚀 Release Candidate</span><h1>Готовність до публічного запуску</h1><p>Цей екран показує готовність EasyNMT до розміщення у відкритому доступі за посиланням.</p></div>
+    <div class="lesson-header fade-up"><span class="pill">🚀 Final Update Before Beta</span><h1>Фундамент перед EasyNMT v1.0 Beta</h1><p>Навчальна платформа готова до підключення OpenAI та початку бета-етапу.</p></div>
     <div class="goal-grid">
         {% for item in checks %}<div class="goal-card clickable-card"><span class="score">{{ item.icon }} {{ item.title }}</span><span class="desc">{{ item.desc }}</span></div>{% endfor %}
     </div><br>
