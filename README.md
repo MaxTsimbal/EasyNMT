@@ -13,8 +13,9 @@ and uses only curated lesson material.
 - `app.py` — Flask routes, authentication, onboarding, lesson flow, quiz
   finalization, progress views, and API orchestration.
 - `learning_engine.py` — canonical quiz construction and deterministic grading.
-- `easynmt_ai/` — OpenAI gateway, prompt/context builder, conversation
-  repository, attachment validation, and streaming orchestration.
+- `easynmt_ai/` — central AI orchestrator, shared context and models, independent
+  engine contracts, prompt layer, cache boundary, conversation repository,
+  attachment validation, and streaming support.
 - `easynmt_core/health.py` — separate liveness and database-readiness endpoints.
 - `templates/` and `static/` — server-rendered UI and browser behavior.
 - `tests/` — security, quiz consistency, persistence, API, and route regression
@@ -72,5 +73,7 @@ GOOGLE_REDIRECT_URI=
 
 See [DEPLOY_RAILWAY.md](DEPLOY_RAILWAY.md), [OPENAI_SETUP.md](OPENAI_SETUP.md),
 and [GOOGLE_AUTH_SETUP.md](GOOGLE_AUTH_SETUP.md) for integration details.
+The AI engine boundary and extension guide are documented in
+[easynmt_ai/README.md](easynmt_ai/README.md).
 The production audit and remaining Beta work are in
 [PRODUCTION_AUDIT_REPORT.md](PRODUCTION_AUDIT_REPORT.md).

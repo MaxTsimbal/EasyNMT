@@ -52,7 +52,7 @@ AI_DAILY_UPLOAD_LIMIT=20
   не можуть перевищити його;
 - довжину відповіді обмежує `OPENAI_MAX_OUTPUT_TOKENS`;
 - максимум фото в одному запиті задає `AI_MAX_ATTACHMENTS`, розмір — `AI_MAX_ATTACHMENT_BYTES`, денний ліміт — `AI_DAILY_UPLOAD_LIMIT`;
-- усі виклики проходять через `easynmt_ai/service.py`.
+- усі виклики проходять через `easynmt_ai/orchestrator.py`.
 
 ## Фото
 
