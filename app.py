@@ -30,7 +30,6 @@ from easynmt_ai import (
     AIRequest,
     AIStreamEvent,
     LearningContext,
-    OpenAIResponsesProvider,
 )
 from easynmt_ai.attachments import AttachmentError, normalize_attachment_ids, save_image_upload
 
@@ -45,8 +44,6 @@ if app.config["TRUST_PROXY_HEADERS"]:
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 app.secret_key = app.config["SECRET_KEY"]
 app.register_blueprint(health_bp)
-ai_provider = OpenAIResponsesProvider(app.config)
-vision_grader = VisionGradingEngine(ai_provider)
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 INSTANCE_DIR = os.path.join(BASE_DIR, "instance")
@@ -330,7 +327,12 @@ init_db()
 ai_repository = AIRepository(DB_PATH)
 ai_repository.ensure_schema()
 ai_repository.prune_unattached_attachments()
-ai_orchestrator = AIOrchestrator(ai_provider, ai_repository)
+ai_orchestrator = AIOrchestrator(
+    settings=app.config,
+    repository=ai_repository,
+    logger=app.logger,
+)
+vision_grader = VisionGradingEngine(ai_orchestrator)
 AI_UPLOAD_DIR = os.path.join(PERSISTENT_DIR, "ai_uploads")
 os.makedirs(AI_UPLOAD_DIR, exist_ok=True)
 app.config["DATABASE_PATH"] = DB_PATH
@@ -2577,6 +2579,8 @@ def quiz(lesson_id=None):
                             ) is not None
                         ):
                             analysis = vision_grader.grade(
+                                user_id=int(session["user_id"]),
+                                subject=get_subject_key(),
                                 image_path=original_path,
                                 question=question.get("question", "Письмове завдання"),
                                 correct_answer=question.get("answer", ""),
@@ -2845,7 +2849,7 @@ def tutor():
     user_id = session.get("user_id")
     daily_limit = app.config["OPENAI_DAILY_LIMIT"]
     used_today = get_ai_usage_today(user_id)
-    ai_mode = "openai" if ai_provider.enabled else "offline"
+    ai_mode = "openai" if ai_orchestrator.enabled else "offline"
     ai_error = None
 
     return render_template(
@@ -2922,12 +2926,47 @@ def normalize_existing_client_id(value):
     return normalized if normalized == raw and normalized else None
 
 
+def get_recent_ai_mistakes(user_id, subject_key, limit=5):
+    """Return a small read-only mistake snapshot for AI context construction."""
+    conn = get_db_connection()
+    try:
+        rows = conn.execute(
+            """
+            SELECT question, user_answer, correct_answer
+            FROM mistakes
+            WHERE user_id = ? AND subject = ?
+            ORDER BY created_at DESC, id DESC
+            LIMIT ?
+            """,
+            (user_id, subject_key, limit),
+        ).fetchall()
+    finally:
+        conn.close()
+    return tuple(
+        (
+            f"Question: {row['question']}; learner answer: {row['user_answer'] or 'empty'}; "
+            f"correct answer: {row['correct_answer']}"
+        )[:700]
+        for row in rows
+    )
+
+
 def build_tutor_learning_context(*, lesson_context, lesson, response_mode):
     data = get_user_data()
+    user_id = int(session.get("user_id"))
+    subject_key = str(session.get("subject") or "none")
+    weak_topic = str(data.get("weak_topic") or "")
     return LearningContext(
-        user_id=int(session.get("user_id")),
+        user_id=user_id,
+        subject=subject_key,
+        completed_lessons=tuple(sorted(data.get("completed_lessons") or ())),
+        known_weaknesses=(weak_topic,) if weak_topic else (),
+        recent_mistakes=get_recent_ai_mistakes(user_id, subject_key),
+        language="uk",
+        difficulty=str(data.get("diagnostic_level") or "adaptive"),
+        available_tokens=int(app.config["OPENAI_MAX_OUTPUT_TOKENS"]),
         user_name=str(session.get("user_name") or "Учень"),
-        subject_key=str(session.get("subject") or "none"),
+        subject_key=subject_key,
         subject_name=str(data.get("subject") or "Підготовка до НМТ"),
         goal=str(data.get("goal") or ""),
         time_left=str(data.get("time_left") or ""),
@@ -2937,7 +2976,7 @@ def build_tutor_learning_context(*, lesson_context, lesson, response_mode):
         lesson_id=int(lesson["id"]) if lesson_context and lesson else None,
         lesson_title=str(lesson.get("title", "")) if lesson_context and lesson else "",
         lesson_goal=str(lesson.get("goal", "зрозуміти тему")) if lesson_context and lesson else "",
-        weak_topic=str(data.get("weak_topic") or ""),
+        weak_topic=weak_topic,
         weak_count=int(data.get("weak_count") or 0),
         response_mode=response_mode,
         lesson_context=lesson_context,
@@ -3418,8 +3457,8 @@ def lesson_chat_api():
     daily_limit = app.config["OPENAI_DAILY_LIMIT"]
     used_today = get_ai_usage_today(user_id)
 
-    claimed_usage = claim_ai_usage(user_id, daily_limit) if ai_provider.enabled else None
-    if ai_provider.enabled and claimed_usage is None:
+    claimed_usage = claim_ai_usage(user_id, daily_limit) if ai_orchestrator.enabled else None
+    if ai_orchestrator.enabled and claimed_usage is None:
         return jsonify({
             "ok": True,
             "answer": "Денний AI-ліміт вичерпано. Продовжимо завтра, а зараз можеш повторити матеріал уроку.",
@@ -3429,7 +3468,7 @@ def lesson_chat_api():
         })
 
     fallback = get_easy_answer(question, lesson_context=True, lesson=lesson)
-    result = ai_provider.complete(
+    result = ai_orchestrator.complete_stateless(
         AIRequest(
             question=question,
             context=build_tutor_learning_context(
@@ -3439,7 +3478,8 @@ def lesson_chat_api():
             ),
             fallback=fallback,
             conversation_id="lesson-chat",
-        )
+        ),
+        engine_name="lesson_chat",
     )
 
     if claimed_usage is not None:

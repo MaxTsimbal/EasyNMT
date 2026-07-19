@@ -1,20 +1,26 @@
+"""Internal OpenAI Responses API adapter.
+
+Only :class:`easynmt_ai.orchestrator.AIOrchestrator` may instantiate or invoke
+this module. Application routes and engines depend on the orchestrator instead.
+"""
 from __future__ import annotations
 
 import os
-from typing import Iterator, Mapping
+from typing import Any, Iterator, Mapping
 
 from .attachments import image_to_data_url
 from .prompts import build_instructions, build_user_input
 from .schemas import AIRequest, AIResult, AIStreamEvent
 
 try:
-    from openai import OpenAI
+    from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI, RateLimitError
 except ImportError:
     OpenAI = None
+    APIConnectionError = APIStatusError = APITimeoutError = RateLimitError = ()
 
 
 class OpenAIResponsesProvider:
-    """Single OpenAI gateway. The rest of EasyNMT never imports the SDK directly."""
+    """Private provider adapter owned exclusively by ``AIOrchestrator``."""
 
     def __init__(self, settings: Mapping | None = None) -> None:
         def read(name: str, default: object) -> object:
@@ -73,16 +79,41 @@ class OpenAIResponsesProvider:
             "metadata": {
                 "app": "EasyNMT",
                 "conversation_id": request.conversation_id[:64],
-                "subject": request.context.subject_key[:32],
-                "mode": request.context.response_mode[:16],
+                "subject": request.context.subject[:32],
+                "mode": getattr(request.context, "response_mode", "explain")[:16],
             },
         }
-
 
     @staticmethod
     def _usage_dict(response: object) -> dict | None:
         usage_obj = getattr(response, "usage", None)
         return usage_obj.model_dump() if hasattr(usage_obj, "model_dump") else None
+
+    @staticmethod
+    def _failure(exc: Exception) -> tuple[str, str, bool]:
+        if APITimeoutError and isinstance(exc, APITimeoutError):
+            return "timeout", "The AI request timed out.", True
+        if RateLimitError and isinstance(exc, RateLimitError):
+            return "rate_limit", "The AI service rate limit was reached.", True
+        if APIConnectionError and isinstance(exc, APIConnectionError):
+            return "api_error", "The AI service could not be reached.", True
+        if APIStatusError and isinstance(exc, APIStatusError):
+            status_code = int(getattr(exc, "status_code", 0) or 0)
+            return (
+                "rate_limit" if status_code == 429 else "api_error",
+                "The AI service rejected the request.",
+                status_code == 429 or status_code >= 500,
+            )
+        return "api_error", "The AI service request failed.", False
+
+    @staticmethod
+    def _response_failure(response: object) -> tuple[str, str] | None:
+        status = str(getattr(response, "status", "") or "").lower()
+        if status not in {"failed", "cancelled", "incomplete"}:
+            return None
+        error = getattr(response, "error", None)
+        code = str(getattr(error, "code", "") or status)
+        return code, f"The AI response ended with status '{status}'."
 
     def complete_custom(
         self,
@@ -93,14 +124,10 @@ class OpenAIResponsesProvider:
         model: str | None = None,
         max_output_tokens: int | None = None,
         metadata: dict[str, str] | None = None,
+        response_format: Mapping[str, Any] | None = None,
     ) -> AIResult:
-        """Run a specialized Responses API task through the shared gateway.
-
-        Used by grading and future lesson/test engines so no other module needs
-        to import or configure the OpenAI SDK.
-        """
         if not self.enabled:
-            return AIResult("", "offline", "OpenAI is not configured")
+            return AIResult("", "offline", "AI is not configured.", error_code="disabled")
 
         content = [{"type": "input_text", "text": text}]
         for attachment in attachments:
@@ -111,7 +138,7 @@ class OpenAIResponsesProvider:
                     "detail": "auto",
                 })
 
-        kwargs = {
+        kwargs: dict[str, Any] = {
             "model": model or (self.vision_model if attachments else self.model),
             "instructions": instructions,
             "input": [{"role": "user", "content": content}],
@@ -124,12 +151,41 @@ class OpenAIResponsesProvider:
                 for key, value in metadata.items()
                 if value is not None
             }
+        if response_format:
+            kwargs["text"] = {
+                "format": {
+                    "type": "json_schema",
+                    "name": str(response_format["name"])[:64],
+                    "schema": dict(response_format["schema"]),
+                    "strict": True,
+                }
+            }
 
         try:
             response = self.client.responses.create(**kwargs)
+            response_failure = self._response_failure(response)
+            if response_failure:
+                code, message = response_failure
+                return AIResult(
+                    "",
+                    "error",
+                    message,
+                    response_id=str(getattr(response, "id", "") or "") or None,
+                    usage=self._usage_dict(response),
+                    error_code="api_error",
+                    retryable=code in {"server_error", "rate_limit_exceeded"},
+                )
             output = str(getattr(response, "output_text", "") or "").strip()
             if not output:
-                return AIResult("", "offline", "OpenAI returned an empty response")
+                return AIResult(
+                    "",
+                    "error",
+                    "The AI service returned an empty response.",
+                    response_id=str(getattr(response, "id", "") or "") or None,
+                    usage=self._usage_dict(response),
+                    error_code="empty_response",
+                    retryable=True,
+                )
             return AIResult(
                 text=output,
                 mode="openai",
@@ -137,29 +193,66 @@ class OpenAIResponsesProvider:
                 usage=self._usage_dict(response),
             )
         except Exception as exc:
-            return AIResult("", "error", str(exc))
+            code, message, retryable = self._failure(exc)
+            return AIResult("", "error", message, error_code=code, retryable=retryable)
 
     def complete(self, request: AIRequest) -> AIResult:
         if not self.enabled:
-            return AIResult(request.fallback, "offline")
+            return AIResult(
+                request.fallback,
+                "offline",
+                "AI is not configured.",
+                error_code="disabled",
+            )
         try:
             response = self.client.responses.create(**self._request_kwargs(request))
+            response_failure = self._response_failure(response)
+            if response_failure:
+                return AIResult(
+                    request.fallback,
+                    "offline",
+                    response_failure[1],
+                    response_id=str(getattr(response, "id", "") or "") or None,
+                    usage=self._usage_dict(response),
+                    error_code="api_error",
+                    retryable=True,
+                )
             text = str(getattr(response, "output_text", "") or "").strip()
             if not text:
-                return AIResult(request.fallback, "offline", "OpenAI повернув порожню відповідь")
-            usage = self._usage_dict(response)
+                return AIResult(
+                    request.fallback,
+                    "offline",
+                    "The AI service returned an empty response.",
+                    response_id=str(getattr(response, "id", "") or "") or None,
+                    usage=self._usage_dict(response),
+                    error_code="empty_response",
+                    retryable=True,
+                )
             return AIResult(
                 text=text,
                 mode="openai",
                 response_id=str(getattr(response, "id", "") or "") or None,
-                usage=usage,
+                usage=self._usage_dict(response),
             )
         except Exception as exc:
-            return AIResult(request.fallback, "offline", str(exc))
+            code, message, retryable = self._failure(exc)
+            return AIResult(
+                request.fallback,
+                "offline",
+                message,
+                error_code=code,
+                retryable=retryable,
+            )
 
     def stream(self, request: AIRequest) -> Iterator[AIStreamEvent]:
         if not self.enabled:
-            yield AIStreamEvent("fallback", {"text": request.fallback, "mode": "offline"})
+            yield AIStreamEvent("fallback", {
+                "text": request.fallback,
+                "mode": "offline",
+                "error": "AI is not configured.",
+                "error_code": "disabled",
+                "retryable": False,
+            })
             return
 
         response_id = None
@@ -181,13 +274,20 @@ class OpenAIResponsesProvider:
                     response = getattr(event, "response", None)
                     response_id = str(getattr(response, "id", "") or "") or response_id
                     usage = self._usage_dict(response)
-                elif event_type == "error":
-                    error = getattr(event, "error", None)
-                    raise RuntimeError(str(getattr(error, "message", "") or "OpenAI streaming error"))
+                elif event_type in {"error", "response.failed"}:
+                    response = getattr(event, "response", None)
+                    error = getattr(event, "error", None) or getattr(response, "error", None)
+                    raise RuntimeError(str(getattr(error, "message", "") or "AI streaming error"))
 
             text = "".join(collected).strip()
             if not text:
-                yield AIStreamEvent("fallback", {"text": request.fallback, "mode": "offline", "error": "empty_response"})
+                yield AIStreamEvent("fallback", {
+                    "text": request.fallback,
+                    "mode": "offline",
+                    "error": "The AI service returned an empty response.",
+                    "error_code": "empty_response",
+                    "retryable": True,
+                })
                 return
             yield AIStreamEvent("completed", {
                 "text": text,
@@ -196,6 +296,7 @@ class OpenAIResponsesProvider:
                 "usage": usage,
             })
         except Exception as exc:
+            code, message, retryable = self._failure(exc)
             partial = "".join(collected).strip()
             if partial:
                 yield AIStreamEvent("completed", {
@@ -203,7 +304,15 @@ class OpenAIResponsesProvider:
                     "mode": "offline",
                     "response_id": response_id,
                     "usage": usage,
-                    "error": str(exc),
+                    "error": message,
+                    "error_code": code,
+                    "retryable": retryable,
                 })
             else:
-                yield AIStreamEvent("fallback", {"text": request.fallback, "mode": "offline", "error": str(exc)})
+                yield AIStreamEvent("fallback", {
+                    "text": request.fallback,
+                    "mode": "offline",
+                    "error": message,
+                    "error_code": code,
+                    "retryable": retryable,
+                })

@@ -1,50 +1,53 @@
-"""Grades photographed handwritten solutions through the shared EasyNMT AI gateway."""
+"""Compatibility facade for the existing photographed-solution workflow."""
 from __future__ import annotations
 
-import json
 import mimetypes
 import os
-import re
-from typing import Any
+from typing import Any, Mapping
 
+from easynmt_ai import AIContext, AIOrchestrator
+from easynmt_ai.prompts.grading import build_vision_grading_prompt
 from easynmt_ai.schemas import AttachmentRef
-from easynmt_ai.service import OpenAIResponsesProvider
-
-
-def _extract_json(text: str) -> dict[str, Any]:
-    text = (text or "").strip()
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        match = re.search(r"\{.*\}", text, re.S)
-        if match:
-            try:
-                return json.loads(match.group(0))
-            except json.JSONDecodeError:
-                pass
-    return {}
 
 
 class VisionGradingEngine:
-    """Photo grading facade. OpenAI SDK access remains centralized in service.py."""
+    """Grade a solution photo through the central AI orchestrator."""
 
-    def __init__(self, provider: OpenAIResponsesProvider | None = None):
-        self.provider = provider or OpenAIResponsesProvider()
+    name = "grading.vision"
+
+    def __init__(self, orchestrator: AIOrchestrator):
+        self.orchestrator = orchestrator
 
     @property
     def enabled(self) -> bool:
-        return self.provider.enabled
+        return self.orchestrator.enabled
 
-    def grade(self, *, image_path: str, question: str, correct_answer: str, reference_solution: str) -> dict[str, Any]:
+    @staticmethod
+    def _offline(reference_solution: str, correct_answer: str) -> dict[str, Any]:
+        return {
+            "score": 0,
+            "is_correct": False,
+            "message": (
+                "Фото збережено, але AI-перевірка зараз недоступна. "
+                "Перевір, чи OPENAI_API_KEY додано в Railway Variables."
+            ),
+            "correct_step": reference_solution or correct_answer,
+            "error_box": {"x": 0.05, "y": 0.05, "width": 0.9, "height": 0.15},
+            "mode": "offline",
+        }
+
+    def grade(
+        self,
+        *,
+        user_id: int,
+        image_path: str,
+        question: str,
+        correct_answer: str,
+        reference_solution: str,
+        subject: str = "none",
+    ) -> dict[str, Any]:
         if not self.enabled:
-            return {
-                "score": 0,
-                "is_correct": False,
-                "message": "Фото збережено, але AI-перевірка зараз недоступна. Перевір, чи OPENAI_API_KEY додано в Railway Variables.",
-                "correct_step": reference_solution or correct_answer,
-                "error_box": {"x": 0.05, "y": 0.05, "width": 0.9, "height": 0.15},
-                "mode": "offline",
-            }
+            return self._offline(reference_solution, correct_answer)
 
         mime = mimetypes.guess_type(image_path)[0] or "image/jpeg"
         attachment = AttachmentRef(
@@ -55,29 +58,25 @@ class VisionGradingEngine:
             stored_path=image_path,
             kind="image",
         )
-        instructions = (
-            "Ти перевіряєш рукописне розв'язання українського школяра. "
-            "Оціни лише видимий хід розв'язання. Не вигадуй нерозбірливі символи. "
-            "Поверни ЛИШЕ JSON: score (0..3), is_correct, message, correct_step, "
-            "error_box з x,y,width,height у частках від 0 до 1. "
-            "score: 1 за правильний підхід, 1 за правильні обчислення, 1 за правильну відповідь. "
-            "Якщо все правильно, error_box може бути null. Пояснюй просто, без шаблонних вступів."
+        context = AIContext(
+            user_id=user_id,
+            subject=subject,
+            language="uk",
+            available_tokens=500,
         )
-        prompt = (
-            f"Завдання: {question}\n"
-            f"Очікувана відповідь: {correct_answer}\n"
-            f"Орієнтовний правильний хід: {reference_solution}\n"
-            "Знайди першу змістову помилку та покажи, як виправити саме цей крок."
-        )
-        result = self.provider.complete_custom(
-            instructions=instructions,
-            text=prompt,
+        result = self.orchestrator.execute_structured(
+            engine_name=self.name,
+            context=context,
+            prompt=build_vision_grading_prompt(
+                question=question,
+                correct_answer=correct_answer,
+                reference_solution=reference_solution,
+            ),
             attachments=(attachment,),
-            model=self.provider.vision_model,
-            max_output_tokens=500,
-            metadata={"app": "EasyNMT", "task": "photo_grading"},
+            parser=lambda payload: dict(payload),
         )
-        if result.mode != "openai":
+        if not result.success:
+            error = result.error
             return {
                 "score": 0,
                 "is_correct": False,
@@ -85,10 +84,11 @@ class VisionGradingEngine:
                 "correct_step": reference_solution or correct_answer,
                 "error_box": {"x": 0.05, "y": 0.05, "width": 0.9, "height": 0.15},
                 "mode": "error",
-                "error": result.error or "AI grading failed",
+                "error": error.message if error else "AI grading failed",
+                "error_code": error.code.value if error else "internal_error",
             }
 
-        parsed = _extract_json(result.text)
+        parsed: Mapping[str, Any] = result.value or {}
         try:
             score = max(0, min(3, int(parsed.get("score", 0))))
         except (TypeError, ValueError):
