@@ -329,6 +329,7 @@ init_db()
 
 ai_repository = AIRepository(DB_PATH)
 ai_repository.ensure_schema()
+ai_repository.prune_unattached_attachments()
 ai_orchestrator = AIOrchestrator(ai_provider, ai_repository)
 AI_UPLOAD_DIR = os.path.join(PERSISTENT_DIR, "ai_uploads")
 os.makedirs(AI_UPLOAD_DIR, exist_ok=True)

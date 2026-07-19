@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Iterable, Optional
 
 from .schemas import AttachmentRef
@@ -438,6 +438,13 @@ class AIRepository:
         conn = self.connect()
         try:
             conn.execute("BEGIN IMMEDIATE")
+            owned = conn.execute(
+                "SELECT 1 FROM ai_conversations WHERE user_id = ? AND id = ?",
+                (user_id, conversation_id),
+            ).fetchone()
+            if owned is None:
+                conn.rollback()
+                return False
             attachment_rows = conn.execute(
                 "SELECT stored_path FROM ai_attachments WHERE user_id = ? AND conversation_id = ?",
                 (user_id, conversation_id),
@@ -480,3 +487,33 @@ class AIRepository:
                 # orphan can be removed later without restoring deleted data.
                 pass
         return changed
+
+    def prune_unattached_attachments(self, *, max_age_hours: int = 24) -> int:
+        cutoff = (
+            datetime.now(timezone.utc) - timedelta(hours=max(1, int(max_age_hours)))
+        ).isoformat(timespec="seconds")
+        conn = self.connect()
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            rows = conn.execute(
+                "SELECT stored_path FROM ai_attachments "
+                "WHERE message_id IS NULL AND created_at < ?",
+                (cutoff,),
+            ).fetchall()
+            conn.execute(
+                "DELETE FROM ai_attachments WHERE message_id IS NULL AND created_at < ?",
+                (cutoff,),
+            )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+        for row in rows:
+            try:
+                os.remove(row["stored_path"])
+            except OSError:
+                pass
+        return len(rows)

@@ -1,4 +1,5 @@
 import io
+import os
 import re
 import sqlite3
 import unittest
@@ -103,6 +104,32 @@ class AIFlowTests(unittest.TestCase):
             ).fetchall()
         self.assertEqual(rows, [("user", "user"), ("assistant", "offline")])
 
+        feedback = self.post_json(
+            "/api/ai/messages/msg-assistant-offline/feedback",
+            {"rating": "up"},
+        )
+        self.assertEqual(feedback.status_code, 200)
+        deleted = self.client.delete(
+            "/api/ai/conversations/chat-offline",
+            headers={"X-CSRF-Token": self.csrf_token},
+        )
+        self.assertEqual(deleted.status_code, 200)
+        with sqlite3.connect(app_module.DB_PATH) as conn:
+            self.assertEqual(
+                conn.execute(
+                    "SELECT COUNT(*) FROM ai_messages WHERE user_id = ? AND conversation_id = ?",
+                    (self.user_id, "chat-offline"),
+                ).fetchone()[0],
+                0,
+            )
+            self.assertEqual(
+                conn.execute(
+                    "SELECT COUNT(*) FROM ai_message_feedback WHERE user_id = ?",
+                    (self.user_id,),
+                ).fetchone()[0],
+                0,
+            )
+
     def test_unknown_attachments_and_locked_lessons_are_rejected(self):
         missing = self.post_json(
             "/api/tutor-chat",
@@ -133,17 +160,27 @@ class AIFlowTests(unittest.TestCase):
         )
         self.assertEqual(second.status_code, 429)
         with sqlite3.connect(app_module.DB_PATH) as conn:
-            count = conn.execute(
-                "SELECT COUNT(*) FROM ai_attachments WHERE user_id = ?",
+            attachment_row = conn.execute(
+                "SELECT stored_path FROM ai_attachments WHERE user_id = ?",
                 (self.user_id,),
-            ).fetchone()[0]
-        self.assertEqual(count, 1)
+            ).fetchone()
+        self.assertIsNotNone(attachment_row)
 
         missing = self.client.delete(
-            "/api/ai/conversations/not-present",
+            "/api/ai/conversations/chat-upload",
             headers={"X-CSRF-Token": self.csrf_token},
         )
         self.assertEqual(missing.status_code, 404)
+        self.assertTrue(os.path.isfile(attachment_row[0]))
+
+        with sqlite3.connect(app_module.DB_PATH) as conn:
+            conn.execute(
+                "UPDATE ai_attachments SET created_at = '2000-01-01T00:00:00+00:00' "
+                "WHERE user_id = ?",
+                (self.user_id,),
+            )
+        self.assertEqual(app_module.ai_repository.prune_unattached_attachments(), 1)
+        self.assertFalse(os.path.exists(attachment_row[0]))
 
     def test_usage_claim_is_atomic_under_concurrency(self):
         with sqlite3.connect(app_module.DB_PATH) as conn:
