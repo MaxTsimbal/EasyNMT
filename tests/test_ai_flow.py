@@ -161,6 +161,43 @@ class AIFlowTests(unittest.TestCase):
         self.assertEqual(results.count(None), 9)
         self.assertEqual(app_module.get_ai_usage_today(self.user_id), 3)
 
+    def test_application_pages_and_removed_demo_routes_smoke(self):
+        paths = (
+            "/",
+            "/health",
+            "/ready",
+            "/about",
+            "/pricing",
+            "/privacy",
+            "/welcome",
+            "/dashboard",
+            "/today",
+            "/lesson/1",
+            "/theory/1",
+            "/example/1",
+            "/quiz/1",
+            "/result",
+            "/progress",
+            "/achievements",
+            "/tutor",
+            "/api/ai/status",
+            "/api/ai/conversations",
+            "/library",
+            "/planner",
+            "/mistakes",
+            "/profile",
+            "/settings",
+            "/change-subject",
+            "/robots.txt",
+            "/sitemap.xml",
+        )
+        for path in paths:
+            response = self.client.get(path)
+            self.assertLess(response.status_code, 500, path)
+
+        for path in ("/start", "/beta-check", "/v1-beta", "/api/v1-beta/curriculum"):
+            self.assertEqual(self.client.get(path).status_code, 404, path)
+
 
 if __name__ == "__main__":
     unittest.main()

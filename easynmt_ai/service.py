@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Iterator
+from typing import Iterator, Mapping
 
 from .attachments import image_to_data_url
 from .prompts import build_instructions, build_user_input
@@ -16,14 +16,24 @@ except ImportError:
 class OpenAIResponsesProvider:
     """Single OpenAI gateway. The rest of EasyNMT never imports the SDK directly."""
 
-    def __init__(self) -> None:
-        self.api_key = os.getenv("OPENAI_API_KEY", "").strip()
-        self.model = os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini"
-        self.vision_model = os.getenv("OPENAI_VISION_MODEL", self.model).strip() or self.model
-        self.max_output_tokens = int(os.getenv("OPENAI_MAX_OUTPUT_TOKENS", "900"))
-        self.timeout = float(os.getenv("OPENAI_TIMEOUT_SECONDS", "45"))
-        self.max_retries = int(os.getenv("OPENAI_MAX_RETRIES", "1"))
-        self.store_responses = os.getenv("OPENAI_STORE_RESPONSES", "0") == "1"
+    def __init__(self, settings: Mapping | None = None) -> None:
+        def read(name: str, default: object) -> object:
+            if settings is not None:
+                return settings.get(name, default)
+            return os.getenv(name, str(default))
+
+        self.api_key = str(read("OPENAI_API_KEY", "")).strip()
+        self.model = str(read("OPENAI_MODEL", "gpt-4o-mini")).strip() or "gpt-4o-mini"
+        self.vision_model = str(read("OPENAI_VISION_MODEL", self.model)).strip() or self.model
+        self.max_output_tokens = int(read("OPENAI_MAX_OUTPUT_TOKENS", 900))
+        self.timeout = float(read("OPENAI_TIMEOUT_SECONDS", 45))
+        self.max_retries = int(read("OPENAI_MAX_RETRIES", 1))
+        store_responses = read("OPENAI_STORE_RESPONSES", False)
+        self.store_responses = (
+            store_responses
+            if isinstance(store_responses, bool)
+            else str(store_responses).strip() == "1"
+        )
         self.client = (
             OpenAI(api_key=self.api_key, timeout=self.timeout, max_retries=self.max_retries)
             if self.api_key and OpenAI

@@ -106,9 +106,8 @@ def exchange_callback(*, code: str, state: str, callback_url: str) -> dict[str, 
     )
     if not token_response.ok:
         current_app.logger.error(
-            "Google token exchange failed: status=%s body=%s",
+            "Google token exchange failed: status=%s",
             token_response.status_code,
-            token_response.text[:500],
         )
         raise RuntimeError("Google token exchange failed")
 
@@ -124,9 +123,8 @@ def exchange_callback(*, code: str, state: str, callback_url: str) -> dict[str, 
     )
     if not profile_response.ok:
         current_app.logger.error(
-            "Google userinfo failed: status=%s body=%s",
+            "Google userinfo failed: status=%s",
             profile_response.status_code,
-            profile_response.text[:500],
         )
         raise RuntimeError("Google profile request failed")
 

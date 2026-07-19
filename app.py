@@ -20,13 +20,18 @@ from werkzeug.utils import secure_filename
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config import Config
-from ai_service import EasyNMT_AI
 from learning_engine import MAX_SCORE, PASS_SCORE, build_quiz, grade_question
 from lesson_board_engine import build_lesson_board
 from solution_annotation_engine import create_annotated_solution
 from vision_grading_engine import VisionGradingEngine
-from easynmt_ai import AIOrchestrator, AIRepository, AIRequest, AIStreamEvent, LearningContext
-from easynmt_learning import LearningGenerationService, LearningRepository
+from easynmt_ai import (
+    AIOrchestrator,
+    AIRepository,
+    AIRequest,
+    AIStreamEvent,
+    LearningContext,
+    OpenAIResponsesProvider,
+)
 from easynmt_ai.attachments import AttachmentError, normalize_attachment_ids, save_image_upload
 
 from google_oauth import build_authorization_url, credentials_status, exchange_callback
@@ -40,8 +45,8 @@ if app.config["TRUST_PROXY_HEADERS"]:
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 app.secret_key = app.config["SECRET_KEY"]
 app.register_blueprint(health_bp)
-ai_service = EasyNMT_AI()
-vision_grader = VisionGradingEngine(ai_service.provider)
+ai_provider = OpenAIResponsesProvider(app.config)
+vision_grader = VisionGradingEngine(ai_provider)
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 INSTANCE_DIR = os.path.join(BASE_DIR, "instance")
@@ -84,7 +89,6 @@ def init_db():
             password_hash TEXT,
             provider TEXT NOT NULL DEFAULT 'email',
             google_sub TEXT UNIQUE,
-            avatar_url TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         """
@@ -292,7 +296,6 @@ def init_db():
     ensure_column("user_plans", "last_activity_date", "TEXT")
     ensure_column("user_plans", "diagnostic_required", "INTEGER NOT NULL DEFAULT 0")
     ensure_column("users", "google_sub", "TEXT")
-    ensure_column("users", "avatar_url", "TEXT")
     ensure_column("user_subject_progress", "last_lesson_id", "INTEGER")
     ensure_column("user_subject_progress", "last_quiz_score", "INTEGER")
     ensure_column("user_subject_progress", "last_quiz_total", "INTEGER")
@@ -326,10 +329,7 @@ init_db()
 
 ai_repository = AIRepository(DB_PATH)
 ai_repository.ensure_schema()
-ai_orchestrator = AIOrchestrator(ai_service.provider, ai_repository)
-learning_repository = LearningRepository(DB_PATH)
-learning_repository.ensure_schema()
-learning_service = LearningGenerationService(ai_service.provider, learning_repository)
+ai_orchestrator = AIOrchestrator(ai_provider, ai_repository)
 AI_UPLOAD_DIR = os.path.join(PERSISTENT_DIR, "ai_uploads")
 os.makedirs(AI_UPLOAD_DIR, exist_ok=True)
 app.config["DATABASE_PATH"] = DB_PATH
@@ -440,7 +440,6 @@ def clear_plan_session():
     session.pop("xp", None)
     session.pop("last_score", None)
     session.pop("last_total", None)
-    session.pop("last_review", None)
     session.pop("last_passed", None)
     session.pop("last_attempt_token", None)
     session.pop("last_lesson_id", None)
@@ -709,7 +708,8 @@ def require_login(view_func):
 
 
 def login_failure_key(email):
-    source = f"{str(email or '').strip().lower()}|{request.remote_addr or 'unknown'}"
+    normalized_email = str(email or "").strip().lower()[:254]
+    source = f"{normalized_email}|{request.remote_addr or 'unknown'}"
     return hashlib.sha256(source.encode("utf-8")).hexdigest()
 
 
@@ -1959,11 +1959,16 @@ def login():
             abort(429, description="Забагато невдалих спроб входу. Спробуй ще раз через 15 хвилин.")
 
         conn = get_db_connection()
-        user = conn.execute("SELECT * FROM users WHERE lower(email) = ?", (email,)).fetchone()
+        user = None
+        if len(email) <= 254 and EMAIL_PATTERN.fullmatch(email):
+            user = conn.execute("SELECT * FROM users WHERE lower(email) = ?", (email,)).fetchone()
         conn.close()
 
         password_hash = user["password_hash"] if user is not None and user["password_hash"] else DUMMY_PASSWORD_HASH
-        password_valid = check_password_hash(password_hash, password)
+        password_valid = check_password_hash(
+            password_hash,
+            password if len(password) <= 128 else "",
+        )
         if user is None or not user["password_hash"] or not password_valid:
             record_login_failure(failure_key)
             flash("Невірний email або пароль.", "error")
@@ -2058,7 +2063,6 @@ def google_callback():
     email = (user_info.get("email") or "").strip().lower()
     name = (user_info.get("name") or "").strip() or (email.split("@")[0] if email else "Учень")
     google_sub = (user_info.get("sub") or "").strip()
-    avatar_url = (user_info.get("picture") or "").strip()
     email_verified = user_info.get("email_verified")
 
     if not email or not google_sub:
@@ -2082,10 +2086,10 @@ def google_callback():
             cursor = conn.execute(
                 """
                 INSERT INTO users
-                    (name, email, password_hash, provider, google_sub, avatar_url)
-                VALUES (?, ?, ?, ?, ?, ?)
+                    (name, email, password_hash, provider, google_sub)
+                VALUES (?, ?, ?, ?, ?)
                 """,
-                (name, email, None, "google", google_sub, avatar_url),
+                (name, email, None, "google", google_sub),
             )
             conn.commit()
             user = conn.execute(
@@ -2096,11 +2100,10 @@ def google_callback():
                 """
                 UPDATE users
                 SET google_sub = COALESCE(google_sub, ?),
-                    avatar_url = CASE WHEN ? <> '' THEN ? ELSE avatar_url END,
                     name = CASE WHEN name = '' THEN ? ELSE name END
                 WHERE id = ?
                 """,
-                (google_sub, avatar_url, avatar_url, name, user["id"]),
+                (google_sub, name, user["id"]),
             )
             conn.commit()
             user = conn.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
@@ -2116,7 +2119,6 @@ def google_callback():
         ensure_legacy_google_plan(user["id"])
 
     login_user(user)
-    session["user_avatar"] = avatar_url
     flash("Готово, ти увійшов через Google.", "success")
     return redirect_after_auth()
 
@@ -2461,6 +2463,16 @@ def quiz_draft_api(lesson_id):
     answers = payload.get("answers") if isinstance(payload, dict) else {}
     if not isinstance(answers, dict):
         return {"ok": False, "error": "invalid_answers"}, 400
+    allowed_question_ids = {
+        f"{get_subject_key()}_{lesson_id}_{index}"
+        for index in range(1, len(get_quiz_questions(lesson_id)) + 1)
+    }
+    if len(answers) > len(allowed_question_ids) or any(
+        key not in allowed_question_ids
+        or not isinstance(value, (str, int, float))
+        for key, value in answers.items()
+    ):
+        return {"ok": False, "error": "invalid_answers"}, 400
     save_quiz_draft(lesson_id, answers)
     return {"ok": True}
 
@@ -2550,7 +2562,7 @@ def quiz(lesson_id=None):
             annotated_url = None
             photo_url = None
             if points == 3:
-                user_answer = request.form.get(f"answer_{qid}", "").strip()
+                user_answer = request.form.get(f"answer_{qid}", "").strip()[:4000]
                 photo = request.files.get(f"photo_{qid}")
                 if photo and photo.filename:
                     try:
@@ -2593,7 +2605,7 @@ def quiz(lesson_id=None):
                 else:
                     earned, is_correct, feedback = grade_question(question, user_answer)
             else:
-                user_answer = request.form.get(f"answer_{qid}", "").strip()
+                user_answer = request.form.get(f"answer_{qid}", "").strip()[:4000]
                 earned, is_correct, feedback = grade_question(question, user_answer)
 
             score += earned
@@ -2710,8 +2722,6 @@ def result():
             review = json.loads(attempt.get("review_json") or "[]")
         except (TypeError, ValueError, json.JSONDecodeError):
             review = []
-    elif "last_score" in session:
-        review = session.get("last_review", [])
     else:
         return redirect(url_for("today"))
 
@@ -2834,7 +2844,7 @@ def tutor():
     user_id = session.get("user_id")
     daily_limit = app.config["OPENAI_DAILY_LIMIT"]
     used_today = get_ai_usage_today(user_id)
-    ai_mode = "openai" if ai_service.enabled else "offline"
+    ai_mode = "openai" if ai_provider.enabled else "offline"
     ai_error = None
 
     return render_template(
@@ -3407,8 +3417,8 @@ def lesson_chat_api():
     daily_limit = app.config["OPENAI_DAILY_LIMIT"]
     used_today = get_ai_usage_today(user_id)
 
-    claimed_usage = claim_ai_usage(user_id, daily_limit) if ai_service.enabled else None
-    if ai_service.enabled and claimed_usage is None:
+    claimed_usage = claim_ai_usage(user_id, daily_limit) if ai_provider.enabled else None
+    if ai_provider.enabled and claimed_usage is None:
         return jsonify({
             "ok": True,
             "answer": "Денний AI-ліміт вичерпано. Продовжимо завтра, а зараз можеш повторити матеріал уроку.",
@@ -3418,13 +3428,17 @@ def lesson_chat_api():
         })
 
     fallback = get_easy_answer(question, lesson_context=True, lesson=lesson)
-    result = ai_service.answer(
-        question=question,
-        subject=session.get("subject", "НМТ"),
-        lesson_title=lesson["title"],
-        lesson_goal=lesson.get("goal", "зрозуміти тему"),
-        fallback=fallback,
-        lesson_context=True,
+    result = ai_provider.complete(
+        AIRequest(
+            question=question,
+            context=build_tutor_learning_context(
+                lesson_context=True,
+                lesson=lesson,
+                response_mode="explain",
+            ),
+            fallback=fallback,
+            conversation_id="lesson-chat",
+        )
     )
 
     if claimed_usage is not None:
@@ -3562,22 +3576,6 @@ def settings():
     return render_template("settings.html", **get_user_data())
 
 
-@app.route("/beta-check")
-@require_login
-def beta_check():
-    if not onboarding_complete():
-        return redirect(url_for("goal"))
-
-    checks = [
-        {"icon": "✅", "title": "Онбординг", "desc": "Реєстрація, ціль, предмет і час працюють."},
-        {"icon": "✅", "title": "Уроки", "desc": "Є теорія, приклади, тести й результат."},
-        {"icon": "✅", "title": "Прогрес", "desc": "XP, серія, уроки та досягнення зберігаються."},
-        {"icon": "✅", "title": "AI Викладач", "desc": "Готові Responses API, streaming, серверна пам’ять, фото та навчальний контекст."},
-        {"icon": "✅", "title": "Публікація", "desc": "Збірка підготовлена до Railway: Gunicorn, health-check і постійна база даних."},
-    ]
-    return render_template("beta_check.html", **get_user_data(), checks=checks)
-
-
 @app.route("/robots.txt")
 def robots_txt():
     base_url = request.url_root.rstrip("/")
@@ -3598,60 +3596,5 @@ def sitemap_xml():
 </urlset>
 """
     return Response(content, mimetype="application/xml")
-
-
-
-
-@app.route("/api/v1-beta/curriculum", methods=["GET", "POST"])
-@require_login
-def v1_beta_curriculum_api():
-    try:
-        uid=int(session["user_id"])
-        if request.method=="GET":
-            cid=request.args.get("id",type=int); data=learning_repository.curriculum_bundle(cid,uid) if cid else None
-            return ({"ok":True,"curriculum":data} if data else ({"ok":False,"error":"not_found"},404))
-        p=request.get_json(silent=True) or {}; data=learning_service.generate_curriculum(uid,str(p.get("subject") or session.get("subject") or "Математика"),str(p.get("goal") or session.get("goal") or "Підготовка до НМТ"),str(p.get("level") or "basic"),bool(p.get("force")))
-        return {"ok":True,"curriculum":data,"version":"v1.0 Beta"}
-    except Exception as exc:
-        app.logger.exception("curriculum generation failed"); return {"ok":False,"error":str(exc)},500
-
-@app.route("/api/v1-beta/topic/<int:topic_id>/lesson", methods=["GET","POST"])
-@require_login
-def v1_beta_lesson_api(topic_id):
-    try:
-        p=request.get_json(silent=True) or {}; data=learning_service.generate_lesson(int(session["user_id"]),topic_id,bool(p.get("force")))
-        return {"ok":True,"lesson":data,"version":"v1.0 Beta"}
-    except Exception as exc:
-        app.logger.exception("lesson generation failed"); return {"ok":False,"error":str(exc)},500
-
-@app.route("/api/v1-beta/topic/<int:topic_id>/quiz", methods=["GET","POST"])
-@require_login
-def v1_beta_quiz_api(topic_id):
-    try:
-        p=request.get_json(silent=True) or {}; data=learning_service.generate_quiz(int(session["user_id"]),topic_id,bool(p.get("force")))
-        safe=dict(data); out=[]
-        for item in safe.get("questions",[]):
-            x=dict(item)
-            for k in ("answer","correct_answer","solution_steps","rubric"): x.pop(k,None)
-            out.append(x)
-        safe["questions"]=out; return {"ok":True,"quiz":safe,"version":"v1.0 Beta"}
-    except Exception as exc:
-        app.logger.exception("quiz generation failed"); return {"ok":False,"error":str(exc)},500
-
-@app.route("/api/v1-beta/quiz/<int:quiz_id>/grade", methods=["POST"])
-@require_login
-def v1_beta_grade_api(quiz_id):
-    try:
-        p=request.get_json(silent=True) or {}; answers=p.get("answers")
-        if not isinstance(answers,(dict,list)): return {"ok":False,"error":"invalid_answers"},400
-        return {"ok":True,"result":learning_service.grade_quiz(int(session["user_id"]),quiz_id,answers),"version":"v1.0 Beta"}
-    except Exception as exc:
-        app.logger.exception("grading failed"); return {"ok":False,"error":str(exc)},500
-
-@app.route("/v1-beta")
-@require_login
-def v1_beta_hub():
-    return render_template("v1_beta.html", **get_user_data(), version="v1.0 Beta")
-
 if __name__ == "__main__":
     app.run(debug=app.config["DEBUG"])

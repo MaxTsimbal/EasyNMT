@@ -10,8 +10,11 @@ def _secret_key() -> str:
         "replace-with-a-long-random-secret",
         "EasyNMT_2026_SECRET_CHANGE_ME",
     }
-    if production and (not configured or configured in known_placeholders):
-        raise RuntimeError("SECRET_KEY must be set to a strong random value in production")
+    if production and (
+        len(configured) < 32
+        or configured in known_placeholders
+    ):
+        raise RuntimeError("SECRET_KEY must be at least 32 characters and random in production")
     return configured or secrets.token_urlsafe(48)
 
 
@@ -20,12 +23,13 @@ class Config:
     PERMANENT_SESSION_LIFETIME = timedelta(days=30)
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
-    SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "1" if os.environ.get("RAILWAY_ENVIRONMENT") else "0") == "1"
+    SESSION_COOKIE_SECURE = bool(os.environ.get("RAILWAY_ENVIRONMENT")) or os.environ.get("SESSION_COOKIE_SECURE", "0") == "1"
     SESSION_COOKIE_NAME = "easynmt_session"
     SESSION_REFRESH_EACH_REQUEST = True
     PREFERRED_URL_SCHEME = "https" if os.environ.get("RAILWAY_ENVIRONMENT") else "http"
     TRUST_PROXY_HEADERS = bool(os.environ.get("RAILWAY_ENVIRONMENT"))
     DEBUG = os.environ.get("FLASK_DEBUG", "0") == "1"
+    OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
     OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
     OPENAI_VISION_MODEL = os.environ.get("OPENAI_VISION_MODEL", OPENAI_MODEL)
     OPENAI_MAX_OUTPUT_TOKENS = int(os.environ.get("OPENAI_MAX_OUTPUT_TOKENS", "900"))

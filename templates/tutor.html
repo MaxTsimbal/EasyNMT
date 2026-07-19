@@ -167,7 +167,7 @@ window.MathJax = {
                 {% endif %}
                 <span class="ec2-live-state" id="ec2LiveState">
                     <i class="ec2-status-dot ec2-status-dot--{{ ai_mode }}" id="ec2TopStatusDot" aria-hidden="true"></i>
-                    <span id="ec2TopModeLabel">{% if ai_mode == 'openai' %}Online{% elif ai_mode == 'limit' %}Limit{% else %}Demo{% endif %}</span>
+                    <span id="ec2TopModeLabel">{% if ai_mode == 'openai' %}Online{% elif ai_mode == 'limit' %}Limit{% else %}Offline{% endif %}</span>
                 </span>
                 <button class="ec2-icon-button" id="ec2ExportChat" type="button" aria-label="Експортувати розмову" title="Експортувати розмову">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>
