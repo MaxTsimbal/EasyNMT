@@ -46,6 +46,12 @@ class AIOrchestrator:
     def enabled(self) -> bool:
         return self._gateway.enabled
 
+    @property
+    def model_identifier(self) -> str:
+        """Return the configured text model without exposing the provider adapter."""
+
+        return str(getattr(self._gateway, "model", "unknown") or "unknown")
+
     @staticmethod
     def clean_text(value: object) -> str:
         text = str(value or "").strip()
@@ -276,6 +282,7 @@ class AIOrchestrator:
         cache_key: str | None = None,
         cache_ttl_seconds: int | None = None,
         force_refresh: bool = False,
+        max_output_tokens: int | None = None,
     ) -> EngineResult[T]:
         """Execute, validate, and optionally cache a typed engine response."""
 
@@ -303,7 +310,7 @@ class AIOrchestrator:
                 instructions=prompt.instructions,
                 text=prompt.user_input,
                 attachments=attachments,
-                max_output_tokens=context.available_tokens,
+                max_output_tokens=max_output_tokens or context.available_tokens,
                 metadata={
                     "app": "EasyNMT",
                     "engine": engine_name,

@@ -42,6 +42,8 @@ class EngineResult(Generic[T]):
     cached: bool = False
     usage: Optional[dict[str, Any]] = None
     response_id: Optional[str] = None
+    warnings: tuple[AIError, ...] = field(default_factory=tuple)
+    fallback_used: bool = False
 
     @property
     def success(self) -> bool:

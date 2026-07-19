@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+from datetime import datetime
+from enum import Enum
 from typing import Any, Mapping, Optional, Sequence
 
 
@@ -38,6 +40,29 @@ def _boolean(value: object, name: str) -> bool:
     if not isinstance(value, bool):
         raise AIModelValidationError(f"{name} must be a boolean")
     return value
+
+
+def _number(value: object, name: str, *, minimum: float = 0, maximum: float | None = None) -> float:
+    if isinstance(value, bool):
+        raise AIModelValidationError(f"{name} must be a number")
+    try:
+        result = float(value)
+    except (TypeError, ValueError) as exc:
+        raise AIModelValidationError(f"{name} must be a number") from exc
+    if result < minimum or (maximum is not None and result > maximum):
+        raise AIModelValidationError(f"{name} is out of range")
+    return result
+
+
+def _timestamp(value: object, name: str) -> str:
+    result = _text(value, name)
+    try:
+        parsed = datetime.fromisoformat(result.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise AIModelValidationError(f"{name} must be an ISO-8601 timestamp") from exc
+    if parsed.utcoffset() is None:
+        raise AIModelValidationError(f"{name} must include a timezone")
+    return result
 
 
 def _strings(value: object, name: str) -> tuple[str, ...]:
@@ -156,43 +181,269 @@ class LearningPlan(SerializableAIModel):
         )
 
 
+class CurriculumStatus(str, Enum):
+    DRAFT = "draft"
+    VALIDATED = "validated"
+    PUBLISHED = "published"
+    SUPERSEDED = "superseded"
+    REJECTED = "rejected"
+
+
+@dataclass(frozen=True)
+class CurriculumUnit(SerializableAIModel):
+    id: str
+    order: int
+    topic_id: str
+    prerequisite_topic_ids: tuple[str, ...]
+    prerequisite_explanation: str
+    priority: str
+    difficulty: str
+    estimated_duration_minutes: int
+    study_sessions: int
+    mastery_target: float
+    reason_code: str
+
+    @classmethod
+    def from_dict(cls, value: Mapping[str, Any]) -> "CurriculumUnit":
+        data = _mapping(value, "curriculum unit")
+        return cls(
+            id=_text(data.get("id"), "curriculum_unit.id"),
+            order=_integer(data.get("order"), "curriculum_unit.order", minimum=1),
+            topic_id=_text(data.get("topic_id"), "curriculum_unit.topic_id"),
+            prerequisite_topic_ids=_strings(
+                data.get("prerequisite_topic_ids", ()),
+                "curriculum_unit.prerequisite_topic_ids",
+            ),
+            prerequisite_explanation=_text(
+                data.get("prerequisite_explanation", ""),
+                "curriculum_unit.prerequisite_explanation",
+                allow_empty=True,
+            ),
+            priority=_text(data.get("priority"), "curriculum_unit.priority"),
+            difficulty=_text(data.get("difficulty"), "curriculum_unit.difficulty"),
+            estimated_duration_minutes=_integer(
+                data.get("estimated_duration_minutes"),
+                "curriculum_unit.estimated_duration_minutes",
+                minimum=1,
+            ),
+            study_sessions=_integer(
+                data.get("study_sessions"), "curriculum_unit.study_sessions", minimum=1
+            ),
+            mastery_target=_number(
+                data.get("mastery_target"),
+                "curriculum_unit.mastery_target",
+                minimum=0,
+                maximum=1,
+            ),
+            reason_code=_text(data.get("reason_code"), "curriculum_unit.reason_code"),
+        )
+
+
+@dataclass(frozen=True)
+class ReviewCheckpoint(SerializableAIModel):
+    id: str
+    after_unit_order: int
+    topic_ids: tuple[str, ...]
+    reason_code: str
+    estimated_minutes: int
+
+    @classmethod
+    def from_dict(cls, value: Mapping[str, Any]) -> "ReviewCheckpoint":
+        data = _mapping(value, "review checkpoint")
+        topic_ids = _strings(data.get("topic_ids", ()), "review_checkpoint.topic_ids")
+        if not topic_ids:
+            raise AIModelValidationError("review checkpoint topics must not be empty")
+        return cls(
+            id=_text(data.get("id"), "review_checkpoint.id"),
+            after_unit_order=_integer(
+                data.get("after_unit_order"),
+                "review_checkpoint.after_unit_order",
+                minimum=1,
+            ),
+            topic_ids=topic_ids,
+            reason_code=_text(data.get("reason_code"), "review_checkpoint.reason_code"),
+            estimated_minutes=_integer(
+                data.get("estimated_minutes"),
+                "review_checkpoint.estimated_minutes",
+                minimum=1,
+            ),
+        )
+
+
+@dataclass(frozen=True)
+class CurriculumGenerationMetadata(SerializableAIModel):
+    source: str
+    context_fingerprint: str
+    request_fingerprint: str
+    required_topic_ids: tuple[str, ...] = field(default_factory=tuple)
+    allowed_topic_ids: tuple[str, ...] = field(default_factory=tuple)
+    mastered_topic_ids: tuple[str, ...] = field(default_factory=tuple)
+    weakness_topic_ids: tuple[str, ...] = field(default_factory=tuple)
+    review_topic_ids: tuple[str, ...] = field(default_factory=tuple)
+    max_session_minutes: int = 60
+    study_minutes_per_week: int = 240
+    available_weeks: Optional[int] = None
+    provider_response_id: Optional[str] = None
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
+    total_tokens: Optional[int] = None
+    fallback_error_code: Optional[str] = None
+
+    @classmethod
+    def from_dict(cls, value: Mapping[str, Any]) -> "CurriculumGenerationMetadata":
+        data = _mapping(value, "curriculum generation metadata")
+
+        def optional_integer(name: str) -> Optional[int]:
+            raw = data.get(name)
+            return None if raw is None else _integer(raw, f"generation_metadata.{name}")
+
+        source = _text(data.get("source"), "generation_metadata.source")
+        if source not in {"openai", "deterministic"}:
+            raise AIModelValidationError("generation_metadata.source is invalid")
+        return cls(
+            source=source,
+            context_fingerprint=_text(
+                data.get("context_fingerprint"), "generation_metadata.context_fingerprint"
+            ),
+            request_fingerprint=_text(
+                data.get("request_fingerprint"), "generation_metadata.request_fingerprint"
+            ),
+            required_topic_ids=_strings(
+                data.get("required_topic_ids", ()),
+                "generation_metadata.required_topic_ids",
+            ),
+            allowed_topic_ids=_strings(
+                data.get("allowed_topic_ids", ()),
+                "generation_metadata.allowed_topic_ids",
+            ),
+            mastered_topic_ids=_strings(
+                data.get("mastered_topic_ids", ()),
+                "generation_metadata.mastered_topic_ids",
+            ),
+            weakness_topic_ids=_strings(
+                data.get("weakness_topic_ids", ()),
+                "generation_metadata.weakness_topic_ids",
+            ),
+            review_topic_ids=_strings(
+                data.get("review_topic_ids", ()),
+                "generation_metadata.review_topic_ids",
+            ),
+            max_session_minutes=_integer(
+                data.get("max_session_minutes", 60),
+                "generation_metadata.max_session_minutes",
+                minimum=1,
+            ),
+            study_minutes_per_week=_integer(
+                data.get("study_minutes_per_week", 240),
+                "generation_metadata.study_minutes_per_week",
+                minimum=1,
+            ),
+            available_weeks=(
+                None
+                if data.get("available_weeks") is None
+                else _integer(data.get("available_weeks"), "generation_metadata.available_weeks")
+            ),
+            provider_response_id=(
+                str(data["provider_response_id"]).strip()
+                if data.get("provider_response_id")
+                else None
+            ),
+            input_tokens=optional_integer("input_tokens"),
+            output_tokens=optional_integer("output_tokens"),
+            total_tokens=optional_integer("total_tokens"),
+            fallback_error_code=(
+                str(data["fallback_error_code"]).strip()
+                if data.get("fallback_error_code")
+                else None
+            ),
+        )
+
+
 @dataclass(frozen=True)
 class Curriculum(SerializableAIModel):
     id: str
+    curriculum_version: int
+    taxonomy_version: str
+    user_id: int
     subject: str
-    goal_score: Optional[int]
-    plans: tuple[LearningPlan, ...]
-    rationale: str = ""
+    target_score: int
+    starting_level: str
+    status: CurriculumStatus
+    creation_reason: str
+    units: tuple[CurriculumUnit, ...]
+    review_checkpoints: tuple[ReviewCheckpoint, ...]
+    generation_metadata: CurriculumGenerationMetadata
+    prompt_version: str
+    schema_version: str
+    model_identifier: str
+    created_at: str
+
+    @property
+    def goal_score(self) -> int:
+        """Compatibility alias for the Task 1 curriculum contract."""
+
+        return self.target_score
 
     @classmethod
     def from_dict(cls, value: Mapping[str, Any]) -> "Curriculum":
         data = _mapping(value, "curriculum")
-        raw_plans = data.get("plans")
-        if not isinstance(raw_plans, Sequence) or isinstance(raw_plans, (str, bytes)):
-            raise AIModelValidationError("curriculum.plans must be an array")
-        plans = tuple(LearningPlan.from_dict(_mapping(item, "curriculum plan")) for item in raw_plans)
-        if not plans:
-            raise AIModelValidationError("curriculum.plans must not be empty")
-        plan_ids = {plan.id for plan in plans}
-        if len(plan_ids) != len(plans):
-            raise AIModelValidationError("curriculum plan IDs must be unique")
-        if {plan.order for plan in plans} != set(range(1, len(plans) + 1)):
-            raise AIModelValidationError("curriculum plan order must be contiguous")
-        plan_order = {plan.id: plan.order for plan in plans}
-        for plan in plans:
-            for prerequisite_id in plan.prerequisite_ids:
-                if prerequisite_id not in plan_order:
-                    raise AIModelValidationError("curriculum prerequisite is unknown")
-                if plan_order[prerequisite_id] >= plan.order:
-                    raise AIModelValidationError("curriculum prerequisite must appear earlier")
-        raw_goal = data.get("goal_score")
-        goal_score = None if raw_goal is None else _integer(raw_goal, "curriculum.goal_score")
+        raw_units = data.get("units")
+        if not isinstance(raw_units, Sequence) or isinstance(raw_units, (str, bytes)):
+            raise AIModelValidationError("curriculum.units must be an array")
+        units = tuple(CurriculumUnit.from_dict(_mapping(item, "curriculum unit")) for item in raw_units)
+        if not units:
+            raise AIModelValidationError("curriculum.units must not be empty")
+        if len({unit.id for unit in units}) != len(units):
+            raise AIModelValidationError("curriculum unit IDs must be unique")
+        if len({unit.topic_id for unit in units}) != len(units):
+            raise AIModelValidationError("curriculum topic IDs must be unique")
+        if {unit.order for unit in units} != set(range(1, len(units) + 1)):
+            raise AIModelValidationError("curriculum unit order must be contiguous")
+
+        raw_checkpoints = data.get("review_checkpoints", ())
+        if not isinstance(raw_checkpoints, Sequence) or isinstance(raw_checkpoints, (str, bytes)):
+            raise AIModelValidationError("curriculum.review_checkpoints must be an array")
+        checkpoints = tuple(
+            ReviewCheckpoint.from_dict(_mapping(item, "review checkpoint"))
+            for item in raw_checkpoints
+        )
+        raw_status = data.get("status")
+        try:
+            status = (
+                raw_status
+                if isinstance(raw_status, CurriculumStatus)
+                else CurriculumStatus(str(raw_status))
+            )
+        except ValueError as exc:
+            raise AIModelValidationError("curriculum.status is invalid") from exc
+        target_score = _integer(data.get("target_score"), "curriculum.target_score")
+        if not 100 <= target_score <= 200:
+            raise AIModelValidationError("curriculum.target_score must be between 100 and 200")
         return cls(
             id=_text(data.get("id"), "curriculum.id"),
+            curriculum_version=_integer(
+                data.get("curriculum_version"), "curriculum.curriculum_version", minimum=1
+            ),
+            taxonomy_version=_text(
+                data.get("taxonomy_version"), "curriculum.taxonomy_version"
+            ),
+            user_id=_integer(data.get("user_id"), "curriculum.user_id", minimum=1),
             subject=_text(data.get("subject"), "curriculum.subject"),
-            goal_score=goal_score,
-            plans=plans,
-            rationale=_text(data.get("rationale", ""), "curriculum.rationale", allow_empty=True),
+            target_score=target_score,
+            starting_level=_text(data.get("starting_level"), "curriculum.starting_level"),
+            status=status,
+            creation_reason=_text(data.get("creation_reason"), "curriculum.creation_reason"),
+            units=units,
+            review_checkpoints=checkpoints,
+            generation_metadata=CurriculumGenerationMetadata.from_dict(
+                _mapping(data.get("generation_metadata"), "generation metadata")
+            ),
+            prompt_version=_text(data.get("prompt_version"), "curriculum.prompt_version"),
+            schema_version=_text(data.get("schema_version"), "curriculum.schema_version"),
+            model_identifier=_text(
+                data.get("model_identifier"), "curriculum.model_identifier"
+            ),
+            created_at=_timestamp(data.get("created_at"), "curriculum.created_at"),
         )
 
 

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
+from types import MappingProxyType
 from typing import Any, Mapping, Optional, Sequence
 
 
@@ -23,6 +25,13 @@ class AIContext:
     language: str = "uk"
     difficulty: str = "adaptive"
     available_tokens: Optional[int] = None
+    completed_topic_ids: tuple[str, ...] = field(default_factory=tuple)
+    mastery_by_topic: Mapping[str, float] = field(default_factory=dict)
+    diagnostic_score: Optional[int] = None
+    diagnostic_total: Optional[int] = None
+    study_minutes_per_week: Optional[int] = None
+    desired_exam_date: Optional[str] = None
+    active_curriculum_id: Optional[str] = None
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -88,8 +97,59 @@ class AIContext:
         if available_tokens is not None and available_tokens <= 0:
             raise ValueError("available_tokens must be positive")
         object.__setattr__(self, "available_tokens", available_tokens)
+
+        object.__setattr__(
+            self,
+            "completed_topic_ids",
+            bounded_texts(self.completed_topic_ids, count=500, length=96),
+        )
+        if not isinstance(self.mastery_by_topic, Mapping):
+            raise ValueError("mastery_by_topic must be a mapping")
+        mastery = {}
+        for raw_topic_id, raw_value in self.mastery_by_topic.items():
+            topic_id = str(raw_topic_id or "").strip()[:96]
+            if not topic_id:
+                continue
+            value = float(raw_value)
+            if not 0 <= value <= 1:
+                raise ValueError("mastery values must be between 0 and 1")
+            mastery[topic_id] = round(value, 4)
+        object.__setattr__(self, "mastery_by_topic", MappingProxyType(mastery))
+
+        diagnostic_score = None if self.diagnostic_score is None else int(self.diagnostic_score)
+        diagnostic_total = None if self.diagnostic_total is None else int(self.diagnostic_total)
+        if diagnostic_score is not None and diagnostic_score < 0:
+            raise ValueError("diagnostic_score must not be negative")
+        if diagnostic_total is not None and diagnostic_total <= 0:
+            raise ValueError("diagnostic_total must be positive")
+        if (
+            diagnostic_score is not None
+            and diagnostic_total is not None
+            and diagnostic_score > diagnostic_total
+        ):
+            raise ValueError("diagnostic_score must not exceed diagnostic_total")
+        object.__setattr__(self, "diagnostic_score", diagnostic_score)
+        object.__setattr__(self, "diagnostic_total", diagnostic_total)
+
+        study_minutes = (
+            None if self.study_minutes_per_week is None else int(self.study_minutes_per_week)
+        )
+        if study_minutes is not None and not 30 <= study_minutes <= 4200:
+            raise ValueError("study_minutes_per_week must be between 30 and 4200")
+        object.__setattr__(self, "study_minutes_per_week", study_minutes)
+
+        exam_date = str(self.desired_exam_date or "").strip() or None
+        if exam_date:
+            try:
+                date.fromisoformat(exam_date)
+            except ValueError as exc:
+                raise ValueError("desired_exam_date must use YYYY-MM-DD") from exc
+        object.__setattr__(self, "desired_exam_date", exam_date)
+        active_curriculum_id = str(self.active_curriculum_id or "").strip()[:96] or None
+        object.__setattr__(self, "active_curriculum_id", active_curriculum_id)
         if not isinstance(self.metadata, Mapping):
             raise ValueError("metadata must be a mapping")
+        object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
 
     def for_prompt(self) -> dict[str, Any]:
         """Return the bounded, non-secret context allowed in prompts."""
@@ -106,6 +166,13 @@ class AIContext:
             "language": self.language,
             "difficulty": self.difficulty,
             "available_tokens": self.available_tokens,
+            "completed_topic_ids": list(self.completed_topic_ids),
+            "mastery_by_topic": dict(self.mastery_by_topic),
+            "diagnostic_score": self.diagnostic_score,
+            "diagnostic_total": self.diagnostic_total,
+            "study_minutes_per_week": self.study_minutes_per_week,
+            "desired_exam_date": self.desired_exam_date,
+            "active_curriculum_id": self.active_curriculum_id,
         }
 
 
