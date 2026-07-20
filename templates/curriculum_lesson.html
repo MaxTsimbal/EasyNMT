@@ -151,7 +151,8 @@
       <button class="button button-primary" type="submit">Я пройшов урок →</button>
     </form>
     {% elif lesson_assessment_ready %}
-    <div class="teacher-note accent"><b>Урок завершено</b><span>Перевірка знань буде підключена в Task 3C. Прогрес і XP зміняться лише після серверно перевіреної спроби.</span></div>
+    <div class="teacher-note accent"><b>Урок завершено</b><span>Тепер перевір знання у 12 питаннях. Прохідний результат: 18 із 24 балів.</span></div>
+    <a class="button button-primary" href="{{ url_for('curriculum_quiz_page', curriculum_unit_id=production_lesson.curriculum_unit_id) }}">Перейти до тесту →</a>
     {% endif %}
   </section>
 </div>

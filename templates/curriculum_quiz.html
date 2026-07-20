@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}{{ production_quiz.title }} | EasyNMT{% endblock %}
+{% block body_class %}lesson-active-page{% endblock %}
+{% block content %}
+<div class="lesson-page beginner-lesson-page">
+  <div class="lesson-topline">
+    <span>Production Quiz Engine</span>
+    <span>12 питань</span>
+    <span>18 / 24 для проходження</span>
+  </div>
+
+  <header class="lesson-header fade-up">
+    <span class="pill">Перевірка знань за завершеним уроком</span>
+    <h1>{{ production_quiz.title }}</h1>
+    <p>Питання сформовано лише з матеріалу цього уроку. Результат, XP і відкриття наступної теми визначає сервер.</p>
+  </header>
+
+  <div class="quiz-levels-legend">
+    <span><b>1–4</b> Вибір відповіді · 1 бал</span>
+    <span><b>5–8</b> Коротка відповідь · 2 бали</span>
+    <span><b>9–12</b> Повне пояснення · 3 бали</span>
+  </div>
+
+  <form method="post" class="quiz-form" data-draft-url="{{ url_for('curriculum_quiz_draft_api', curriculum_unit_id=production_quiz.curriculum_unit_id) }}" data-csrf="{{ csrf_token() }}">
+    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="attempt_token" value="{{ quiz_attempt_token }}">
+
+    {% for question in production_quiz.questions %}
+    <section class="goal-card quiz-question {% if question.points == 1 %}quiz-basic{% elif question.points == 2 %}quiz-middle{% else %}quiz-advanced{% endif %}">
+      <div class="quiz-question-head">
+        <span class="quiz-badge">{{ loop.index }} / 12</span>
+        <span class="quiz-points">{{ question.points }} {% if question.points == 1 %}бал{% else %}бали{% endif %}</span>
+      </div>
+      <span class="score">{{ question.prompt }}</span>
+
+      {% if question.answer_type == 'choice' %}
+      <div class="quiz-options">
+        {% for option in question.options %}
+        <label class="quiz-option">
+          <input type="radio" name="answer_{{ question.id }}" value="{{ option }}" {% if quiz_draft_answers.get(question.id) == option %}checked{% endif %} required>
+          <span>{{ ['А','Б','В','Г'][loop.index0] }}. {{ option }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      {% elif question.answer_type == 'short_text' %}
+      <div class="written-answer-wrap">
+        <textarea name="answer_{{ question.id }}" class="written-answer" rows="3" maxlength="4000" placeholder="Напиши коротко, але змістовно" required>{{ quiz_draft_answers.get(question.id, '') }}</textarea>
+        <p class="answer-hint">Сервер перевіряє зміст, а не довжину тексту.</p>
+      </div>
+      {% else %}
+      <div class="written-answer-wrap">
+        <div class="paper-task-box">
+          <div class="paper-task-icon">🧩</div>
+          <div><b>Покажи логіку</b><p>Запиши правило, основні кроки та остаточний висновок. Фото буде додано на наступному підетапі 3C.</p></div>
+        </div>
+        <textarea name="answer_{{ question.id }}" class="written-answer" rows="6" maxlength="8000" placeholder="Правило → кроки → відповідь" required>{{ quiz_draft_answers.get(question.id, '') }}</textarea>
+      </div>
+      {% endif %}
+    </section>
+    {% endfor %}
+
+    <div class="quiz-submit-panel goal-card premium">
+      <div>
+        <b>Перед відправленням</b>
+        <p>Перевір, чи заповнені всі 12 відповідей. Повторне натискання не створить дубль XP.</p>
+      </div>
+      <button class="primary-action" type="submit">Завершити тест</button>
+    </div>
+  </form>
+</div>
+<script>
+(() => {
+  const form = document.querySelector('.quiz-form');
+  if (!form) return;
+  const draftUrl = form.dataset.draftUrl;
+  const csrf = form.dataset.csrf;
+  let timer = null;
+  let submitting = false;
+
+  const collect = () => {
+    const answers = {};
+    form.querySelectorAll('[name^="answer_"]').forEach((field) => {
+      const id = field.name.replace('answer_', '');
+      if (field.type === 'radio') {
+        if (field.checked) answers[id] = field.value;
+      } else if (field.value.trim()) {
+        answers[id] = field.value;
+      }
+    });
+    return answers;
+  };
+
+  const save = () => {
+    if (!draftUrl || submitting) return;
+    fetch(draftUrl, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf},
+      body: JSON.stringify({answers: collect()}),
+      keepalive: true,
+    }).catch(() => {});
+  };
+
+  form.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(save, 500);
+  });
+  form.addEventListener('change', () => {
+    clearTimeout(timer);
+    timer = setTimeout(save, 250);
+  });
+  window.addEventListener('pagehide', save);
+  form.addEventListener('submit', () => {
+    submitting = true;
+    clearTimeout(timer);
+  });
+})();
+</script>
+{% endblock %}

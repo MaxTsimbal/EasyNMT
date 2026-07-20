@@ -46,6 +46,16 @@ from easynmt_core.progress import (
     CurriculumProgressNotFound,
     CurriculumProgressRepository,
     CurriculumProgressService,
+    CurriculumUnitState,
+)
+from easynmt_core.quizzes import (
+    CurriculumQuizError,
+    CurriculumQuizNotAvailable,
+    CurriculumQuizNotFound,
+    CurriculumQuizOwnershipError,
+    CurriculumQuizRepository,
+    CurriculumQuizService,
+    CurriculumQuizSessionInvalid,
 )
 from easynmt_core.lessons import (
     CurriculumLessonError,
@@ -380,6 +390,13 @@ curriculum_lesson_service = CurriculumLessonService(
     max_output_tokens=app.config["OPENAI_LESSON_MAX_OUTPUT_TOKENS"],
 )
 curriculum_lesson_renderer = CurriculumLessonRenderer()
+curriculum_quiz_repository = CurriculumQuizRepository(DB_PATH)
+curriculum_quiz_repository.ensure_schema()
+curriculum_quiz_service = CurriculumQuizService(
+    curriculum_quiz_repository,
+    curriculum_progress_service,
+    logger=app.logger,
+)
 curriculum_engines = {
     subject_key: CurriculumEngine(
         ai_orchestrator,
@@ -3307,6 +3324,198 @@ def complete_curriculum_lesson_page(curriculum_unit_id):
         return curriculum_lesson_error_response(error)
     flash("Урок завершено. Наступний крок — перевірка знань.", "success")
     return redirect(url_for("curriculum_lesson_page", curriculum_unit_id=curriculum_unit_id))
+
+
+
+def curriculum_quiz_error_response(error):
+    app.logger.info(
+        "Curriculum quiz request rejected type=%s user_id=%s",
+        type(error).__name__,
+        session.get("user_id"),
+    )
+    if isinstance(error, CurriculumQuizOwnershipError):
+        status, code, message = 403, "quiz_forbidden", "Цей тест належить іншому користувачу."
+    elif isinstance(error, CurriculumQuizNotFound):
+        status, code, message = 404, "quiz_not_found", "Тест або спробу не знайдено."
+    elif isinstance(error, CurriculumQuizSessionInvalid):
+        status, code, message = 409, "quiz_session_invalid", "Сесія тесту застаріла. Відкрий тест ще раз."
+    elif isinstance(error, CurriculumQuizNotAvailable):
+        status, code, message = 409, "quiz_not_available", "Спочатку заверши урок, а потім переходь до перевірки."
+    else:
+        status, code, message = 409, "quiz_conflict", "Не вдалося безпечно завершити тест. Спробуй ще раз."
+    if request.path.startswith("/api/"):
+        return jsonify({"ok": False, "error": code, "message": message}), status
+    return render_template(
+        "error.html",
+        status=status,
+        title="Перевірка знань недоступна",
+        message=message,
+    ), status
+
+
+def _production_quiz_delivery(curriculum_unit_id):
+    lesson_delivery = curriculum_lesson_service.deliver_lesson(
+        user_id=int(session["user_id"]),
+        curriculum_unit_id=curriculum_unit_id,
+        subject=get_subject_key(),
+    )
+    return curriculum_quiz_service.start_attempt(
+        user_id=int(session["user_id"]),
+        subject=get_subject_key(),
+        lesson=lesson_delivery.lesson,
+    )
+
+
+@app.post("/api/curriculum/units/<string:curriculum_unit_id>/quiz/start")
+@require_login
+def start_curriculum_quiz_api(curriculum_unit_id):
+    payload = request.get_json(silent=True) if request.content_length else {}
+    if payload is None:
+        payload = {}
+    if not isinstance(payload, dict) or payload:
+        return jsonify({"ok": False, "error": "invalid_request"}), 400
+    try:
+        delivery = _production_quiz_delivery(curriculum_unit_id)
+    except CurriculumLessonError as error:
+        return curriculum_lesson_error_response(error)
+    except CurriculumProgressError as error:
+        return curriculum_progress_error_response(error)
+    except CurriculumQuizError as error:
+        return curriculum_quiz_error_response(error)
+    return jsonify({"ok": True, "attempt": delivery.to_dict()})
+
+
+@app.post("/api/curriculum/units/<string:curriculum_unit_id>/quiz/submit")
+@require_login
+def submit_curriculum_quiz_api(curriculum_unit_id):
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict) or set(payload) != {"attempt_token", "answers"}:
+        return jsonify({"ok": False, "error": "invalid_request"}), 400
+    if not isinstance(payload.get("answers"), dict):
+        return jsonify({"ok": False, "error": "invalid_answers"}), 400
+    try:
+        result = curriculum_quiz_service.submit_attempt(
+            user_id=int(session["user_id"]),
+            subject=get_subject_key(),
+            curriculum_unit_id=curriculum_unit_id,
+            attempt_token=str(payload.get("attempt_token") or ""),
+            answers=payload["answers"],
+        )
+    except CurriculumQuizError as error:
+        return curriculum_quiz_error_response(error)
+    except CurriculumProgressError as error:
+        return curriculum_progress_error_response(error)
+    return jsonify({"ok": True, "attempt": result.to_dict()})
+
+
+@app.route("/curriculum/units/<string:curriculum_unit_id>/quiz", methods=["GET", "POST"])
+@require_login
+def curriculum_quiz_page(curriculum_unit_id):
+    if request.method == "POST":
+        attempt_token = str(request.form.get("attempt_token") or "").strip()
+        answers = {
+            key.removeprefix("answer_"): value
+            for key, value in request.form.items()
+            if key.startswith("answer_")
+        }
+        try:
+            result = curriculum_quiz_service.submit_attempt(
+                user_id=int(session["user_id"]),
+                subject=get_subject_key(),
+                curriculum_unit_id=curriculum_unit_id,
+                attempt_token=attempt_token,
+                answers=answers,
+            )
+        except CurriculumQuizError as error:
+            return curriculum_quiz_error_response(error)
+        except CurriculumProgressError as error:
+            return curriculum_progress_error_response(error)
+        session["last_curriculum_quiz_attempt_id"] = result.attempt_id
+        if result.idempotent:
+            flash("Цю спробу вже зараховано. Повторне відправлення нічого не змінило.", "info")
+        elif result.passed:
+            flash("Тест пройдено. Наступна тема вже може бути відкрита.", "success")
+        else:
+            flash("Спробу збережено. Переглянь розбір і повтори складні місця.", "info")
+        return redirect(url_for("curriculum_quiz_result_page", attempt_id=result.attempt_id))
+
+    try:
+        delivery = _production_quiz_delivery(curriculum_unit_id)
+    except CurriculumLessonError as error:
+        return curriculum_lesson_error_response(error)
+    except CurriculumProgressError as error:
+        return curriculum_lesson_error_response(error)
+    except CurriculumQuizError as error:
+        return curriculum_quiz_error_response(error)
+    return render_template(
+        "curriculum_quiz.html",
+        **get_user_data(),
+        production_quiz=delivery.quiz,
+        quiz_attempt_token=delivery.attempt_token,
+        quiz_draft_answers=delivery.draft_answers,
+        quiz_attempt_count=delivery.attempt_count,
+        quiz_expires_at=delivery.expires_at,
+    )
+
+
+@app.route("/api/curriculum/units/<string:curriculum_unit_id>/quiz-draft", methods=["POST", "DELETE"])
+@require_login
+def curriculum_quiz_draft_api(curriculum_unit_id):
+    try:
+        if request.method == "DELETE":
+            curriculum_quiz_service.save_draft(
+                user_id=int(session["user_id"]),
+                subject=get_subject_key(),
+                curriculum_unit_id=curriculum_unit_id,
+                answers={},
+            )
+            return jsonify({"ok": True})
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict) or set(payload) != {"answers"} or not isinstance(payload["answers"], dict):
+            return jsonify({"ok": False, "error": "invalid_request"}), 400
+        curriculum_quiz_service.save_draft(
+            user_id=int(session["user_id"]),
+            subject=get_subject_key(),
+            curriculum_unit_id=curriculum_unit_id,
+            answers=payload["answers"],
+        )
+    except CurriculumQuizError as error:
+        return curriculum_quiz_error_response(error)
+    except CurriculumProgressError as error:
+        return curriculum_progress_error_response(error)
+    return jsonify({"ok": True})
+
+
+@app.get("/curriculum/quiz/attempts/<string:attempt_id>/result")
+@require_login
+def curriculum_quiz_result_page(attempt_id):
+    try:
+        attempt = curriculum_quiz_service.get_result(
+            user_id=int(session["user_id"]),
+            attempt_id=attempt_id,
+        )
+    except CurriculumQuizError as error:
+        return curriculum_quiz_error_response(error)
+    navigation = get_active_curriculum_navigation()
+    current_unit = None
+    next_unit = None
+    if navigation:
+        units = list(navigation["units"])
+        for index, unit in enumerate(units):
+            if unit["unit_id"] == attempt.curriculum_unit_id:
+                current_unit = unit
+                if index + 1 < len(units) and units[index + 1]["can_start"]:
+                    next_unit = units[index + 1]
+                break
+    load_subject_progress_to_session(session["user_id"], get_subject_key())
+    return render_template(
+        "curriculum_quiz_result.html",
+        **get_user_data(),
+        attempt=attempt,
+        current_unit=current_unit,
+        next_unit=next_unit,
+        pass_score=18,
+    )
 
 
 @app.route("/achievements")

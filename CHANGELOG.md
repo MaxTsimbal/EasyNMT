@@ -1,3 +1,16 @@
+# EasyNMT Changelog
+
+## Task 3C.1 — Production Quiz Foundation (2026-07-20)
+
+- Added a production quiz for every completed curriculum lesson.
+- Enforced the 12-question, 24-point, 18-point pass contract on the server.
+- Added immutable quiz snapshots, attempt tokens, draft autosave, and result pages.
+- Made grading, XP, completion, and next-unit unlocking atomic and idempotent.
+- Prevented forged client scores, XP, pass state, and unknown question IDs.
+- Added owner-scoped quiz APIs and hid internal answer keys from public payloads.
+- Added 9 dedicated production quiz tests; the complete suite now passes 113 tests.
+- Kept AI semantic grading and photo grading for later Task 3C stages.
+
 # Task 3B.3 — Multi-Subject Production Lesson Platform
 
 - Added one canonical subject registry for Mathematics, Ukrainian, History, and English.

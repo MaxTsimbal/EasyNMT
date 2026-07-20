@@ -1263,6 +1263,196 @@ class CurriculumProgressService:
             (int(amount), int(user_id), subject),
         )
 
+    def record_assessment_result_in_transaction(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        user_id: int,
+        curriculum_unit_id: str,
+        result: ServerVerifiedAssessmentResult,
+        curriculum_id: Optional[str] = None,
+        expected_version: Optional[int] = None,
+    ) -> CurriculumUnitProgress:
+        """Record trusted assessment evidence inside a caller-owned transaction.
+
+        Task 3C uses this boundary so quiz persistence, progress, unlocks, and XP
+        either commit together or roll back together.
+        """
+
+        if not isinstance(result, ServerVerifiedAssessmentResult):
+            raise AssessmentEvidenceInvalid("Typed server assessment evidence is required.")
+        if result.source in {
+            AssessmentSource.CHECKPOINT_ASSESSMENT,
+            AssessmentSource.SERVER_REVIEW,
+        }:
+            raise AssessmentEvidenceInvalid("Assessment source does not match a normal unit.")
+        row = self._unit_for_update(
+            connection,
+            user_id=user_id,
+            curriculum_unit_id=curriculum_unit_id,
+            curriculum_id=curriculum_id,
+            expected_version=expected_version,
+            check_expected_version=False,
+        )
+        if self._existing_assessment(
+            connection,
+            result=result,
+            user_id=user_id,
+            curriculum_id=row["curriculum_id"],
+            curriculum_unit_id=row["curriculum_unit_id"],
+        ):
+            return self.repository.progress_from_row(row)
+        self._check_expected_version(row, expected_version)
+        if CurriculumUnitState(row["state"]) is not CurriculumUnitState.ASSESSMENT_REQUIRED:
+            raise InvalidProgressTransition(
+                "Unit is not waiting for an assessment result."
+            )
+        self._insert_assessment(
+            connection,
+            result=result,
+            user_id=user_id,
+            curriculum_id=row["curriculum_id"],
+            curriculum_unit_id=row["curriculum_unit_id"],
+            topic_id=row["topic_id"],
+        )
+        if result.source is AssessmentSource.LEGACY_QUIZ:
+            legacy_lesson_ids = tuple(
+                lesson_id
+                for lesson_id, topic_id in LEGACY_MATH_LESSON_TOPIC_MAP.items()
+                if topic_id == row["topic_id"]
+            )
+            if not legacy_lesson_ids:
+                raise AssessmentEvidenceInvalid(
+                    "Legacy quiz evidence does not map to this curriculum topic."
+                )
+            placeholders = ",".join("?" for _ in legacy_lesson_ids)
+            legacy_completion = connection.execute(
+                f"""
+                SELECT 1 FROM completed_lessons
+                WHERE user_id = ? AND subject = ?
+                  AND lesson_id IN ({placeholders})
+                """,
+                (int(user_id), row["subject"], *legacy_lesson_ids),
+            ).fetchone()
+            if legacy_completion is None:
+                raise AssessmentEvidenceInvalid(
+                    "Legacy quiz evidence has no matching stored completion."
+                )
+        mastery_score, mastery_band = mastery_after_assessment(
+            previous_score=row["mastery_score"],
+            normalized_score=result.normalized_score,
+            passed=result.passed,
+        )
+        now = result.verified_at.isoformat(timespec="seconds")
+        attempt_count = int(row["attempt_count"]) + 1
+        if not result.passed:
+            cursor = connection.execute(
+                """
+                UPDATE curriculum_unit_progress
+                SET mastery_score = ?, mastery_band = ?, attempt_count = ?,
+                    last_activity_at = ?, updated_at = ?, version = version + 1
+                WHERE id = ? AND state = 'assessment_required' AND version = ?
+                """,
+                (
+                    mastery_score,
+                    mastery_band.value,
+                    attempt_count,
+                    now,
+                    now,
+                    row["id"],
+                    int(row["version"]),
+                ),
+            )
+            if cursor.rowcount != 1:
+                raise ProgressConflict("Assessment progress changed concurrently.")
+            updated = connection.execute(
+                "SELECT * FROM curriculum_unit_progress WHERE id = ?",
+                (row["id"],),
+            ).fetchone()
+            self.repository.insert_event(
+                connection,
+                event_key=f"assessment-failed:{result.attempt_id}",
+                event_type="curriculum_unit_assessment_failed",
+                user_id=user_id,
+                curriculum_id=row["curriculum_id"],
+                curriculum_unit_id=row["curriculum_unit_id"],
+                topic_id=row["topic_id"],
+                previous_state=row["state"],
+                new_state=row["state"],
+                reason="server_verified_failure",
+                attempt_id=result.attempt_id,
+                idempotency_key=result.attempt_id,
+                metadata={
+                    "normalized_score": result.normalized_score,
+                    "mastery_score": mastery_score,
+                },
+                created_at=now,
+            )
+            return self.repository.progress_from_row(updated)
+
+        xp_delta = 0
+        if (
+            int(row["xp_awarded"]) == 0
+            and result.source is not AssessmentSource.LEGACY_QUIZ
+        ):
+            xp_delta = CURRICULUM_UNIT_COMPLETION_XP
+        transitioned = self._transition(
+            connection,
+            row,
+            CurriculumUnitState.COMPLETED,
+            now=now,
+            assignments={
+                "mastery_score": mastery_score,
+                "mastery_band": mastery_band.value,
+                "attempt_count": attempt_count,
+                "xp_awarded": int(row["xp_awarded"]) + xp_delta,
+                "completed_at": now,
+            },
+        )
+        self._award_xp(
+            connection,
+            user_id=user_id,
+            subject=row["subject"],
+            amount=xp_delta,
+        )
+        common = {
+            "user_id": user_id,
+            "curriculum_id": row["curriculum_id"],
+            "curriculum_unit_id": row["curriculum_unit_id"],
+            "topic_id": row["topic_id"],
+            "previous_state": row["state"],
+            "new_state": transitioned["state"],
+            "attempt_id": result.attempt_id,
+            "idempotency_key": result.attempt_id,
+            "created_at": now,
+        }
+        self.repository.insert_event(
+            connection,
+            event_key=f"assessment-passed:{result.attempt_id}",
+            event_type="curriculum_unit_assessment_passed",
+            reason="server_verified_pass",
+            metadata={"normalized_score": result.normalized_score},
+            **common,
+        )
+        self.repository.insert_event(
+            connection,
+            event_key=f"unit-completed:{result.attempt_id}",
+            event_type="curriculum_unit_completed",
+            reason="assessment_passed",
+            xp_delta=xp_delta,
+            metadata={
+                "mastery_score": mastery_score,
+                "mastery_band": mastery_band.value,
+            },
+            **common,
+        )
+        self._recalculate_in_transaction(
+            connection,
+            user_id=user_id,
+            curriculum_id=row["curriculum_id"],
+        )
+        return self.repository.progress_from_row(transitioned)
+
     def record_assessment_result(
         self,
         *,
@@ -1272,185 +1462,19 @@ class CurriculumProgressService:
         curriculum_id: Optional[str] = None,
         expected_version: Optional[int] = None,
     ) -> CurriculumUnitProgress:
-        if not isinstance(result, ServerVerifiedAssessmentResult):
-            raise AssessmentEvidenceInvalid("Typed server assessment evidence is required.")
-        if result.source in {
-            AssessmentSource.CHECKPOINT_ASSESSMENT,
-            AssessmentSource.SERVER_REVIEW,
-        }:
-            raise AssessmentEvidenceInvalid("Assessment source does not match a normal unit.")
         connection = self.repository.connect()
         try:
             connection.execute("BEGIN IMMEDIATE")
-            row = self._unit_for_update(
+            progress = self.record_assessment_result_in_transaction(
                 connection,
                 user_id=user_id,
                 curriculum_unit_id=curriculum_unit_id,
+                result=result,
                 curriculum_id=curriculum_id,
                 expected_version=expected_version,
-                check_expected_version=False,
-            )
-            if self._existing_assessment(
-                connection,
-                result=result,
-                user_id=user_id,
-                curriculum_id=row["curriculum_id"],
-                curriculum_unit_id=row["curriculum_unit_id"],
-            ):
-                connection.commit()
-                return self.repository.progress_from_row(row)
-            self._check_expected_version(row, expected_version)
-            if CurriculumUnitState(row["state"]) is not CurriculumUnitState.ASSESSMENT_REQUIRED:
-                raise InvalidProgressTransition(
-                    "Unit is not waiting for an assessment result."
-                )
-            self._insert_assessment(
-                connection,
-                result=result,
-                user_id=user_id,
-                curriculum_id=row["curriculum_id"],
-                curriculum_unit_id=row["curriculum_unit_id"],
-                topic_id=row["topic_id"],
-            )
-            if result.source is AssessmentSource.LEGACY_QUIZ:
-                legacy_lesson_ids = tuple(
-                    lesson_id
-                    for lesson_id, topic_id in LEGACY_MATH_LESSON_TOPIC_MAP.items()
-                    if topic_id == row["topic_id"]
-                )
-                if not legacy_lesson_ids:
-                    raise AssessmentEvidenceInvalid(
-                        "Legacy quiz evidence does not map to this curriculum topic."
-                    )
-                placeholders = ",".join("?" for _ in legacy_lesson_ids)
-                legacy_completion = connection.execute(
-                    f"""
-                    SELECT 1 FROM completed_lessons
-                    WHERE user_id = ? AND subject = ?
-                      AND lesson_id IN ({placeholders})
-                    """,
-                    (int(user_id), row["subject"], *legacy_lesson_ids),
-                ).fetchone()
-                if legacy_completion is None:
-                    raise AssessmentEvidenceInvalid(
-                        "Legacy quiz evidence has no matching stored completion."
-                    )
-            mastery_score, mastery_band = mastery_after_assessment(
-                previous_score=row["mastery_score"],
-                normalized_score=result.normalized_score,
-                passed=result.passed,
-            )
-            now = result.verified_at.isoformat(timespec="seconds")
-            attempt_count = int(row["attempt_count"]) + 1
-            if not result.passed:
-                cursor = connection.execute(
-                    """
-                    UPDATE curriculum_unit_progress
-                    SET mastery_score = ?, mastery_band = ?, attempt_count = ?,
-                        last_activity_at = ?, updated_at = ?, version = version + 1
-                    WHERE id = ? AND state = 'assessment_required' AND version = ?
-                    """,
-                    (
-                        mastery_score,
-                        mastery_band.value,
-                        attempt_count,
-                        now,
-                        now,
-                        row["id"],
-                        int(row["version"]),
-                    ),
-                )
-                if cursor.rowcount != 1:
-                    raise ProgressConflict("Assessment progress changed concurrently.")
-                updated = connection.execute(
-                    "SELECT * FROM curriculum_unit_progress WHERE id = ?",
-                    (row["id"],),
-                ).fetchone()
-                self.repository.insert_event(
-                    connection,
-                    event_key=f"assessment-failed:{result.attempt_id}",
-                    event_type="curriculum_unit_assessment_failed",
-                    user_id=user_id,
-                    curriculum_id=row["curriculum_id"],
-                    curriculum_unit_id=row["curriculum_unit_id"],
-                    topic_id=row["topic_id"],
-                    previous_state=row["state"],
-                    new_state=row["state"],
-                    reason="server_verified_failure",
-                    attempt_id=result.attempt_id,
-                    idempotency_key=result.attempt_id,
-                    metadata={
-                        "normalized_score": result.normalized_score,
-                        "mastery_score": mastery_score,
-                    },
-                    created_at=now,
-                )
-                connection.commit()
-                return self.repository.progress_from_row(updated)
-
-            xp_delta = 0
-            if (
-                int(row["xp_awarded"]) == 0
-                and result.source is not AssessmentSource.LEGACY_QUIZ
-            ):
-                xp_delta = CURRICULUM_UNIT_COMPLETION_XP
-            transitioned = self._transition(
-                connection,
-                row,
-                CurriculumUnitState.COMPLETED,
-                now=now,
-                assignments={
-                    "mastery_score": mastery_score,
-                    "mastery_band": mastery_band.value,
-                    "attempt_count": attempt_count,
-                    "xp_awarded": int(row["xp_awarded"]) + xp_delta,
-                    "completed_at": now,
-                },
-            )
-            self._award_xp(
-                connection,
-                user_id=user_id,
-                subject=row["subject"],
-                amount=xp_delta,
-            )
-            common = {
-                "user_id": user_id,
-                "curriculum_id": row["curriculum_id"],
-                "curriculum_unit_id": row["curriculum_unit_id"],
-                "topic_id": row["topic_id"],
-                "previous_state": row["state"],
-                "new_state": transitioned["state"],
-                "attempt_id": result.attempt_id,
-                "idempotency_key": result.attempt_id,
-                "created_at": now,
-            }
-            self.repository.insert_event(
-                connection,
-                event_key=f"assessment-passed:{result.attempt_id}",
-                event_type="curriculum_unit_assessment_passed",
-                reason="server_verified_pass",
-                metadata={"normalized_score": result.normalized_score},
-                **common,
-            )
-            self.repository.insert_event(
-                connection,
-                event_key=f"unit-completed:{result.attempt_id}",
-                event_type="curriculum_unit_completed",
-                reason="assessment_passed",
-                xp_delta=xp_delta,
-                metadata={
-                    "mastery_score": mastery_score,
-                    "mastery_band": mastery_band.value,
-                },
-                **common,
-            )
-            self._recalculate_in_transaction(
-                connection,
-                user_id=user_id,
-                curriculum_id=row["curriculum_id"],
             )
             connection.commit()
-            return self.repository.progress_from_row(transitioned)
+            return progress
         except Exception:
             connection.rollback()
             raise

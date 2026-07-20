@@ -20,6 +20,8 @@ and uses only curated lesson material.
 - `easynmt_core/health.py` — separate liveness and database-readiness endpoints.
 - `easynmt_core/lessons/` — production curriculum lesson persistence, secure
   delivery evidence, rendering, and the Task 3A completion handoff.
+- `easynmt_core/quizzes/` — Task 3C.1 production quiz snapshots, sessions,
+  deterministic server grading, drafts, attempts, XP, and atomic unlocks.
 - `templates/` and `static/` — server-rendered UI and browser behavior.
 - `tests/` — security, quiz consistency, persistence, API, and route regression
   coverage.
@@ -39,7 +41,9 @@ without an applicable published curriculum.
 
 SQLite is authoritative for progress, quiz attempts, unlock state, AI history,
 and quotas. Flask's signed session stores identity and lightweight navigation
-state; it is not trusted as the source of XP or completion data.
+state; it is not trusted as the source of XP or completion data. Production
+quizzes contain 12 questions worth 24 points, require 18 points to pass, and
+commit the attempt, XP, completion, and next-unit unlock atomically.
 
 ## Local setup
 
@@ -114,8 +118,11 @@ handoff are documented in
 Curriculum-unit state, unlocking, XP, replacement, authorization, and legacy
 compatibility are documented in
 [easynmt_core/progress/README.md](easynmt_core/progress/README.md).
-The production lesson lifecycle, cache, completion evidence, schema rollback,
-and Task 3C handoff are documented in
+The production lesson lifecycle, cache, completion evidence, and schema
+rollback are documented in
 [easynmt_core/lessons/README.md](easynmt_core/lessons/README.md).
+The Task 3C.1 quiz contract, persistence, security boundaries, and next-stage
+handoff are documented in
+[easynmt_core/quizzes/README.md](easynmt_core/quizzes/README.md).
 The production audit and remaining Beta work are in
 [PRODUCTION_AUDIT_REPORT.md](PRODUCTION_AUDIT_REPORT.md).

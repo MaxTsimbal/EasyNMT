@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Результат перевірки | EasyNMT{% endblock %}
+{% block content %}
+<div class="result-page human-result-page">
+  <header class="lesson-header fade-up">
+    <span class="pill">Production Quiz Engine</span>
+    <h1>{% if attempt.passed %}Тему завершено{% else %}Потрібне ще одне коло практики{% endif %}</h1>
+    <p>{% if attempt.passed %}Сервер зарахував {{ attempt.score }} з {{ attempt.total }} балів і оновив маршрут.{% else %}Ти набрав {{ attempt.score }} з {{ attempt.total }}. Для проходження потрібно {{ pass_score }}. Нижче видно, де саме загубилися бали.{% endif %}</p>
+  </header>
+
+  <div class="result-summary-grid">
+    <div class="goal-card premium"><span class="score">{{ attempt.score }}/{{ attempt.total }}</span><span class="desc">результат</span></div>
+    <div class="goal-card"><span class="score">{% if attempt.passed %}Пройдено{% else %}Повторити{% endif %}</span><span class="desc">статус теми</span></div>
+    <div class="goal-card"><span class="score">+{{ attempt.xp_awarded }} XP</span><span class="desc">нараховано цією спробою</span></div>
+  </div>
+
+  <section class="review-panel goal-card">
+    <div class="review-heading">
+      <span class="score">Розбір відповідей</span>
+      <span class="desc">Оцінка створена зі збереженого серверного знімка тесту. Поля браузера не можуть змінити бали.</span>
+    </div>
+    <div class="review-list">
+      {% for item in attempt.review %}
+      <article class="review-item {% if item.earned == item.points %}correct{% elif item.earned > 0 %}partial{% else %}wrong{% endif %}">
+        <div class="review-question"><span>{{ item.number }}.</span> {{ item.question }}</div>
+        <div class="review-score">{{ item.earned }} / {{ item.points }} балів</div>
+        <div class="review-answer">Твоя відповідь: <b>{{ item.user_answer }}</b></div>
+        {% if item.earned < item.points %}<div class="review-answer">Орієнтир: <b>{{ item.correct_answer }}</b></div>{% endif %}
+        <div class="review-explanation">{{ item.explanation }}</div>
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+
+  <div class="goal-grid compact-actions">
+    {% if next_unit %}
+    <form method="post" action="{{ url_for('start_curriculum_unit_page', curriculum_unit_id=next_unit.unit_id) }}" class="goal-link">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <button class="primary-action" type="submit">Наступна тема →</button>
+    </form>
+    {% endif %}
+    <a href="{{ url_for('curriculum_quiz_page', curriculum_unit_id=attempt.curriculum_unit_id) }}" class="goal-link"><button class="secondary-action">Спробувати ще раз</button></a>
+    <a href="{{ url_for('dashboard') }}" class="goal-link"><button class="secondary-action">Повернутися в кабінет</button></a>
+  </div>
+</div>
+{% endblock %}
