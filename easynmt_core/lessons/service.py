@@ -321,7 +321,7 @@ class CurriculumLessonService:
                     curriculum_id=request.curriculum_id,
                     curriculum_unit_id=request.curriculum_unit_id,
                     lesson_id=lesson.id,
-                    reason="validated_openai_generation",
+                    reason=f"validated_{lesson.generation_metadata.source}_generation",
                 )
                 connection.commit()
             except Exception:

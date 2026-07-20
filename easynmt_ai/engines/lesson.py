@@ -13,6 +13,7 @@ from ..lessons import (
     LessonGenerationRequest,
     validate_lesson,
 )
+from ..lessons.development import development_lesson_proposal
 from ..models import AIModelValidationError, LearningPlan
 from ..prompts.lesson import (
     LESSON_PROMPT_VERSION,
@@ -31,9 +32,16 @@ class LessonEngine(AIEngine[Lesson]):
     cache_namespace = "lesson"
     cache_ttl_seconds = 7 * 24 * 60 * 60
 
-    def __init__(self, orchestrator, *, max_output_tokens: int = 6500) -> None:
+    def __init__(
+        self,
+        orchestrator,
+        *,
+        max_output_tokens: int = 6500,
+        allow_development_fallback: bool = False,
+    ) -> None:
         super().__init__(orchestrator)
         self.max_output_tokens = max(2500, int(max_output_tokens))
+        self.allow_development_fallback = bool(allow_development_fallback)
 
     @property
     def model_identifier(self) -> str:
@@ -72,6 +80,7 @@ class LessonEngine(AIEngine[Lesson]):
         request: LessonGenerationRequest,
         request_fingerprint: str,
         generated_at: str,
+        source: str = "openai",
     ) -> Lesson:
         if "generation_metadata" in payload:
             lesson = Lesson.from_dict(payload)
@@ -89,7 +98,7 @@ class LessonEngine(AIEngine[Lesson]):
                 "objectives": list(request.objectives),
                 "competencies": list(request.competencies),
                 "generation_metadata": LessonGenerationMetadata(
-                    source="openai",
+                    source=source,
                     request_fingerprint=request_fingerprint,
                     prompt_version=LESSON_PROMPT_VERSION,
                     schema_version=LESSON_SCHEMA_VERSION,
@@ -148,7 +157,28 @@ class LessonEngine(AIEngine[Lesson]):
             ),
         )
         if not result.success:
-            return result
+            if not self.allow_development_fallback:
+                return result
+            proposal = development_lesson_proposal(request)
+            if proposal is None:
+                return result
+            try:
+                fallback = self._lesson_from_payload(
+                    proposal,
+                    request=request,
+                    request_fingerprint=request_fingerprint,
+                    generated_at=generated_at,
+                    source="deterministic",
+                )
+            except (AIModelValidationError, TypeError, ValueError):
+                return result
+            return EngineResult(
+                value=fallback,
+                usage=result.usage,
+                response_id=result.response_id,
+                warnings=((result.error,) if result.error else ()),
+                fallback_used=True,
+            )
         metadata = replace(
             result.value.generation_metadata,
             provider_response_id=result.response_id,

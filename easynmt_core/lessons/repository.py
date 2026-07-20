@@ -58,7 +58,9 @@ class CurriculumLessonRepository:
                     request_fingerprint TEXT NOT NULL,
                     content_hash TEXT NOT NULL,
                     content_json TEXT NOT NULL,
-                    generation_source TEXT NOT NULL CHECK(generation_source = 'openai'),
+                    generation_source TEXT NOT NULL CHECK(
+                        generation_source IN ('openai', 'deterministic')
+                    ),
                     schema_version TEXT NOT NULL,
                     prompt_version TEXT NOT NULL,
                     model_identifier TEXT NOT NULL,
@@ -138,8 +140,89 @@ class CurriculumLessonRepository:
                 """
             )
             connection.commit()
+            self._migrate_generation_source_constraint(connection)
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_curriculum_lessons_lookup
+                ON curriculum_lessons(
+                    user_id, curriculum_id, curriculum_unit_id, request_fingerprint
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_curriculum_lessons_topic
+                ON curriculum_lessons(user_id, topic_id, generated_at)
+                """
+            )
+            connection.commit()
         finally:
             connection.close()
+
+    @staticmethod
+    def _migrate_generation_source_constraint(
+        connection: sqlite3.Connection,
+    ) -> None:
+        """Expand the existing immutable-content table without losing lessons."""
+
+        row = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'curriculum_lessons'"
+        ).fetchone()
+        schema_sql = str(row["sql"] if row else "")
+        if "generation_source = 'openai'" not in schema_sql:
+            return
+
+        connection.execute("PRAGMA foreign_keys = OFF")
+        try:
+            connection.executescript(
+                """
+                BEGIN IMMEDIATE;
+                CREATE TABLE curriculum_lessons_migrated (
+                    id TEXT PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    curriculum_id TEXT NOT NULL,
+                    curriculum_unit_id TEXT NOT NULL,
+                    topic_id TEXT NOT NULL,
+                    request_fingerprint TEXT NOT NULL,
+                    content_hash TEXT NOT NULL,
+                    content_json TEXT NOT NULL,
+                    generation_source TEXT NOT NULL CHECK(
+                        generation_source IN ('openai', 'deterministic')
+                    ),
+                    schema_version TEXT NOT NULL,
+                    prompt_version TEXT NOT NULL,
+                    model_identifier TEXT NOT NULL,
+                    provider_response_id TEXT,
+                    input_tokens INTEGER CHECK(input_tokens IS NULL OR input_tokens >= 0),
+                    output_tokens INTEGER CHECK(output_tokens IS NULL OR output_tokens >= 0),
+                    total_tokens INTEGER CHECK(total_tokens IS NULL OR total_tokens >= 0),
+                    generated_at TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    UNIQUE(user_id, curriculum_id, curriculum_unit_id, request_fingerprint),
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    FOREIGN KEY (curriculum_id, user_id)
+                        REFERENCES ai_curricula(id, user_id) ON DELETE CASCADE,
+                    FOREIGN KEY (curriculum_id, curriculum_unit_id)
+                        REFERENCES ai_curriculum_units(curriculum_id, unit_id) ON DELETE CASCADE
+                );
+                INSERT INTO curriculum_lessons_migrated
+                SELECT * FROM curriculum_lessons;
+                DROP TABLE curriculum_lessons;
+                ALTER TABLE curriculum_lessons_migrated RENAME TO curriculum_lessons;
+                COMMIT;
+                """
+            )
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.execute("PRAGMA foreign_keys = ON")
+
+        violations = connection.execute("PRAGMA foreign_key_check").fetchall()
+        if violations:
+            raise sqlite3.IntegrityError(
+                "Lesson generation-source migration introduced foreign-key violations."
+            )
 
     @staticmethod
     def _lesson_from_row(row: sqlite3.Row) -> Lesson:
