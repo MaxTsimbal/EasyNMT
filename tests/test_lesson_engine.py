@@ -6,6 +6,9 @@ import threading
 import unittest
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from unittest.mock import patch
+
+from flask import template_rendered
 
 from easynmt_ai import AIContext, AIErrorCode, AIOrchestrator, AIResult, LessonEngine
 from easynmt_ai.lessons import (
@@ -539,11 +542,6 @@ class CurriculumLessonApiTests(unittest.TestCase):
             user_id=self.user_id,
             curriculum_id=self.curriculum_id,
         )
-        self.app_module.curriculum_progress_service.start_curriculum_unit(
-            user_id=self.user_id,
-            curriculum_id=self.curriculum_id,
-            curriculum_unit_id=self.unit_id,
-        )
         with self.client.session_transaction() as user_session:
             user_session["user_id"] = self.user_id
             user_session["user_name"] = "Lesson API"
@@ -553,12 +551,20 @@ class CurriculumLessonApiTests(unittest.TestCase):
             user_session["_csrf_token"] = marker
         self.csrf_token = marker
 
+    def start_unit(self):
+        return self.app_module.curriculum_progress_service.start_curriculum_unit(
+            user_id=self.user_id,
+            curriculum_id=self.curriculum_id,
+            curriculum_unit_id=self.unit_id,
+        )
+
     def test_auth_csrf_payload_and_completion_route(self):
         unauthenticated = self.app_module.app.test_client()
         self.assertEqual(
             unauthenticated.get(f"/api/curriculum/units/{self.unit_id}/lesson").status_code,
             401,
         )
+        self.start_unit()
         gateway = FakeGateway(ai_response(valid_lesson_proposal(competency_count=2)))
         original_gateway = self.app_module.ai_orchestrator._gateway
         self.app_module.ai_orchestrator._gateway = gateway
@@ -601,6 +607,7 @@ class CurriculumLessonApiTests(unittest.TestCase):
         self.assertTrue(repeated.get_json()["completion"]["idempotent"])
 
     def test_html_route_renders_structured_sections_without_legacy_breakage(self):
+        self.start_unit()
         gateway = FakeGateway(ai_response(valid_lesson_proposal(competency_count=2)))
         original_gateway = self.app_module.ai_orchestrator._gateway
         self.app_module.ai_orchestrator._gateway = gateway
@@ -614,6 +621,194 @@ class CurriculumLessonApiTests(unittest.TestCase):
         self.assertIn("9. Перехід до перевірки", html)
         self.assertIn("delivery_token", html)
         self.assertEqual(self.client.get("/lesson/1").status_code, 200)
+
+    def test_dashboard_starts_available_unit_then_opens_production_lesson(self):
+        dashboard = self.client.get("/dashboard")
+        self.assertEqual(dashboard.status_code, 200)
+        html = dashboard.get_data(as_text=True)
+        start_path = f"/curriculum/units/{self.unit_id}/start"
+        self.assertIn(f'action="{start_path}"', html)
+        self.assertNotIn('href="/lesson/1"', html)
+
+        self.assertEqual(self.client.post(start_path).status_code, 400)
+        started = self.client.post(
+            start_path,
+            data={"_csrf_token": self.csrf_token},
+        )
+        self.assertEqual(started.status_code, 302)
+        lesson_path = f"/curriculum/units/{self.unit_id}/lesson"
+        self.assertTrue(started.headers["Location"].endswith(lesson_path))
+
+        gateway = FakeGateway(ai_response(valid_lesson_proposal(competency_count=2)))
+        original_gateway = self.app_module.ai_orchestrator._gateway
+        self.app_module.ai_orchestrator._gateway = gateway
+        try:
+            lesson = self.client.get(lesson_path)
+        finally:
+            self.app_module.ai_orchestrator._gateway = original_gateway
+        self.assertEqual(lesson.status_code, 200)
+        self.assertIn("9. Перехід до перевірки", lesson.get_data(as_text=True))
+
+    def test_all_active_navigation_surfaces_use_curriculum_unit_urls(self):
+        self.start_unit()
+        production_path = f"/curriculum/units/{self.unit_id}/lesson"
+        for path in ("/dashboard", "/today", "/library", "/planner"):
+            with self.subTest(path=path):
+                response = self.client.get(path)
+                self.assertEqual(response.status_code, 200)
+                html = response.get_data(as_text=True)
+                self.assertIn(production_path, html)
+                self.assertNotIn('href="/lesson/1"', html)
+
+    def test_production_navigation_calls_delivery_service_and_passes_typed_lesson(self):
+        self.start_unit()
+        gateway = FakeGateway(ai_response(valid_lesson_proposal(competency_count=2)))
+        original_gateway = self.app_module.ai_orchestrator._gateway
+        self.app_module.ai_orchestrator._gateway = gateway
+        rendered = []
+
+        def record_template(_sender, template, context, **_extra):
+            rendered.append((template, context))
+
+        template_rendered.connect(record_template, self.app_module.app)
+        lesson_path = f"/curriculum/units/{self.unit_id}/lesson"
+        try:
+            with (
+                patch.object(
+                    self.app_module.curriculum_lesson_service,
+                    "deliver_lesson",
+                    wraps=self.app_module.curriculum_lesson_service.deliver_lesson,
+                ) as deliver,
+                patch.object(
+                    self.app_module,
+                    "get_lesson_content",
+                    side_effect=AssertionError("legacy lesson fallback was used"),
+                ),
+                patch.object(
+                    self.app_module,
+                    "get_lesson_details",
+                    side_effect=AssertionError("legacy lesson details were used"),
+                ),
+            ):
+                response = self.client.get(lesson_path)
+        finally:
+            template_rendered.disconnect(record_template, self.app_module.app)
+            self.app_module.ai_orchestrator._gateway = original_gateway
+
+        self.assertEqual(response.status_code, 200)
+        deliver.assert_called_once_with(
+            user_id=self.user_id,
+            curriculum_unit_id=self.unit_id,
+            subject="math",
+        )
+        self.assertEqual(rendered[-1][0].name, "curriculum_lesson.html")
+        lesson = rendered[-1][1]["production_lesson"]
+        self.assertEqual(lesson.section_order, LESSON_SECTION_ORDER)
+        self.assertEqual(lesson.curriculum_unit_id, self.unit_id)
+
+    def test_refresh_uses_cached_lesson_and_html_completion_is_idempotent(self):
+        self.start_unit()
+        gateway = FakeGateway(ai_response(valid_lesson_proposal(competency_count=2)))
+        original_gateway = self.app_module.ai_orchestrator._gateway
+        self.app_module.ai_orchestrator._gateway = gateway
+        rendered = []
+
+        def record_template(_sender, template, context, **_extra):
+            if template.name == "curriculum_lesson.html":
+                rendered.append(context)
+
+        template_rendered.connect(record_template, self.app_module.app)
+        lesson_path = f"/curriculum/units/{self.unit_id}/lesson"
+        completion_path = f"/curriculum/units/{self.unit_id}/lesson-complete"
+        try:
+            first = self.client.get(lesson_path)
+            second = self.client.get(lesson_path)
+            self.assertEqual(first.status_code, 200)
+            self.assertEqual(second.status_code, 200)
+            self.assertEqual(len(gateway.calls), 1)
+            self.assertEqual(
+                rendered[0]["production_lesson"].id,
+                rendered[1]["production_lesson"].id,
+            )
+            self.assertFalse(rendered[0]["lesson_cached"])
+            self.assertTrue(rendered[1]["lesson_cached"])
+            delivery_token = rendered[0]["lesson_delivery_token"]
+            self.assertTrue(delivery_token)
+
+            completion_form = {
+                "_csrf_token": self.csrf_token,
+                "delivery_token": delivery_token,
+            }
+            completed = self.client.post(
+                completion_path,
+                data=completion_form,
+                follow_redirects=True,
+            )
+            repeated = self.client.post(
+                completion_path,
+                data=completion_form,
+                follow_redirects=True,
+            )
+        finally:
+            template_rendered.disconnect(record_template, self.app_module.app)
+            self.app_module.ai_orchestrator._gateway = original_gateway
+
+        self.assertEqual(completed.status_code, 200)
+        self.assertEqual(repeated.status_code, 200)
+        self.assertEqual(len(gateway.calls), 1)
+        snapshot = self.app_module.curriculum_progress_service.get_active_curriculum_progress(
+            user_id=self.user_id,
+            subject="math",
+        )
+        self.assertEqual(snapshot.units[0].state, CurriculumUnitState.ASSESSMENT_REQUIRED)
+
+    def test_unauthorized_navigation_cannot_start_or_open_curriculum_unit(self):
+        unauthenticated = self.app_module.app.test_client()
+        self.assertEqual(
+            unauthenticated.get(
+                f"/curriculum/units/{self.unit_id}/lesson"
+            ).status_code,
+            302,
+        )
+        self.assertEqual(
+            unauthenticated.post(
+                f"/curriculum/units/{self.unit_id}/start"
+            ).status_code,
+            400,
+        )
+
+        marker = uuid.uuid4().hex
+        connection = self.app_module.get_db_connection()
+        other_user_id = int(connection.execute(
+            "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
+            ("Other learner", f"other-lesson-{marker}@example.com", "unused"),
+        ).lastrowid)
+        connection.execute(
+            "INSERT INTO user_plans (user_id, subject) VALUES (?, 'math')",
+            (other_user_id,),
+        )
+        connection.commit()
+        connection.close()
+        other_client = self.app_module.app.test_client()
+        with other_client.session_transaction() as other_session:
+            other_session["user_id"] = other_user_id
+            other_session["subject"] = "math"
+            other_session["goal"] = "170"
+            other_session["time_left"] = "3-plus"
+            other_session["_csrf_token"] = marker
+        self.assertEqual(
+            other_client.get(
+                f"/curriculum/units/{self.unit_id}/lesson"
+            ).status_code,
+            403,
+        )
+        self.assertEqual(
+            other_client.post(
+                f"/curriculum/units/{self.unit_id}/start",
+                data={"_csrf_token": marker},
+            ).status_code,
+            403,
+        )
 
 
 if __name__ == "__main__":
