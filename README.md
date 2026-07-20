@@ -17,6 +17,8 @@ and uses only curated lesson material.
   engine contracts, prompt layer, cache boundary, conversation repository,
   attachment validation, and streaming support.
 - `easynmt_core/health.py` — separate liveness and database-readiness endpoints.
+- `easynmt_core/lessons/` — production curriculum lesson persistence, secure
+  delivery evidence, rendering, and the Task 3A completion handoff.
 - `templates/` and `static/` — server-rendered UI and browser behavior.
 - `tests/` — security, quiz consistency, persistence, API, and route regression
   coverage.
@@ -24,6 +26,12 @@ and uses only curated lesson material.
 `easynmt_core/progress/` owns server-authoritative curriculum-unit state,
 deterministic prerequisite/checkpoint unlocking, mastery, XP compatibility,
 audit events, and future-UI read models.
+
+The production Lesson Engine turns an in-progress curriculum unit into a
+complete structured lesson, validates educational sufficiency, and caches the
+accepted artifact in SQLite. It uses one OpenAI request through the central
+orchestrator and returns a clear 503 when neither OpenAI nor a valid cached
+lesson is available. Legacy numeric lessons continue to work offline.
 
 SQLite is authoritative for progress, quiz attempts, unlock state, AI history,
 and quotas. Flask's signed session stores identity and lightweight navigation
@@ -66,6 +74,7 @@ Optional integrations:
 OPENAI_API_KEY=
 OPENAI_MODEL=gpt-4o-mini
 OPENAI_VISION_MODEL=gpt-4o-mini
+OPENAI_LESSON_MAX_OUTPUT_TOKENS=6500
 OPENAI_DAILY_LIMIT=40
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
@@ -85,5 +94,8 @@ are documented in
 Curriculum-unit state, unlocking, XP, replacement, authorization, and legacy
 compatibility are documented in
 [easynmt_core/progress/README.md](easynmt_core/progress/README.md).
+The production lesson lifecycle, cache, completion evidence, schema rollback,
+and Task 3C handoff are documented in
+[easynmt_core/lessons/README.md](easynmt_core/lessons/README.md).
 The production audit and remaining Beta work are in
 [PRODUCTION_AUDIT_REPORT.md](PRODUCTION_AUDIT_REPORT.md).

@@ -18,7 +18,7 @@ CurriculumProgressRepository
       v
 SQLite
 
-Lesson Engine / Quiz Engine / Grading Engine (future production integration)
+Production Lesson service / Quiz Engine / Grading Engine
       |
       v
 typed, server-verified evidence
@@ -29,8 +29,9 @@ CurriculumProgressService
 
 AI cannot initialize progress, choose a state, calculate an unlock, change
 mastery, or award XP. Client requests cannot submit those values either. The
-only public mutation route in Task 3A starts an eligible unit; lesson and
-assessment completion remain internal until trusted production callers exist.
+Task 3B is the first trusted production caller: its server-issued, owner-bound
+delivery evidence can complete a lesson. Assessment completion remains internal
+until Task 3C supplies a trusted quiz/grading caller.
 
 ## State machine
 
@@ -174,11 +175,14 @@ lesson, assessment, and dashboard consumers use this service.
 
 ## API and authorization
 
-Task 3A exposes:
+The curriculum progress and Task 3B lesson integration exposes:
 
 - `GET /api/curriculum/progress` for the signed-in user's active session subject;
 - `POST /api/curriculum/units/<unit_id>/start` with optional
   `expected_version`.
+- `GET /api/curriculum/units/<unit_id>/lesson` for a validated lesson and
+  server-issued delivery token;
+- `POST /api/curriculum/units/<unit_id>/lesson-complete` with only that token.
 
 Unsafe API calls require CSRF. Session identity is authoritative; the start
 route rejects extra keys such as `user_id`, state, score, mastery, or XP. Owner,
@@ -196,8 +200,8 @@ prompts, uploads, and image contents are not stored in progress events.
 
 - `ServerVerifiedAssessmentResult` is a security contract, not the final AI
   grading system.
-- There is no public lesson-complete or assessment-result route because Task 3A
-  has no trusted production Lesson/Quiz/Grading caller yet.
+- There is no public assessment-result route because the production
+  Quiz/Grading caller belongs to Task 3C.
 - Mastery policy is deliberately conservative and does not implement decay.
 - The current dashboard still reads the legacy progress model; the new snapshot
   is ready for a later UI migration.
@@ -205,6 +209,7 @@ prompts, uploads, and image contents are not stored in progress events.
   multi-process/distributed store must preserve the same transaction,
   idempotency, and ownership semantics.
 
-Task 3B should connect a production Lesson Engine by issuing immutable lesson
-completion evidence to `CurriculumProgressService`; it must not bypass this
-boundary or let generated content mutate progress directly.
+Task 3B connects through the caller-owned transaction method
+`complete_lesson_for_assessment_in_transaction()`. It supplies typed immutable
+evidence while this service remains the only code that changes progress state.
+See [`../lessons/README.md`](../lessons/README.md).

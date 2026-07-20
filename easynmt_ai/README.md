@@ -6,8 +6,9 @@ current Flask, SQLite, and server-rendered application.
 
 Task 1 established the shared infrastructure. Task 2 added the production
 mathematics curriculum domain. Task 3A connects published units to persistent,
-server-authoritative progress and deterministic unlocking. Lesson, quiz, and
-grading generation remain architectural contracts.
+server-authoritative progress and deterministic unlocking. Task 3B adds the
+production Lesson Engine, immutable lesson cache, and trusted completion
+handoff. Quiz and grading generation remain architectural contracts.
 Existing tutor, lesson-chat, and photo-grading behavior continues through the
 same orchestrator.
 
@@ -75,8 +76,15 @@ lifecycle, regeneration, and Task 3 integration details.
 
 ### `LessonEngine`
 
-Expands one `LearningPlan` into a complete `Lesson`. Its generation path is
-cache-ready. It cannot mark a lesson complete.
+Expands an authoritative `LessonGenerationRequest` into a complete structured
+`Lesson`. A compatibility adapter still accepts Task 1 `LearningPlan` callers.
+Separate explanation, example, mistake/tip, recap/assessment, and tutor-voice
+prompt responsibilities are composed into one structured request. The engine
+binds provider output to local curriculum identity and validates educational
+sufficiency plus exact Task 3C concept coverage. Invalid output has no
+placeholder fallback. The engine cannot mark a lesson complete. Persistence
+and delivery are documented in
+[`../easynmt_core/lessons/README.md`](../easynmt_core/lessons/README.md).
 
 ### `QuizEngine`
 
@@ -107,7 +115,8 @@ the orchestrator and uses the grading prompt layer.
 tutor UI. It normalizes legacy subject, goal, and lesson values into the shared
 fields so old routes and new engines can coexist.
 
-Reusable models live in `models.py`: `Lesson`, `Quiz`, `Question`, `Curriculum`,
+Reusable models live in `models.py` and the focused `lessons/models.py` module:
+`Lesson`, its nested teaching structures, `Quiz`, `Question`, `Curriculum`,
 `CurriculumUnit`, `ReviewCheckpoint`, `GradeResult`, `Feedback`, and
 `LearningPlan`. Each model validates untrusted provider data and can serialize
 across the cache boundary.
@@ -152,6 +161,11 @@ store data. Cache keys are deterministic SHA-256 hashes of versioned generation
 inputs. A future Redis implementation can replace the default without changing
 an engine. Grading is intentionally uncached because answers and attempt state
 are request-specific.
+
+Task 3B also provides a persistent SQLite acceptance cache outside this generic
+hook. Only lessons that pass domain validation are stored, preventing repeat
+generation across application restarts. A future Redis implementation can add
+distributed request coalescing while SQLite remains the durable artifact store.
 
 ## Adding an engine
 
