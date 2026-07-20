@@ -31,6 +31,8 @@ from easynmt_ai import (
     AIRepository,
     AIRequest,
     AIStreamEvent,
+    ACTIVE_SUBJECT_KEYS,
+    SUBJECT_REGISTRY,
     CurriculumEngine,
     CurriculumRepository,
     CurriculumService,
@@ -38,7 +40,7 @@ from easynmt_ai import (
     LearningContext,
 )
 from easynmt_ai.attachments import AttachmentError, normalize_attachment_ids, save_image_upload
-from easynmt_ai.curriculum import LEGACY_MATH_LESSON_TOPIC_MAP
+from easynmt_ai.curriculum import LEGACY_MATH_LESSON_TOPIC_MAP, load_taxonomy
 from easynmt_core.progress import (
     CurriculumProgressError,
     CurriculumProgressNotFound,
@@ -79,7 +81,7 @@ UPLOAD_DIR = os.path.join(PERSISTENT_DIR, "solution_uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024
 VALID_GOALS = frozenset({"150", "170", "190", "200"})
-VALID_SUBJECTS = frozenset({"math", "ukrainian", "history", "english"})
+VALID_SUBJECTS = frozenset(ACTIVE_SUBJECT_KEYS)
 VALID_TIME_LEFT = frozenset({"1-month", "2-months", "3-plus", "6-plus"})
 EMAIL_PATTERN = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,189}\.[^@\s]{2,63}$")
 LOGIN_WINDOW_SECONDS = 15 * 60
@@ -378,19 +380,31 @@ curriculum_lesson_service = CurriculumLessonService(
     max_output_tokens=app.config["OPENAI_LESSON_MAX_OUTPUT_TOKENS"],
 )
 curriculum_lesson_renderer = CurriculumLessonRenderer()
-curriculum_engine = CurriculumEngine(
-    ai_orchestrator,
-    max_output_tokens=app.config["OPENAI_CURRICULUM_MAX_OUTPUT_TOKENS"],
-)
-curriculum_service = CurriculumService(
-    curriculum_engine,
-    curriculum_repository,
-    progress_service=curriculum_progress_service,
-)
+curriculum_engines = {
+    subject_key: CurriculumEngine(
+        ai_orchestrator,
+        taxonomy=load_taxonomy(subject_key),
+        max_output_tokens=app.config["OPENAI_CURRICULUM_MAX_OUTPUT_TOKENS"],
+    )
+    for subject_key in ACTIVE_SUBJECT_KEYS
+}
+curriculum_services = {
+    subject_key: CurriculumService(
+        engine,
+        curriculum_repository,
+        progress_service=curriculum_progress_service,
+    )
+    for subject_key, engine in curriculum_engines.items()
+}
+# Compatibility aliases retained for integrations written while Mathematics
+# was the only production curriculum.
+curriculum_engine = curriculum_engines["math"]
+curriculum_service = curriculum_services["math"]
 curriculum_bootstrap_service = DevelopmentCurriculumBootstrapService(
     DB_PATH,
     curriculum_service,
     curriculum_repository,
+    curriculum_services=curriculum_services,
 )
 vision_grader = VisionGradingEngine(ai_orchestrator)
 AI_UPLOAD_DIR = os.path.join(PERSISTENT_DIR, "ai_uploads")
@@ -411,11 +425,12 @@ def curriculum_status_command():
     click.echo(f"curricula={status.curricula_count}")
     click.echo(f"published_curricula={status.published_curricula_count}")
     click.echo(f"curriculum_units={status.curriculum_units_count}")
-    if not status.mathematics:
-        click.echo("mathematics=none")
-    for item in status.mathematics:
+    if not status.subjects:
+        click.echo("subjects=none")
+    for item in status.subjects:
         click.echo(
-            "mathematics="
+            "subject="
+            f"{item['subject']} "
             f"user:{item['user_id']} "
             f"curriculum:{item['curriculum_id']} "
             f"status:{item['status']} "
@@ -434,16 +449,30 @@ def curriculum_status_command():
     help="Provision only the selected existing learner; repeat as needed.",
 )
 @click.option(
+    "--subject",
+    "subjects",
+    type=click.Choice(tuple(ACTIVE_SUBJECT_KEYS), case_sensitive=True),
+    multiple=True,
+    help="Provision one subject; repeat for more than one subject.",
+)
+@click.option(
+    "--all-subjects",
+    is_flag=True,
+    help="Provision every active EasyNMT subject.",
+)
+@click.option(
     "--allow-production",
     is_flag=True,
     help="First half of the explicit production safety override.",
 )
-def curriculum_bootstrap_command(user_ids, allow_production):
-    """Create, repair, or reuse safe owner-scoped mathematics curricula."""
+def curriculum_bootstrap_command(user_ids, subjects, all_subjects, allow_production):
+    """Create, repair, or reuse safe owner-scoped subject curricula."""
 
     try:
         report = curriculum_bootstrap_service.bootstrap(
             user_ids=user_ids,
+            subjects=subjects,
+            all_subjects=all_subjects,
             allow_production=allow_production,
         )
     except CurriculumBootstrapError as exc:
@@ -454,7 +483,7 @@ def curriculum_bootstrap_command(user_ids, allow_production):
     )
     for item in report.users:
         click.echo(
-            f"user={item.user_id} action={item.action} "
+            f"user={item.user_id} action={item.action} subject={item.subject} "
             f"curriculum={item.curriculum_id} published={str(item.published).lower()} "
             f"repaired_units={item.repaired_units} "
             f"repaired_checkpoints={item.repaired_checkpoints} "

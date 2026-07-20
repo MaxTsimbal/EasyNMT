@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Iterable
 
+from ..subjects import get_subject
 from .models import Lesson, LessonGenerationRequest
 
 
@@ -23,6 +24,60 @@ class LessonValidationResult:
 def _normalized_duplicates(values: Iterable[str]) -> bool:
     normalized = [" ".join(str(value).casefold().split()) for value in values]
     return len(normalized) != len(set(normalized))
+
+
+def _educational_text(lesson: Lesson) -> str:
+    """Flatten provider-authored fields without authoritative local identity data."""
+
+    values = [
+        lesson.objective_overview,
+        lesson.nmt_relevance,
+        *lesson.nmt_task_types,
+        lesson.prerequisite_reminder.explanation,
+        *lesson.prerequisite_reminder.points,
+        *(value for item in lesson.concepts for value in (
+            item.title,
+            item.what,
+            item.why,
+            item.how,
+            item.when_used,
+            item.nmt_use,
+            item.common_confusion,
+        )),
+        *(value for item in lesson.worked_examples for value in (
+            item.problem,
+            item.reasoning,
+            item.final_answer,
+            item.verification,
+        )),
+        *(value for item in lesson.worked_examples for step in item.steps for value in (
+            step.work,
+            step.explanation,
+        )),
+        *(value for item in lesson.common_mistakes for value in (
+            item.incorrect_reasoning,
+            item.why_incorrect,
+            item.recognition,
+            item.correction,
+            item.prevention,
+        )),
+        *(value for item in lesson.practical_tips for value in (
+            item.advice,
+            item.use_when,
+            item.recognition_pattern,
+        )),
+        *lesson.recap.main_ideas,
+        *lesson.recap.formulas,
+        *lesson.recap.warnings,
+        *lesson.recap.recognition_patterns,
+        *lesson.recap.can_solve,
+        lesson.assessment_transition.message,
+        *lesson.assessment_transition.readiness_checklist,
+        *lesson.assessment_blueprint.question_patterns,
+        *lesson.assessment_blueprint.required_reasoning,
+        *lesson.assessment_blueprint.excluded_content,
+    ]
+    return " ".join(str(value).casefold() for value in values if value)
 
 
 def validate_lesson(
@@ -63,6 +118,52 @@ def validate_lesson(
             "Lesson duration does not match the curriculum unit.",
             "estimated_minutes",
         )
+
+    try:
+        subject_definition = get_subject(request.subject)
+    except KeyError:
+        add("unknown_subject", "Lesson subject is not registered.", "subject")
+    else:
+        if not request.topic_id.startswith(
+            f"{subject_definition.curriculum_namespace}."
+        ):
+            add(
+                "topic_subject_mismatch",
+                "Lesson topic is outside the selected subject namespace.",
+                "topic_id",
+            )
+        educational_text = _educational_text(lesson)
+        profile = subject_definition.validation_profile
+        positive_count = sum(
+            marker.casefold() in educational_text
+            for marker in profile.positive_markers
+        )
+        if positive_count < profile.minimum_positive_markers:
+            add(
+                "subject_alignment_missing",
+                "Lesson content does not contain sufficient selected-subject evidence.",
+                "content",
+            )
+        foreign_markers = tuple(
+            marker
+            for marker in profile.foreign_subject_markers
+            if marker.casefold() in educational_text
+        )
+        if foreign_markers:
+            add(
+                "wrong_subject_content",
+                "Lesson content contains material from another subject.",
+                "content",
+            )
+        if request.topic_vocabulary and not any(
+            marker.casefold() in educational_text
+            for marker in request.topic_vocabulary
+        ):
+            add(
+                "topic_alignment_missing",
+                "Lesson content does not use the curriculum topic vocabulary.",
+                "content",
+            )
 
     if len(lesson.objective_overview) < 40:
         add("objective_too_short", "Learning objective is not explanatory enough.")

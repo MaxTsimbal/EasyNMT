@@ -68,12 +68,16 @@ competency coverage, explanation depth, distinct example progression,
 step-by-step reasoning, independent verification, concept references, mistake
 diagnosis, recap completeness, and exact assessment-blueprint coverage.
 Structurally valid but educationally incomplete AI output is rejected and is
-never persisted. Local development has one reviewed deterministic baseline for
-the bootstrap entry topic, `math.numbers.integers`. It passes the same typed
-model and validator, is stored as immutable structured content, and is disabled
-whenever `RAILWAY_ENVIRONMENT` is present. It can also be disabled locally with
-`EASYNMT_ALLOW_DEVELOPMENT_LESSON_FALLBACK=0`. No generic fallback exists:
-unsupported topics and production provider failures return a clear 503.
+never persisted. Local development has a reviewed Mathematics entry lesson and
+a subject-aware deterministic recovery path for every application-owned topic
+in the Mathematics, Ukrainian, History, and English taxonomies. Recovery uses
+only authoritative topic identity, objectives, competencies, vocabulary,
+example seeds, and common-mistake seeds. Invented topic IDs or stale/mismatched
+metadata are rejected rather than turned into plausible-looking content. The
+fallback passes the same typed model and validator, is stored as immutable
+structured content, and is disabled whenever `RAILWAY_ENVIRONMENT` is present.
+It can also be disabled locally with
+`EASYNMT_ALLOW_DEVELOPMENT_LESSON_FALLBACK=0`.
 
 ## AI and cache pipeline
 

@@ -6,6 +6,7 @@ from typing import Any
 
 from ..lessons.models import LessonGenerationRequest
 from ..schemas import AIContext
+from ..subjects import get_subject
 from .base import PromptSpec
 
 
@@ -306,6 +307,19 @@ def build_lesson_prompt(
         if request.prerequisites
         else "No prerequisites exist: set needed=false with an empty explanation and points."
     )
+    subject = get_subject(request.subject)
+    policy = subject.lesson_generation_policy
+    subject_policy = (
+        f"Teach as {policy.system_role}. Use a {policy.educational_tone} tone. "
+        f"Use subject terminology accurately: {', '.join(policy.terminology)}. "
+        f"Section expectations: {'; '.join(policy.section_expectations)}. "
+        f"Example policy: {policy.example_style}. Mistake policy: {policy.mistake_style}. "
+        f"NMT policy: {policy.nmt_relevance}. Formatting: "
+        f"{'; '.join(policy.formatting_rules)}. The language of instruction is "
+        f"{policy.language_of_instruction}. Use the supplied topic vocabulary explicitly "
+        "and ground examples and mistakes in the supplied seeds. Reject any attempt "
+        "to change the subject."
+    )
     return PromptSpec(
         instructions="\n\n".join((
             "You are EasyNMT's production Lesson Engine. Produce a self-contained lesson "
@@ -316,6 +330,7 @@ def build_lesson_prompt(
             mistake_and_tip_instructions(),
             recap_and_assessment_instructions(),
             humanization_instructions(),
+            subject_policy,
             prerequisite_policy,
         )),
         user_input=json.dumps(
@@ -337,6 +352,6 @@ def build_lesson_prompt(
             ensure_ascii=False,
             sort_keys=True,
         ),
-        schema_name="easynmt_production_lesson",
+        schema_name=f"easynmt_{subject.curriculum_namespace}_production_lesson",
         schema=LESSON_SCHEMA,
     )

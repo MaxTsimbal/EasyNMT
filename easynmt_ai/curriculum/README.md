@@ -187,22 +187,28 @@ infer completion from AI output.
 
 ## Development bootstrap and status
 
-The Flask CLI provisions an owner-scoped mathematics roadmap through the same
-deterministic engine, validator, repository, publication transition, and
-`CurriculumProgressService` hook used by application code. It never deletes a
-user, replaces a valid published curriculum, or rewrites existing progress.
-Repeated runs reuse valid data; repair is limited to missing rows from a
-deterministic baseline whose immutable identity still matches.
+The Flask CLI provisions owner-scoped roadmaps for Mathematics, Ukrainian,
+History, and English through the same deterministic engines, validators, shared
+repository, publication transition, and `CurriculumProgressService` hook used
+by application code. It never deletes a user, replaces a valid published
+curriculum, or rewrites existing progress. Repeated runs reuse valid data;
+repair is limited to missing rows from a deterministic baseline whose immutable
+identity still matches.
 
 ```powershell
 $repo = 'C:\path\to\EasyNMT_Public'
 Set-Location -LiteralPath $repo
-.\.venv\Scripts\Activate.ps1
-python -m flask --app app curriculum status
-python -m flask --app app curriculum bootstrap-development
-python -m flask --app app curriculum status
-python app.py
+.\.venv\Scripts\python.exe -m flask --app app curriculum status
+.\.venv\Scripts\python.exe -m flask --app app curriculum bootstrap-development --all-subjects
+.\.venv\Scripts\python.exe -m flask --app app curriculum status
+.\.venv\Scripts\python.exe app.py
 ```
+
+Use repeatable `--subject math`, `--subject ukrainian`, `--subject history`, or
+`--subject english` options to provision a selected subset. Omitting both
+`--subject` and `--all-subjects` preserves the original Mathematics-only
+behavior. Every result line reports learner, subject, curriculum, publication
+state, repair counts, and stable unit IDs.
 
 Both commands report the resolved database target. Locally that is
 `instance\users.db` unless `EASYNMT_DB_PATH` or
@@ -214,7 +220,7 @@ one-off administrative job:
 
 ```powershell
 $env:EASYNMT_ALLOW_PRODUCTION_CURRICULUM_BOOTSTRAP = '1'
-python -m flask --app app curriculum bootstrap-development --allow-production
+.\.venv\Scripts\python.exe -m flask --app app curriculum bootstrap-development --all-subjects --allow-production
 Remove-Item Env:EASYNMT_ALLOW_PRODUCTION_CURRICULUM_BOOTSTRAP
 ```
 

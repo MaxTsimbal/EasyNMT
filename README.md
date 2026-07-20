@@ -13,9 +13,10 @@ and uses only curated lesson material.
 - `app.py` — Flask routes, authentication, onboarding, lesson flow, quiz
   finalization, progress views, and API orchestration.
 - `learning_engine.py` — canonical quiz construction and deterministic grading.
-- `easynmt_ai/` — central AI orchestrator, shared context and models, independent
-  engine contracts, prompt layer, cache boundary, conversation repository,
-  attachment validation, and streaming support.
+- `easynmt_ai/` — central AI orchestrator, canonical four-subject registry,
+  versioned Mathematics, Ukrainian, History, and English taxonomies, shared
+  context/models, independent engine contracts, prompt layer, cache boundary,
+  conversation repository, attachment validation, and streaming support.
 - `easynmt_core/health.py` — separate liveness and database-readiness endpoints.
 - `easynmt_core/lessons/` — production curriculum lesson persistence, secure
   delivery evidence, rendering, and the Task 3A completion handoff.
@@ -30,10 +31,11 @@ audit events, and future-UI read models.
 The production Lesson Engine turns an in-progress curriculum unit into a
 complete structured lesson, validates educational sufficiency, and caches the
 accepted artifact in SQLite. It uses one OpenAI request through the central
-orchestrator. Local development can use the reviewed, validator-backed integer
-lesson baseline when OpenAI is unavailable; unsupported topics and production
-provider failures still return a clear 503. Legacy numeric lessons remain only
-for learners without an applicable published curriculum.
+orchestrator. Local development can use validator-backed, subject-aware
+deterministic lessons grounded in the application-owned taxonomy metadata when
+OpenAI is unavailable. Caller-invented topics and stale topic metadata are
+rejected instead of fabricated. Legacy numeric lessons remain only for learners
+without an applicable published curriculum.
 
 SQLite is authoritative for progress, quiz attempts, unlock state, AI history,
 and quotas. Flask's signed session stores identity and lightweight navigation
@@ -45,20 +47,25 @@ state; it is not trusted as the source of XP or completion data.
 $repo = 'C:\path\to\EasyNMT_Public'
 Set-Location -LiteralPath $repo
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 Copy-Item .env.example .env
-python -m flask --app app curriculum status
-python -m flask --app app curriculum bootstrap-development
-python -m flask --app app curriculum status
-python app.py
+.\.venv\Scripts\python.exe -m flask --app app curriculum status
+.\.venv\Scripts\python.exe -m flask --app app curriculum bootstrap-development --all-subjects
+.\.venv\Scripts\python.exe -m flask --app app curriculum status
+.\.venv\Scripts\python.exe app.py
 ```
 
-After signing in with Mathematics selected, Dashboard continuation must resolve
-to `/curriculum/units/<unit_id>/lesson`. The status and bootstrap commands use
-the same `EASYNMT_DB_PATH` / Railway volume / local `instance\users.db`
-resolution as `python app.py`; repeated bootstrap runs reuse the owner-scoped
-published curriculum and repair only missing deterministic baseline rows.
+Calling the virtual-environment Python directly also works when PowerShell
+script activation is blocked by the Windows execution policy. The included
+`bootstrap_all_subjects.bat` performs the status/bootstrap/status sequence.
+
+After signing in with any active subject selected, Dashboard continuation must
+resolve to `/curriculum/units/<unit_id>/lesson`. The status and bootstrap
+commands use the same `EASYNMT_DB_PATH` / Railway volume / local
+`instance\users.db` resolution as `python app.py`; repeated bootstrap runs
+reuse owner-scoped published curricula and repair only missing deterministic
+baseline rows. Without `--all-subjects`, the command keeps its original
+Mathematics-only behavior for backward compatibility.
 
 Set a local `SECRET_KEY` in `.env` if sessions should survive process restarts.
 `OPENAI_API_KEY` and Google OAuth credentials are optional for the offline core.
@@ -66,8 +73,8 @@ Set a local `SECRET_KEY` in `.env` if sessions should survive process restarts.
 Run the regression suite:
 
 ```powershell
-python -m unittest discover -v
-python -m pip check
+.\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\python.exe -m pip check
 ```
 
 ## Production configuration
@@ -101,8 +108,8 @@ See [DEPLOY_RAILWAY.md](DEPLOY_RAILWAY.md), [OPENAI_SETUP.md](OPENAI_SETUP.md),
 and [GOOGLE_AUTH_SETUP.md](GOOGLE_AUTH_SETUP.md) for integration details.
 The AI engine boundary and extension guide are documented in
 [easynmt_ai/README.md](easynmt_ai/README.md).
-The production mathematics taxonomy, curriculum lifecycle, and Task 3 handoff
-are documented in
+The production multi-subject taxonomies, curriculum lifecycle, and Task 3
+handoff are documented in
 [easynmt_ai/curriculum/README.md](easynmt_ai/curriculum/README.md).
 Curriculum-unit state, unlocking, XP, replacement, authorization, and legacy
 compatibility are documented in

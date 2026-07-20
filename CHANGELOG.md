@@ -1,3 +1,17 @@
+# Task 3B.3 — Multi-Subject Production Lesson Platform
+
+- Added one canonical subject registry for Mathematics, Ukrainian, History, and English.
+- Added versioned, validated NMT taxonomies for every active subject.
+- Generalized curriculum bootstrap and status reporting to all active subjects.
+- Added `--all-subjects` and repeatable `--subject` CLI options while preserving the Mathematics default.
+- Routed every published subject through the shared Production Lesson Engine and curriculum progress model.
+- Added subject-aware prompt policy, validation, and deterministic offline recovery grounded in taxonomy metadata.
+- Rejected invented topic IDs and stale/mismatched deterministic fallback requests.
+- Added multi-subject idempotency, publication, Dashboard navigation, lesson rendering, cache, completion, and isolation coverage.
+- Added `bootstrap_all_subjects.bat` for Windows systems where PowerShell script activation is blocked.
+
+---
+
 # EasyNMT v1.0 Beta
 
 Найбільше оновлення: автономна генерація програми, тем, повних уроків, тестів із 12 питань та AI-перевірка з частковими балами.

@@ -19,7 +19,7 @@ from easynmt_ai.lessons import (
     validate_lesson,
 )
 from easynmt_ai.prompts.lesson import build_lesson_prompt
-from easynmt_ai.curriculum import CurriculumRepository
+from easynmt_ai.curriculum import CurriculumRepository, load_taxonomy
 from easynmt_core.lessons import (
     CurriculumLessonConflict,
     CurriculumLessonDeliveryInvalid,
@@ -178,6 +178,58 @@ class LessonEngineContractTests(unittest.TestCase):
         self.assertFalse(result.success)
         self.assertFalse(result.fallback_used)
         self.assertEqual(result.error.code, AIErrorCode.DISABLED)
+
+
+    def test_deterministic_fallback_supports_first_and_later_units_for_every_subject(self):
+        for subject in ("math", "ukrainian", "history", "english"):
+            taxonomy = load_taxonomy(subject)
+            for topic in (taxonomy.topics[0], taxonomy.topics[-1]):
+                with self.subTest(subject=subject, topic=topic.id):
+                    request = LessonGenerationRequest(
+                        lesson_id=f"lesson-{subject}",
+                        curriculum_id=f"curriculum-{subject}",
+                        curriculum_unit_id=f"unit-{subject}",
+                        topic_id=topic.id,
+                        subject=subject,
+                        title=topic.title_uk,
+                        description=topic.description_uk,
+                        objectives=topic.learning_objectives,
+                        competencies=topic.competencies,
+                        prerequisites=(),
+                        difficulty=topic.difficulty,
+                        estimated_minutes=topic.estimated_minutes,
+                        mastery_target=0.85,
+                        target_score=170,
+                        language="uk",
+                        topic_vocabulary=topic.vocabulary,
+                        example_seeds=topic.example_seeds,
+                        common_mistake_seeds=topic.common_mistakes,
+                    )
+                    context = AIContext(
+                        user_id=1,
+                        subject=subject,
+                        goal_score=170,
+                        language="uk",
+                        difficulty=topic.difficulty,
+                        active_curriculum_id=request.curriculum_id,
+                    )
+                    gateway = FakeGateway(AIResult(
+                        "",
+                        "offline",
+                        "OpenAI is not configured.",
+                        error_code=AIErrorCode.DISABLED.value,
+                    ))
+                    result = LessonEngine(
+                        AIOrchestrator(_gateway=gateway),
+                        allow_development_fallback=True,
+                    ).generate(context, request)
+                    self.assertTrue(result.success, result.error)
+                    self.assertTrue(result.fallback_used)
+                    self.assertEqual(
+                        result.value.generation_metadata.source,
+                        "deterministic",
+                    )
+                    self.assertTrue(validate_lesson(result.value, request).valid)
 
     def test_prompt_uses_separate_teaching_obligations_and_safe_context(self):
         prompt = build_lesson_prompt(self.context, self.request)

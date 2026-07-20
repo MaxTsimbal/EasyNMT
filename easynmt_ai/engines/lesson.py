@@ -13,7 +13,7 @@ from ..lessons import (
     LessonGenerationRequest,
     validate_lesson,
 )
-from ..lessons.development import development_lesson_proposal
+from ..lessons.development import deterministic_lesson_proposal
 from ..models import AIModelValidationError, LearningPlan
 from ..prompts.lesson import (
     LESSON_PROMPT_VERSION,
@@ -37,11 +37,16 @@ class LessonEngine(AIEngine[Lesson]):
         orchestrator,
         *,
         max_output_tokens: int = 6500,
-        allow_development_fallback: bool = False,
+        allow_deterministic_fallback: bool | None = None,
+        allow_development_fallback: bool | None = None,
     ) -> None:
         super().__init__(orchestrator)
         self.max_output_tokens = max(2500, int(max_output_tokens))
-        self.allow_development_fallback = bool(allow_development_fallback)
+        if allow_deterministic_fallback is None:
+            allow_deterministic_fallback = allow_development_fallback
+        self.allow_deterministic_fallback = bool(allow_deterministic_fallback)
+        # Public compatibility attribute retained for existing integrations.
+        self.allow_development_fallback = self.allow_deterministic_fallback
 
     @property
     def model_identifier(self) -> str:
@@ -157,9 +162,9 @@ class LessonEngine(AIEngine[Lesson]):
             ),
         )
         if not result.success:
-            if not self.allow_development_fallback:
+            if not self.allow_deterministic_fallback:
                 return result
-            proposal = development_lesson_proposal(request)
+            proposal = deterministic_lesson_proposal(request)
             if proposal is None:
                 return result
             try:

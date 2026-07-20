@@ -5,13 +5,15 @@ import hashlib
 import json
 import logging
 import sqlite3
-from typing import Optional, Sequence
+from typing import Mapping, Optional, Sequence
 
 from easynmt_ai.curriculum.taxonomy import (
+    CurriculumTaxonomy,
     LEGACY_MATH_LESSON_TOPIC_MAP,
-    MathTaxonomy,
     load_math_taxonomy,
+    load_taxonomy,
 )
+from easynmt_ai.subjects import ACTIVE_SUBJECT_KEYS
 
 from .errors import (
     AssessmentEvidenceInvalid,
@@ -62,12 +64,28 @@ class CurriculumProgressService:
         self,
         repository: CurriculumProgressRepository,
         *,
-        taxonomy: Optional[MathTaxonomy] = None,
+        taxonomy: Optional[CurriculumTaxonomy] = None,
+        taxonomies: Optional[Mapping[str, CurriculumTaxonomy]] = None,
         logger: Optional[logging.Logger] = None,
     ) -> None:
         self.repository = repository
         self.taxonomy = taxonomy or load_math_taxonomy()
+        loaded = {
+            subject: load_taxonomy(subject)
+            for subject in ACTIVE_SUBJECT_KEYS
+        }
+        loaded[self.taxonomy.subject] = self.taxonomy
+        loaded.update(dict(taxonomies or {}))
+        self.taxonomies = loaded
         self.logger = logger or logging.getLogger("easynmt.curriculum_progress")
+
+    def _taxonomy_for(self, subject: str) -> CurriculumTaxonomy:
+        try:
+            return self.taxonomies[str(subject)]
+        except KeyError as exc:
+            raise ProgressInitializationError(
+                "Curriculum subject has no registered taxonomy."
+            ) from exc
 
     @staticmethod
     def _stable_id(prefix: str, *parts: object) -> str:
@@ -160,12 +178,13 @@ class CurriculumProgressService:
         previous_curriculum_ids: Sequence[str],
     ) -> dict[str, tuple[str, str, float]]:
         credits: dict[str, tuple[str, str, float]] = {}
+        taxonomy = self._taxonomy_for(curriculum_row["subject"])
         try:
             metadata = json.loads(curriculum_row["generation_metadata_json"] or "{}")
         except (TypeError, ValueError, json.JSONDecodeError):
             metadata = {}
         for topic_id in metadata.get("mastered_topic_ids", ()):
-            if topic_id in self.taxonomy.topics_by_id:
+            if topic_id in taxonomy.topics_by_id:
                 credits[str(topic_id)] = (
                     "generation_mastery_snapshot",
                     curriculum_row["context_fingerprint"],
@@ -609,6 +628,7 @@ class CurriculumProgressService:
             curriculum_id=curriculum_id,
         )
         self._assert_active(curriculum)
+        taxonomy = self._taxonomy_for(curriculum["subject"])
         now = utc_now()
         progress_rows = connection.execute(
             """
@@ -704,7 +724,7 @@ class CurriculumProgressService:
                 continue
             direct = tuple(json.loads(row["prerequisite_topic_ids_json"] or "[]"))
             try:
-                closure = self.taxonomy.prerequisite_closure(direct) if direct else set()
+                closure = taxonomy.prerequisite_closure(direct) if direct else set()
             except KeyError as exc:
                 raise ProgressInitializationError(
                     "Curriculum contains an unknown prerequisite topic."
@@ -1760,6 +1780,7 @@ class CurriculumProgressService:
             user_id=user_id,
             curriculum_id=curriculum_id,
         )
+        taxonomy = self._taxonomy_for(curriculum["subject"])
         rows = connection.execute(
             """
             SELECT p.*, u.position, u.prerequisite_topic_ids_json
@@ -1801,7 +1822,7 @@ class CurriculumProgressService:
             else:
                 checkpoint_status = "blocked"
             state = CurriculumUnitState(row["state"])
-            topic = self.taxonomy.topics_by_id.get(row["topic_id"])
+            topic = taxonomy.topics_by_id.get(row["topic_id"])
             unit_views.append(CurriculumUnitProgressView(
                 unit_id=row["curriculum_unit_id"],
                 topic_id=row["topic_id"],

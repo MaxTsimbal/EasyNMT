@@ -1,22 +1,20 @@
-"""Validator-backed local lesson baselines for explicit development use."""
+"""Validator-backed deterministic lesson baselines for provider recovery."""
 from __future__ import annotations
 
 from typing import Any
 
+from ..curriculum.taxonomy import load_taxonomy
+from ..subjects import get_subject
 from .models import LessonGenerationRequest
 
 
-def development_lesson_proposal(
+def deterministic_lesson_proposal(
     request: LessonGenerationRequest,
 ) -> dict[str, Any] | None:
-    """Return reviewed structured content for the local bootstrap entry unit.
-
-    This is intentionally narrow. Unknown topics still require OpenAI rather
-    than receiving generic or fabricated mathematics content.
-    """
+    """Return reviewed or metadata-grounded structured lesson content."""
 
     if request.topic_id != "math.numbers.integers":
-        return None
+        return _subject_lesson_proposal(request)
     remaining_competencies = list(range(2, len(request.competencies) + 1)) or [1]
     return {
         "objective_overview": (
@@ -260,6 +258,333 @@ def development_lesson_proposal(
             ],
             "excluded_content": [
                 "раціональні числа та інші поняття поза поточним уроком"
+            ],
+        },
+    }
+
+
+# Compatibility alias for Task 3B callers. New code uses the production name.
+development_lesson_proposal = deterministic_lesson_proposal
+
+
+def _seed(values: tuple[str, ...], index: int, fallback: str) -> str:
+    return values[index] if index < len(values) else fallback
+
+
+def _subject_lesson_proposal(
+    request: LessonGenerationRequest,
+) -> dict[str, Any] | None:
+    """Build a validator-backed local lesson from authoritative topic metadata.
+
+    This fallback intentionally teaches the curriculum metadata rather than
+    pretending to possess provider-only detail.  Its examples and diagnostic
+    language vary by subject and incorporate subject-owned topic seeds.
+    """
+
+    try:
+        subject = get_subject(request.subject)
+        taxonomy_topic = load_taxonomy(request.subject).topic(request.topic_id)
+    except (KeyError, OSError, ValueError):
+        return None
+    if not request.topic_id.startswith(f"{subject.curriculum_namespace}."):
+        return None
+    # A deterministic fallback may only expand application-owned taxonomy
+    # metadata.  Reject caller-invented or stale identity fields instead of
+    # fabricating a plausible-looking lesson for the wrong topic.
+    if (
+        request.title != taxonomy_topic.title_uk
+        or request.description != taxonomy_topic.description_uk
+        or request.objectives != taxonomy_topic.learning_objectives
+        or request.competencies != taxonomy_topic.competencies
+    ):
+        return None
+
+    vocabulary = request.topic_vocabulary or (
+        request.title,
+        request.competencies[0],
+    )
+    vocabulary_text = ", ".join(vocabulary[:6])
+    objective = request.objectives[0]
+    second_objective = (
+        request.objectives[1]
+        if len(request.objectives) > 1
+        else f"Застосовувати тему «{request.title}» у типовому завданні НМТ."
+    )
+    second_indices = tuple(range(2, len(request.competencies) + 1)) or (1,)
+    prerequisite_titles = [item.title for item in request.prerequisites]
+
+    subject_copy = {
+        "math": {
+            "marker": "математичне обчислення, формула або логічна модель",
+            "what": "математичне правило",
+            "how": "Запиши дані, обери правило або формулу, виконай перетворення без пропусків і перевір результат незалежною дією.",
+            "problem": "Розв’яжи математичне завдання",
+            "evidence": "обчислення й перевірка",
+            "formula": "умова → математична модель → обчислення → перевірка",
+        },
+        "ukrainian": {
+            "marker": "мовна норма, слово й речення в українському контексті",
+            "what": "мовне правило",
+            "how": "Визнач мовну одиницю, назви норму, перевір контекст, зістав нормативний варіант із контрприкладом і поясни вибір.",
+            "problem": "Проаналізуй слово або речення",
+            "evidence": "мовне правило й контекст",
+            "formula": "мовна одиниця → умова правила → нормативна форма → контекстна перевірка",
+        },
+        "history": {
+            "marker": "історична подія, період, діяч, джерело та причинно-наслідковий зв’язок",
+            "what": "історичний зв’язок",
+            "how": "Установи період і територію, розташуй події в хронології, зістав діяча або джерело та сформулюй підтверджений наслідок.",
+            "problem": "Виконай історичне завдання",
+            "evidence": "хронологія й історичне джерело",
+            "formula": "період → подія → діяч або джерело → причина → наслідок",
+        },
+        "english": {
+            "marker": "English grammar, vocabulary, sentence context and reading evidence",
+            "what": "English language pattern",
+            "how": "Read the whole sentence, identify the grammar or vocabulary cue, choose the natural English form and verify it against the wider context.",
+            "problem": "Complete an English language task",
+            "evidence": "grammar cue, vocabulary and reading context",
+            "formula": "context → language cue → English form → meaning check",
+        },
+    }[request.subject]
+
+    concepts = [
+        {
+            "id": "concept-foundation",
+            "title": f"Основа теми: {request.title}",
+            "what": (
+                f"Цей блок пояснює {subject_copy['what']} для теми «{request.title}». "
+                f"Ключова лексика: {vocabulary_text}. {request.description}"
+            ),
+            "why": (
+                f"Основа потрібна, щоб розпізнати {subject_copy['marker']} і не "
+                "обирати відповідь лише за зовнішньою схожістю."
+            ),
+            "how": subject_copy["how"],
+            "when_used": (
+                "Використовуй цей алгоритм одразу після читання умови та перед "
+                "порівнянням запропонованих відповідей."
+            ),
+            "nmt_use": (
+                f"У НМТ ця основа допомагає виконати завдання на {objective.casefold()}"
+            ),
+            "common_confusion": (
+                "Типова плутанина виникає, коли учень помічає одну знайому ознаку, "
+                "але не перевіряє решту умов і контекст."
+            ),
+            "competency_indices": [1],
+        },
+        {
+            "id": "concept-application",
+            "title": f"Застосування й перевірка: {request.title}",
+            "what": (
+                f"Застосування поєднує поняття {vocabulary_text} у послідовне "
+                f"розв’язання; очікуваний результат — {second_objective.casefold()}"
+            ),
+            "why": (
+                f"Поетапна перевірка через {subject_copy['evidence']} відсіює "
+                "дистрактори, що відтворюють лише частину правильного міркування."
+            ),
+            "how": (
+                f"Працюй за схемою «{subject_copy['formula']}», після кожного кроку "
+                "зіставляй проміжний висновок з умовою й не додавай непідтверджених даних."
+            ),
+            "when_used": (
+                "Застосовуй для повного прикладу, завдання з кількома ознаками та "
+                "фінальної перевірки перед вибором відповіді."
+            ),
+            "nmt_use": (
+                "На НМТ цей контроль особливо корисний, коли кілька варіантів "
+                "виглядають правдоподібно, але лише один відповідає всім умовам."
+            ),
+            "common_confusion": (
+                "Не замінюй перевірку повторенням першої думки: використай іншу "
+                "ознаку, контекст, джерело або зворотну дію."
+            ),
+            "competency_indices": list(second_indices),
+        },
+    ]
+
+    example_fallbacks = (
+        f"{subject_copy['problem']} на розпізнавання основної ознаки теми «{request.title}».",
+        f"{subject_copy['problem']} з двома пов’язаними ознаками: {vocabulary_text}.",
+        f"{subject_copy['problem']} у форматі НМТ із правдоподібними дистракторами.",
+    )
+    difficulties = ("foundation", "guided", "exam")
+    worked_examples = []
+    for index, difficulty in enumerate(difficulties):
+        seed = _seed(request.example_seeds, index, example_fallbacks[index])
+        worked_examples.append({
+            "id": f"example-{difficulty}",
+            "difficulty": difficulty,
+            "problem": f"{seed}. Тема: {request.title}.",
+            "reasoning": (
+                f"Спочатку визначаємо, яку ознаку теми перевіряє завдання, і "
+                f"співвідносимо її з поняттями {vocabulary_text}; потім плануємо перевірку."
+            ),
+            "concept_ids": [
+                "concept-foundation"
+                if index == 0
+                else "concept-application"
+            ],
+            "steps": [
+                {
+                    "order": 1,
+                    "work": f"Виділено умову та ключові поняття: {vocabulary_text}.",
+                    "explanation": (
+                        "Цей крок відокремлює дані завдання від схожих, але "
+                        "непотрібних відомостей або дистракторів."
+                    ),
+                },
+                {
+                    "order": 2,
+                    "work": f"Застосовано схему: {subject_copy['formula']}.",
+                    "explanation": (
+                        "Послідовна схема дає обґрунтований результат і показує, "
+                        "яку саме умову підтверджено на кожному етапі."
+                    ),
+                },
+            ],
+            "final_answer": (
+                "Обрано варіант, що відповідає всім визначеним ознакам поточної теми."
+            ),
+            "verification": (
+                f"Відповідь повторно перевірено через {subject_copy['evidence']}; "
+                "вона не потребує фактів або правил поза уроком."
+            ),
+        })
+    worked_examples[-1]["concept_ids"] = ["concept-foundation", "concept-application"]
+
+    mistake_fallbacks = (
+        "учень визначає відповідь за одним знайомим словом і не читає повну умову",
+        "учень пропускає проміжний крок та не може пояснити отриманий висновок",
+        "учень перевіряє відповідь тим самим способом і не помічає первинної помилки",
+    )
+    common_mistakes = []
+    for index in range(3):
+        seed = _seed(request.common_mistake_seeds, index, mistake_fallbacks[index])
+        common_mistakes.append({
+            "id": f"mistake-{index + 1}",
+            "incorrect_reasoning": f"Помилковий підхід: {seed}.",
+            "why_incorrect": (
+                f"Такий підхід не перевіряє всі поняття {vocabulary_text} та може "
+                "підтвердити дистрактор замість правильної відповіді."
+            ),
+            "recognition": (
+                "Помилку видно, коли в поясненні немає посилання на конкретну "
+                "умову, правило, контекст або незалежний доказ."
+            ),
+            "correction": (
+                f"Повернися до схеми «{subject_copy['formula']}» і запиши "
+                "пропущений зв’язок окремим кроком."
+            ),
+            "prevention": (
+                "Перед остаточною відповіддю назви дві різні ознаки, які її "
+                "підтверджують, і одну ознаку, що відкидає найближчий дистрактор."
+            ),
+            "concept_ids": ["concept-foundation", "concept-application"],
+        })
+
+    return {
+        "objective_overview": (
+            f"Мета уроку — {objective.casefold()} Після пояснення учень зможе "
+            f"використати поняття {vocabulary_text} у контрольованій послідовності."
+        ),
+        "nmt_relevance": (
+            f"Для НМТ тема «{request.title}» важлива, бо перевіряє не механічне "
+            f"впізнавання, а {subject_copy['marker']}. Завдання вимагає обрати "
+            "відповідь, підтверджену правилом, контекстом і самоперевіркою."
+        ),
+        "nmt_task_types": [
+            f"розпізнати ключову ознаку теми «{request.title}»",
+            f"застосувати {subject_copy['evidence']} для відкидання дистрактора",
+        ],
+        "prerequisite_reminder": {
+            "needed": bool(prerequisite_titles),
+            "explanation": (
+                "Перед уроком віднови тільки потрібні попередні теми: "
+                + ", ".join(prerequisite_titles)
+                + ". Вони дають поняття для першого кроку поточного алгоритму."
+                if prerequisite_titles
+                else ""
+            ),
+            "points": (
+                [
+                    f"Пригадай основну ознаку теми «{prerequisite_titles[0]}».",
+                    "Перевір, як попереднє поняття використовується в першому кроці нового завдання.",
+                ]
+                if prerequisite_titles
+                else []
+            ),
+        },
+        "concepts": concepts,
+        "worked_examples": worked_examples,
+        "common_mistakes": common_mistakes,
+        "practical_tips": [
+            {
+                "id": "tip-read-condition",
+                "advice": "Спочатку назви, яку саме ознаку перевіряє умова.",
+                "use_when": "Перед переглядом варіантів відповіді в завданні НМТ.",
+                "recognition_pattern": "Ключові слова умови вказують на правило, контекст або потрібний тип доказу.",
+            },
+            {
+                "id": "tip-eliminate",
+                "advice": "Відкидай дистрактор конкретною суперечною ознакою.",
+                "use_when": "Коли два варіанти виглядають близькими або частково правильними.",
+                "recognition_pattern": "Неправильний варіант порушує хоча б одну умову поточної теми.",
+            },
+            {
+                "id": "tip-verify",
+                "advice": f"Перевір відповідь через {subject_copy['evidence']} іншим способом.",
+                "use_when": "Після отримання відповіді та перед остаточним вибором у тесті.",
+                "recognition_pattern": "Незалежна перевірка підтверджує той самий висновок без повторення первинної помилки.",
+            },
+        ],
+        "recap": {
+            "main_ideas": [
+                f"Тема «{request.title}» спирається на поняття {vocabulary_text}.",
+                f"Результат має підтверджувати {subject_copy['evidence']}, а не лише знайоме формулювання.",
+            ],
+            "formulas": [subject_copy["formula"]],
+            "warnings": [
+                "Не обирай відповідь за одним словом або першою впізнаною ознакою.",
+                "Не додавай до умови фактів чи правил, яких немає в поточному уроці.",
+            ],
+            "recognition_patterns": [
+                "Умова називає ознаку, яку треба пов’язати з правилом або контекстом.",
+                "Правильний варіант витримує основну й незалежну перевірку.",
+            ],
+            "can_solve": [
+                f"Розпізнати базову ознаку теми «{request.title}».",
+                "Пояснити вибір і відкинути дистрактор двома різними доказами.",
+            ],
+        },
+        "assessment_transition": {
+            "message": (
+                f"Наступна перевірка охоплюватиме тільки тему «{request.title}», "
+                "її ключові поняття та алгоритм самоперевірки без нового матеріалу."
+            ),
+            "readiness_checklist": [
+                f"Я можу пояснити поняття {vocabulary[0]} власними словами.",
+                "Я визначаю ознаку, яку перевіряє умова завдання.",
+                "Я обґрунтовую кожний проміжний крок.",
+                "Я перевіряю відповідь незалежним способом і відкидаю дистрактор.",
+            ],
+        },
+        "assessment_blueprint": {
+            "covered_concept_ids": ["concept-foundation", "concept-application"],
+            "question_patterns": [
+                "розпізнати ключову ознаку в короткій умові",
+                "відновити пропущений крок алгоритму",
+                "знайти й виправити типову помилку",
+                "обрати відповідь та підтвердити її незалежною ознакою",
+            ],
+            "required_reasoning": [
+                "посилання на конкретне правило або контекст",
+                "незалежна перевірка та пояснення відкинутого дистрактора",
+            ],
+            "excluded_content": [
+                "поняття наступних curriculum units і будь-які правила поза поточною темою"
             ],
         },
     }

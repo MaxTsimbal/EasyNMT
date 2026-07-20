@@ -69,6 +69,9 @@ class LessonGenerationRequest(SerializableAIModel):
     mastery_target: float
     target_score: int
     language: str = "uk"
+    topic_vocabulary: tuple[str, ...] = ()
+    example_seeds: tuple[str, ...] = ()
+    common_mistake_seeds: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         for field_name in (
@@ -150,6 +153,18 @@ class LessonGenerationRequest(SerializableAIModel):
                 minimum=100,
             ),
             language=_text(data.get("language", "uk"), "lesson_request.language"),
+            topic_vocabulary=_strings(
+                data.get("topic_vocabulary", ()),
+                "lesson_request.topic_vocabulary",
+            ),
+            example_seeds=_strings(
+                data.get("example_seeds", ()),
+                "lesson_request.example_seeds",
+            ),
+            common_mistake_seeds=_strings(
+                data.get("common_mistake_seeds", ()),
+                "lesson_request.common_mistake_seeds",
+            ),
         )
 
     @classmethod
@@ -181,7 +196,7 @@ class LessonGenerationRequest(SerializableAIModel):
     def for_prompt(self) -> dict[str, Any]:
         """Return educational inputs only; opaque ownership IDs stay local."""
 
-        return {
+        result = {
             "topic_id": self.topic_id,
             "subject": self.subject,
             "title": self.title,
@@ -198,6 +213,13 @@ class LessonGenerationRequest(SerializableAIModel):
             "target_score": self.target_score,
             "language": self.language,
         }
+        if self.topic_vocabulary:
+            result["topic_vocabulary"] = list(self.topic_vocabulary)
+        if self.example_seeds:
+            result["example_seeds"] = list(self.example_seeds)
+        if self.common_mistake_seeds:
+            result["common_mistake_seeds"] = list(self.common_mistake_seeds)
+        return result
 
 
 @dataclass(frozen=True)

@@ -26,6 +26,13 @@ from .models import (
 from .orchestrator import AIOrchestrator
 from .repository import AIRepository
 from .schemas import AIContext, AIRequest, AIResult, AIStreamEvent, AttachmentRef, LearningContext
+from .subjects import (
+    ACTIVE_SUBJECT_KEYS,
+    SUBJECT_REGISTRY,
+    SubjectDefinition,
+    active_subjects,
+    get_subject,
+)
 
 __all__ = [
     "AICache",
@@ -38,6 +45,7 @@ __all__ = [
     "AIResult",
     "AIStreamEvent",
     "AttachmentRef",
+    "ACTIVE_SUBJECT_KEYS",
     "Curriculum",
     "CurriculumEngine",
     "CurriculumRepository",
@@ -61,6 +69,10 @@ __all__ = [
     "Quiz",
     "QuizEngine",
     "ReviewCheckpoint",
+    "SUBJECT_REGISTRY",
+    "SubjectDefinition",
+    "active_subjects",
     "build_cache_key",
     "validate_lesson",
+    "get_subject",
 ]

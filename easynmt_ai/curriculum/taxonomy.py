@@ -1,4 +1,4 @@
-"""Versioned, application-owned mathematics taxonomy and graph validation."""
+"""Versioned, application-owned subject taxonomies and graph validation."""
 from __future__ import annotations
 
 import json
@@ -7,10 +7,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence
 
+from ..subjects import get_subject
+
 
 ALLOWED_DIFFICULTIES = frozenset({"foundation", "intermediate", "advanced"})
 SLUG_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-TOPIC_ID_PATTERN = re.compile(r"^math\.[a-z0-9_]+\.[a-z0-9_]+$")
+TOPIC_ID_PATTERN = re.compile(
+    r"^[a-z][a-z0-9_]*\.[a-z0-9_]+\.[a-z0-9_]+$"
+)
 REQUIRED_TOPIC_FIELDS = frozenset({
     "subject",
     "id",
@@ -69,6 +73,10 @@ class TaxonomyTopic:
     competencies: tuple[str, ...]
     required: bool
     recommended_after_topic_ids: tuple[str, ...]
+    vocabulary: tuple[str, ...] = ()
+    example_seeds: tuple[str, ...] = ()
+    common_mistakes: tuple[str, ...] = ()
+    assessment_focus: tuple[str, ...] = ()
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "TaxonomyTopic":
@@ -88,6 +96,13 @@ class TaxonomyTopic:
             recommended_after_topic_ids=tuple(
                 str(item) for item in data["recommended_after_topic_ids"]
             ),
+            vocabulary=tuple(str(item) for item in data.get("vocabulary", ())),
+            example_seeds=tuple(str(item) for item in data.get("example_seeds", ())),
+            common_mistakes=tuple(str(item) for item in data.get("common_mistakes", ())),
+            assessment_focus=tuple(
+                str(item)
+                for item in data.get("assessment_focus", data["competencies"])
+            ),
         )
 
     def for_prompt(self) -> dict[str, Any]:
@@ -99,12 +114,17 @@ class TaxonomyTopic:
             "estimated_minutes": self.estimated_minutes,
             "prerequisite_topic_ids": list(self.prerequisite_topic_ids),
             "objectives": list(self.learning_objectives),
+            "competencies": list(self.competencies),
+            "vocabulary": list(self.vocabulary),
+            "example_seeds": list(self.example_seeds),
+            "common_mistakes": list(self.common_mistakes),
+            "assessment_focus": list(self.assessment_focus),
             "required": self.required,
         }
 
 
 @dataclass(frozen=True)
-class MathTaxonomy:
+class CurriculumTaxonomy:
     version: str
     subject: str
     completeness_note_uk: str
@@ -177,7 +197,7 @@ class MathTaxonomy:
 class TaxonomyValidationResult:
     valid: bool
     issues: tuple[TaxonomyValidationIssue, ...] = field(default_factory=tuple)
-    taxonomy: Optional[MathTaxonomy] = None
+    taxonomy: Optional[CurriculumTaxonomy] = None
 
 
 class TaxonomyValidationError(ValueError):
@@ -221,7 +241,11 @@ def _find_cycle(graph: Mapping[str, set[str]]) -> tuple[str, ...]:
     return ()
 
 
-def validate_taxonomy_payload(payload: Mapping[str, Any]) -> TaxonomyValidationResult:
+def validate_taxonomy_payload(
+    payload: Mapping[str, Any],
+    *,
+    expected_subject: str | None = None,
+) -> TaxonomyValidationResult:
     issues: list[TaxonomyValidationIssue] = []
     version = str(payload.get("version") or "").strip()
     subject = str(payload.get("subject") or "").strip()
@@ -229,8 +253,21 @@ def validate_taxonomy_payload(payload: Mapping[str, Any]) -> TaxonomyValidationR
     raw_topics = payload.get("topics")
     if not version:
         issues.append(TaxonomyValidationIssue("missing_field", "Taxonomy version is required", field="version"))
-    if subject != "math":
-        issues.append(TaxonomyValidationIssue("invalid_subject", "Taxonomy subject must be math", field="subject"))
+    try:
+        subject_definition = get_subject(subject)
+    except KeyError:
+        subject_definition = None
+        issues.append(TaxonomyValidationIssue(
+            "invalid_subject",
+            "Taxonomy subject must be a registered EasyNMT subject",
+            field="subject",
+        ))
+    if expected_subject is not None and subject != expected_subject:
+        issues.append(TaxonomyValidationIssue(
+            "invalid_subject",
+            f"Taxonomy subject must be {expected_subject}",
+            field="subject",
+        ))
     if not completeness_note:
         issues.append(TaxonomyValidationIssue(
             "missing_field", "Taxonomy completeness note is required", field="completeness_note_uk"
@@ -274,6 +311,15 @@ def validate_taxonomy_payload(payload: Mapping[str, Any]) -> TaxonomyValidationR
             issues.append(TaxonomyValidationIssue(
                 "invalid_topic_id", f"Invalid topic ID: {topic_id}", topic_id=topic_id, field="id"
             ))
+        elif subject_definition and not topic_id.startswith(
+            f"{subject_definition.curriculum_namespace}."
+        ):
+            issues.append(TaxonomyValidationIssue(
+                "invalid_topic_id",
+                f"Topic ID {topic_id} is outside the subject namespace",
+                topic_id=topic_id,
+                field="id",
+            ))
         if not SLUG_PATTERN.fullmatch(slug):
             issues.append(TaxonomyValidationIssue(
                 "invalid_slug", f"Invalid topic slug: {slug}", topic_id=topic_id, field="slug"
@@ -308,6 +354,19 @@ def validate_taxonomy_payload(payload: Mapping[str, Any]) -> TaxonomyValidationR
             if not _string_array(raw_topic.get(field_name)) and raw_topic.get(field_name) != []:
                 issues.append(TaxonomyValidationIssue(
                     "invalid_field", f"Topic {topic_id} has invalid {field_name}", topic_id, field_name
+                ))
+        for field_name in (
+            "vocabulary",
+            "example_seeds",
+            "common_mistakes",
+            "assessment_focus",
+        ):
+            if field_name in raw_topic and not _string_array(raw_topic.get(field_name)):
+                issues.append(TaxonomyValidationIssue(
+                    "invalid_field",
+                    f"Topic {topic_id} has invalid {field_name}",
+                    topic_id,
+                    field_name,
                 ))
         if not raw_topic.get("learning_objectives"):
             issues.append(TaxonomyValidationIssue(
@@ -380,7 +439,7 @@ def validate_taxonomy_payload(payload: Mapping[str, Any]) -> TaxonomyValidationR
 
     if issues:
         return TaxonomyValidationResult(False, tuple(issues))
-    taxonomy = MathTaxonomy(
+    taxonomy = CurriculumTaxonomy(
         version=version,
         subject=subject,
         completeness_note_uk=completeness_note,
@@ -389,14 +448,28 @@ def validate_taxonomy_payload(payload: Mapping[str, Any]) -> TaxonomyValidationR
     return TaxonomyValidationResult(True, (), taxonomy)
 
 
-def load_math_taxonomy(path: Path | None = None) -> MathTaxonomy:
-    taxonomy_path = path or MATH_TAXONOMY_FILE
+def load_taxonomy(
+    subject: str,
+    path: Path | None = None,
+) -> CurriculumTaxonomy:
+    definition = get_subject(subject)
+    taxonomy_path = path or Path(__file__).with_name("data") / definition.taxonomy_filename
     with taxonomy_path.open("r", encoding="utf-8") as source:
         payload = json.load(source)
-    result = validate_taxonomy_payload(payload)
+    result = validate_taxonomy_payload(payload, expected_subject=subject)
     if not result.valid or result.taxonomy is None:
         raise TaxonomyValidationError(result)
     return result.taxonomy
+
+
+def load_math_taxonomy(path: Path | None = None) -> CurriculumTaxonomy:
+    """Compatibility wrapper for the original Task 2 public API."""
+
+    return load_taxonomy("math", path)
+
+
+# Compatibility alias retained for integrations built during Task 2.
+MathTaxonomy = CurriculumTaxonomy
 
 
 def map_legacy_completed_lessons(lesson_ids: Sequence[int]) -> tuple[str, ...]:

@@ -1,0 +1,91 @@
+{
+  "version": "nmt-ukrainian-1.0.0",
+  "subject": "ukrainian",
+  "completeness_note_uk": "Внутрішня таксономія EasyNMT для системної підготовки до мовного блоку НМТ. Структура підлягає регулярній предметній перевірці відповідно до чинної програми оцінювання.",
+  "topics": [
+    {
+      "subject": "ukrainian", "id": "ukrainian.phonetics.sounds_stress", "slug": "sounds-stress", "title_uk": "Звуки, букви й наголос", "description_uk": "Співвідношення звуків і букв, уподібнення, чергування та нормативний наголос.", "domain": "phonetics", "difficulty": "foundation", "estimated_minutes": 90,
+      "prerequisite_topic_ids": [], "learning_objectives": ["Розрізняти звук і букву та визначати нормативний наголос у типових словах НМТ."], "competencies": ["Фонетичний аналіз", "Орфоепічна норма"], "required": true, "recommended_after_topic_ids": [],
+      "vocabulary": ["звук", "буква", "склад", "наголос", "уподібнення"],
+      "example_seeds": ["зіставити звуковий і буквений склад слова", "обрати нормативний наголос", "пояснити зміну звука в мовленні"],
+      "common_mistakes": ["рахувати букви замість звуків", "переносити розмовний наголос у нормативну відповідь", "не враховувати уподібнення приголосних"]
+    },
+    {
+      "subject": "ukrainian", "id": "ukrainian.orthography.apostrophe_soft_sign", "slug": "apostrophe-soft-sign", "title_uk": "Апостроф і м’який знак", "description_uk": "Умови написання апострофа та м’якого знака в українських і запозичених словах.", "domain": "orthography", "difficulty": "foundation", "estimated_minutes": 90,
+      "prerequisite_topic_ids": ["ukrainian.phonetics.sounds_stress"], "learning_objectives": ["Застосовувати правила написання апострофа й м’якого знака та пояснювати винятки."], "competencies": ["Орфографічна норма", "Розпізнавання фонетичної умови"], "required": true, "recommended_after_topic_ids": [],
+      "vocabulary": ["апостроф", "м’який знак", "префікс", "губний приголосний", "йотований голосний"],
+      "example_seeds": ["обрати правильне написання слова з апострофом", "визначити позицію м’якого знака", "порівняти правило й виняток"],
+      "common_mistakes": ["ставити апостроф після кожного губного", "писати м’який знак за російською аналогією", "не бачити межі префікса й кореня"]
+    },
+    {
+      "subject": "ukrainian", "id": "ukrainian.orthography.root_affix_spelling", "slug": "root-affix-spelling", "title_uk": "Правопис коренів і афіксів", "description_uk": "Чергування, спрощення, подвоєння, префікси та суфікси у нормативному написанні.", "domain": "orthography", "difficulty": "foundation", "estimated_minutes": 120,
+      "prerequisite_topic_ids": ["ukrainian.orthography.apostrophe_soft_sign"], "learning_objectives": ["Розпізнавати орфограми в коренях і афіксах та обґрунтовувати нормативне написання."], "competencies": ["Морфемний аналіз", "Орфографічний вибір"], "required": true, "recommended_after_topic_ids": [],
+      "vocabulary": ["корінь", "префікс", "суфікс", "чергування", "спрощення", "подвоєння"],
+      "example_seeds": ["знайти орфограму в корені", "пояснити написання префікса", "відрізнити подовження від подвоєння"],
+      "common_mistakes": ["визначати орфограму без морфемного складу", "застосовувати спрощення до винятку", "плутати подовження звука з подвоєнням букв"]
+    },
+    {
+      "subject": "ukrainian", "id": "ukrainian.lexicology.meaning_phraseology", "slug": "meaning-phraseology", "title_uk": "Лексичне значення й фразеологія", "description_uk": "Лексична норма, синоніми, антоніми, пароніми та значення фразеологізмів у контексті.", "domain": "lexicology", "difficulty": "foundation", "estimated_minutes": 90,
+      "prerequisite_topic_ids": [], "learning_objectives": ["Визначати значення слова або фразеологізму в контексті й уникати лексичних помилок."], "competencies": ["Контекстуальний аналіз", "Лексична норма"], "required": true, "recommended_after_topic_ids": ["ukrainian.phonetics.sounds_stress"],
+      "vocabulary": ["лексичне значення", "синонім", "паронім", "фразеологізм", "контекст"],
+      "example_seeds": ["дібрати контекстуальний синонім", "розрізнити пароніми", "пояснити значення фразеологізму"],
+      "common_mistakes": ["обирати слово лише за схожим звучанням", "тлумачити фразеологізм буквально", "не враховувати контекст речення"]
+    },
+    {
+      "subject": "ukrainian", "id": "ukrainian.word_formation.morphemics", "slug": "morphemics-word-formation", "title_uk": "Будова слова і словотвір", "description_uk": "Морфеми, твірна основа, способи словотворення та розрізнення форм слова.", "domain": "word_formation", "difficulty": "foundation", "estimated_minutes": 90,
+      "prerequisite_topic_ids": ["ukrainian.orthography.root_affix_spelling"], "learning_objectives": ["Визначати морфеми, твірну основу й спосіб творення слова."], "competencies": ["Морфемний розбір", "Словотвірний аналіз"], "required": true, "recommended_after_topic_ids": [],
+      "vocabulary": ["морфема", "основа", "закінчення", "твірне слово", "спосіб словотворення"],
+      "example_seeds": ["відокремити закінчення від суфікса", "побудувати словотвірну пару", "назвати спосіб творення слова"],
+      "common_mistakes": ["плутати форму слова зі спорідненим словом", "вважати постфікс закінченням", "визначати спосіб словотворення без твірної основи"]
+    },
+    {
+      "subject": "ukrainian", "id": "ukrainian.morphology.nominal_parts", "slug": "nominal-parts-speech", "title_uk": "Іменні частини мови", "description_uk": "Іменник, прикметник, числівник і займенник: форми, відмінювання та нормативне вживання.", "domain": "morphology", "difficulty": "intermediate", "estimated_minutes": 150,
+      "prerequisite_topic_ids": ["ukrainian.word_formation.morphemics"], "learning_objectives": ["Розпізнавати іменні частини мови та добирати нормативні граматичні форми."], "competencies": ["Морфологічна класифікація", "Граматична норма"], "required": true, "recommended_after_topic_ids": ["ukrainian.lexicology.meaning_phraseology"],
+      "vocabulary": ["відмінок", "рід", "число", "ступінь порівняння", "числівник", "займенник"],
+      "example_seeds": ["визначити частину мови в контексті", "утворити нормативну відмінкову форму", "виправити помилку в узгодженні"],
+      "common_mistakes": ["визначати частину мови без контексту", "неправильно відмінювати числівник", "утворювати ненормативний ступінь порівняння"]
+    },
+    {
+      "subject": "ukrainian", "id": "ukrainian.morphology.verb_forms", "slug": "verb-forms", "title_uk": "Дієслово та його форми", "description_uk": "Час, спосіб, вид, дієвідміна, дієприкметник, дієприслівник і безособові форми.", "domain": "morphology", "difficulty": "intermediate", "estimated_minutes": 150,
+      "prerequisite_topic_ids": ["ukrainian.word_formation.morphemics"], "learning_objectives": ["Розрізняти дієслівні форми та нормативно вживати їх у реченні."], "competencies": ["Морфологічний аналіз дієслова", "Граматичне редагування"], "required": true, "recommended_after_topic_ids": ["ukrainian.morphology.nominal_parts"],
+      "vocabulary": ["вид", "спосіб", "дієвідміна", "дієприкметник", "дієприслівник"],
+      "example_seeds": ["визначити граматичні ознаки дієслова", "обрати нормативне особове закінчення", "виправити дієприслівникову конструкцію"],
+      "common_mistakes": ["плутати вид і час", "не узгоджувати діяча в дієприслівниковому звороті", "утворювати неприродну активну дієприкметникову форму"]
+    },
+    {
+      "subject": "ukrainian", "id": "ukrainian.syntax.simple_sentence", "slug": "simple-sentence", "title_uk": "Просте речення", "description_uk": "Граматична основа, члени речення, односкладні конструкції, однорідні й відокремлені члени.", "domain": "syntax", "difficulty": "intermediate", "estimated_minutes": 150,
+      "prerequisite_topic_ids": ["ukrainian.morphology.nominal_parts", "ukrainian.morphology.verb_forms"], "learning_objectives": ["Аналізувати будову простого речення й пояснювати розділові знаки в ускладнених конструкціях."], "competencies": ["Синтаксичний аналіз", "Пунктуаційне обґрунтування"], "required": true, "recommended_after_topic_ids": [],
+      "vocabulary": ["граматична основа", "односкладне речення", "однорідні члени", "відокремлення", "звертання"],
+      "example_seeds": ["знайти граматичну основу", "визначити тип односкладного речення", "пояснити кому при відокремленому члені"],
+      "common_mistakes": ["вважати кожне дієслово присудком окремої частини", "плутати звертання з підметом", "ставити кому між однорідними членами без умови"]
+    },
+    {
+      "subject": "ukrainian", "id": "ukrainian.syntax.complex_sentence", "slug": "complex-sentence", "title_uk": "Складне речення", "description_uk": "Складносурядні, складнопідрядні, безсполучникові речення та конструкції з різними видами зв’язку.", "domain": "syntax", "difficulty": "intermediate", "estimated_minutes": 180,
+      "prerequisite_topic_ids": ["ukrainian.syntax.simple_sentence"], "learning_objectives": ["Визначати межі частин складного речення, вид зв’язку та нормативний розділовий знак."], "competencies": ["Структурне моделювання речення", "Пунктуаційний вибір"], "required": true, "recommended_after_topic_ids": [],
+      "vocabulary": ["предикативна частина", "сурядність", "підрядність", "сполучник", "безсполучниковий зв’язок"],
+      "example_seeds": ["побудувати схему складного речення", "визначити вид підрядної частини", "обрати знак у безсполучниковій конструкції"],
+      "common_mistakes": ["рахувати сполучники замість граматичних основ", "плутати однорідні присудки зі складним реченням", "обирати знак без смислового відношення"]
+    },
+    {
+      "subject": "ukrainian", "id": "ukrainian.language_norm.editing", "slug": "language-norm-editing", "title_uk": "Мовні норми й редагування", "description_uk": "Лексичні, граматичні, стилістичні та синтаксичні помилки в словосполученнях і реченнях.", "domain": "language_norm", "difficulty": "intermediate", "estimated_minutes": 150,
+      "prerequisite_topic_ids": ["ukrainian.lexicology.meaning_phraseology", "ukrainian.syntax.simple_sentence"], "learning_objectives": ["Розпізнавати тип мовної помилки та редагувати конструкцію без зміни змісту."], "competencies": ["Мовне редагування", "Нормативний вибір"], "required": true, "recommended_after_topic_ids": ["ukrainian.syntax.complex_sentence"],
+      "vocabulary": ["лексична норма", "керування", "узгодження", "калька", "стилістична доречність"],
+      "example_seeds": ["виправити лексичну помилку", "відновити нормативне керування", "обрати стилістично доречний варіант"],
+      "common_mistakes": ["замінювати слово без перевірки значення", "копіювати ненормативну модель керування", "виправляти речення так, що змінюється його зміст"]
+    },
+    {
+      "subject": "ukrainian", "id": "ukrainian.text.reading_analysis", "slug": "reading-text-analysis", "title_uk": "Читання й аналіз тексту", "description_uk": "Тема, основна думка, мікротеми, аргументація, засоби зв’язку та робота з інформацією тексту.", "domain": "text", "difficulty": "advanced", "estimated_minutes": 150,
+      "prerequisite_topic_ids": ["ukrainian.syntax.complex_sentence", "ukrainian.language_norm.editing"], "learning_objectives": ["Визначати головну думку, структуру аргументації та логічні зв’язки в тексті."], "competencies": ["Критичне читання", "Інтерпретація тексту"], "required": true, "recommended_after_topic_ids": [],
+      "vocabulary": ["тема", "основна думка", "мікротема", "аргумент", "висновок", "засіб зв’язку"],
+      "example_seeds": ["сформулювати основну думку абзацу", "зіставити тезу й аргумент", "знайти засіб міжфразового зв’язку"],
+      "common_mistakes": ["підміняти основну думку окремою деталлю", "приписувати авторові непідтверджений висновок", "ігнорувати логічні маркери тексту"]
+    },
+    {
+      "subject": "ukrainian", "id": "ukrainian.integrated.nmt_language_tasks", "slug": "integrated-nmt-language", "title_uk": "Інтегровані мовні завдання НМТ", "description_uk": "Комплексне застосування правопису, лексики, граматики, синтаксису й аналізу тексту.", "domain": "integrated_practice", "difficulty": "advanced", "estimated_minutes": 180,
+      "prerequisite_topic_ids": ["ukrainian.text.reading_analysis"], "learning_objectives": ["Обирати стратегію для комплексного мовного завдання та перевіряти відповідь за кількома нормами."], "competencies": ["Інтегрований мовний аналіз", "Екзаменаційна стратегія"], "required": false, "recommended_after_topic_ids": [],
+      "vocabulary": ["умова завдання", "дистрактор", "мовна норма", "контекст", "самоперевірка"],
+      "example_seeds": ["класифікувати тип перевірюваної норми", "відкинути дистрактор за контекстом", "провести поетапну самоперевірку"],
+      "common_mistakes": ["відповідати до повного читання умови", "перевіряти лише одну норму в комплексному прикладі", "змінювати правильну відповідь без мовного аргументу"]
+    }
+  ]
+}

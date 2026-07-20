@@ -22,7 +22,7 @@ from .policy import (
     validate_curriculum,
 )
 from .repository import CurriculumRepository, CurriculumStateError
-from .taxonomy import MathTaxonomy, load_math_taxonomy
+from .taxonomy import CurriculumTaxonomy, load_math_taxonomy
 
 if TYPE_CHECKING:
     from easynmt_core.progress import CurriculumProgressService
@@ -50,7 +50,7 @@ class CurriculumService:
         repository: CurriculumRepository,
         *,
         progress_service: "CurriculumProgressService",
-        taxonomy: Optional[MathTaxonomy] = None,
+        taxonomy: Optional[CurriculumTaxonomy] = None,
     ) -> None:
         self.engine = engine
         self.repository = repository

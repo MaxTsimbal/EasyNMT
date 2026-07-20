@@ -7,8 +7,12 @@ import uuid
 from pathlib import Path
 from unittest.mock import patch
 
-from easynmt_ai import AIOrchestrator, CurriculumEngine
-from easynmt_ai.curriculum import CurriculumRepository, CurriculumService
+from easynmt_ai import ACTIVE_SUBJECT_KEYS, AIOrchestrator, CurriculumEngine
+from easynmt_ai.curriculum import (
+    CurriculumRepository,
+    CurriculumService,
+    load_taxonomy,
+)
 from easynmt_core.curriculum_bootstrap import (
     CurriculumBootstrapError,
     DevelopmentCurriculumBootstrapService,
@@ -90,16 +94,24 @@ class DevelopmentCurriculumBootstrapTests(unittest.TestCase):
         logger = logging.getLogger(f"tests.curriculum.bootstrap.{id(self)}")
         logger.handlers = [logging.NullHandler()]
         logger.propagate = False
-        engine = CurriculumEngine(AIOrchestrator(settings={}, logger=logger))
-        self.curriculum_service = CurriculumService(
-            engine,
-            self.curriculum_repository,
-            progress_service=self.progress_service,
-        )
+        orchestrator = AIOrchestrator(settings={}, logger=logger)
+        self.curriculum_services = {}
+        for subject in ACTIVE_SUBJECT_KEYS:
+            engine = CurriculumEngine(
+                orchestrator,
+                taxonomy=load_taxonomy(subject),
+            )
+            self.curriculum_services[subject] = CurriculumService(
+                engine,
+                self.curriculum_repository,
+                progress_service=self.progress_service,
+            )
+        self.curriculum_service = self.curriculum_services["math"]
         self.bootstrap_service = DevelopmentCurriculumBootstrapService(
             self.db_path,
             self.curriculum_service,
             self.curriculum_repository,
+            curriculum_services=self.curriculum_services,
         )
 
     def tearDown(self):
@@ -156,6 +168,50 @@ class DevelopmentCurriculumBootstrapTests(unittest.TestCase):
         self.assertEqual(status.database_target, str(Path(self.db_path).resolve()))
         self.assertEqual(status.published_curricula_count, 1)
         self.assertEqual(status.mathematics[0]["status"], "published")
+
+
+    def test_all_subject_bootstrap_is_idempotent_and_subject_isolated(self):
+        before = self.counts()
+        first = self.bootstrap_service.bootstrap(all_subjects=True)
+        after_first = self.counts()
+        second = self.bootstrap_service.bootstrap(all_subjects=True)
+        after_second = self.counts()
+
+        self.assertEqual(set(first.subjects), set(ACTIVE_SUBJECT_KEYS))
+        self.assertEqual(first.created, len(ACTIVE_SUBJECT_KEYS))
+        self.assertEqual(second.reused, len(ACTIVE_SUBJECT_KEYS))
+        self.assertEqual(after_first, after_second)
+        self.assertEqual(after_first["users"], before["users"])
+        self.assertEqual(after_first["xp"], before["xp"])
+        self.assertEqual(after_first["legacy"], before["legacy"])
+
+        connection = sqlite3.connect(self.db_path)
+        connection.row_factory = sqlite3.Row
+        try:
+            rows = connection.execute(
+                """
+                SELECT c.subject, c.status, COUNT(DISTINCT u.unit_id) AS units,
+                       COUNT(DISTINCT p.id) AS progress
+                FROM ai_curricula c
+                JOIN ai_curriculum_units u ON u.curriculum_id = c.id
+                JOIN curriculum_unit_progress p
+                  ON p.curriculum_id = c.id AND p.user_id = c.user_id
+                WHERE c.user_id = 1
+                GROUP BY c.subject, c.status
+                ORDER BY c.subject
+                """
+            ).fetchall()
+        finally:
+            connection.close()
+        self.assertEqual({row["subject"] for row in rows}, set(ACTIVE_SUBJECT_KEYS))
+        self.assertTrue(all(row["status"] == "published" for row in rows))
+        self.assertTrue(all(int(row["units"]) == int(row["progress"]) for row in rows))
+
+        status = self.bootstrap_service.status()
+        self.assertEqual(
+            {item["subject"] for item in status.subjects},
+            set(ACTIVE_SUBJECT_KEYS),
+        )
 
     def test_missing_baseline_unit_and_progress_are_repaired_without_duplicates(self):
         initial = self.bootstrap_service.bootstrap().users[0]
@@ -265,6 +321,65 @@ class CurriculumBootstrapCliTests(unittest.TestCase):
         )
         self.assertNotIn('href="/lesson/', html)
         self.assertNotIn('action="/lesson/', html)
+
+
+    def test_all_subject_cli_routes_every_active_dashboard_to_production(self):
+        runner = self.app_module.app.test_cli_runner()
+        marker = uuid.uuid4().hex
+        connection = self.app_module.get_db_connection()
+        user_id = int(connection.execute(
+            "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
+            ("All Subjects CLI", f"all-subjects-{marker}@example.com", "unused"),
+        ).lastrowid)
+        connection.execute(
+            """
+            INSERT INTO user_plans (user_id, goal, subject, time_left)
+            VALUES (?, '170', 'math', '3-plus')
+            """,
+            (user_id,),
+        )
+        connection.commit()
+        connection.close()
+
+        result = runner.invoke(args=[
+            "curriculum",
+            "bootstrap-development",
+            "--user-id",
+            str(user_id),
+            "--all-subjects",
+        ])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn(f"created={len(ACTIVE_SUBJECT_KEYS)}", result.output)
+
+        client = self.app_module.app.test_client()
+        for subject in ACTIVE_SUBJECT_KEYS:
+            active = self.app_module.curriculum_services[subject].get_active_curriculum(
+                user_id=user_id,
+                subject=subject,
+            )
+            self.assertIsNotNone(active, subject)
+            self.assertEqual(active.status.value, "published")
+            with client.session_transaction() as user_session:
+                user_session["user_id"] = user_id
+                user_session["user_name"] = "All Subjects CLI"
+                user_session["subject"] = subject
+                user_session["goal"] = "170"
+                user_session["time_left"] = "3-plus"
+            dashboard = client.get("/dashboard")
+            self.assertEqual(dashboard.status_code, 200, subject)
+            html = dashboard.get_data(as_text=True)
+            self.assertIn(
+                f'/curriculum/units/{active.units[0].id}/start',
+                html,
+                subject,
+            )
+            self.assertNotIn('href="/lesson/', html, subject)
+            self.assertNotIn('action="/lesson/', html, subject)
+
+        status = runner.invoke(args=["curriculum", "status"])
+        self.assertEqual(status.exit_code, 0, status.output)
+        for subject in ACTIVE_SUBJECT_KEYS:
+            self.assertIn(f"subject={subject} user:{user_id}", status.output)
 
 
 if __name__ == "__main__":

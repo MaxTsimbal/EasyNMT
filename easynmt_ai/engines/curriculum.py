@@ -1,4 +1,4 @@
-"""Production curriculum engine constrained by EasyNMT's mathematics taxonomy."""
+"""Production curriculum engine constrained by an EasyNMT subject taxonomy."""
 from __future__ import annotations
 
 import math
@@ -15,7 +15,7 @@ from ..curriculum.policy import (
     curriculum_request_fingerprint,
     validate_curriculum,
 )
-from ..curriculum.taxonomy import MathTaxonomy, load_math_taxonomy
+from ..curriculum.taxonomy import CurriculumTaxonomy, load_math_taxonomy
 from ..errors import AIError, AIErrorCode, EngineResult
 from ..models import (
     AIModelValidationError,
@@ -35,7 +35,7 @@ from .base import AIEngine
 
 
 class CurriculumEngine(AIEngine[Curriculum]):
-    """Generate validated mathematics roadmap drafts.
+    """Generate validated subject roadmap drafts.
 
     OpenAI chooses pacing and priority only within a deterministic candidate
     set. Topic definitions, prerequisites, lifecycle state, IDs, and metadata
@@ -50,7 +50,7 @@ class CurriculumEngine(AIEngine[Curriculum]):
         self,
         orchestrator,
         *,
-        taxonomy: Optional[MathTaxonomy] = None,
+        taxonomy: Optional[CurriculumTaxonomy] = None,
         max_output_tokens: int = 5000,
     ) -> None:
         super().__init__(orchestrator)

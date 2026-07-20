@@ -10,9 +10,9 @@ import threading
 import uuid
 from dataclasses import replace
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Mapping, Optional
 
-from easynmt_ai.curriculum import MathTaxonomy, load_math_taxonomy
+from easynmt_ai.curriculum import CurriculumTaxonomy, load_math_taxonomy, load_taxonomy
 from easynmt_ai.engines import LessonEngine
 from easynmt_ai.lessons import (
     Lesson,
@@ -21,6 +21,7 @@ from easynmt_ai.lessons import (
     validate_lesson,
 )
 from easynmt_ai.schemas import AIContext
+from easynmt_ai.subjects import ACTIVE_SUBJECT_KEYS
 from easynmt_core.progress import (
     CurriculumProgressService,
     CurriculumUnitState,
@@ -61,7 +62,8 @@ class CurriculumLessonService:
         engine: LessonEngine,
         progress_service: CurriculumProgressService,
         *,
-        taxonomy: Optional[MathTaxonomy] = None,
+        taxonomy: Optional[CurriculumTaxonomy] = None,
+        taxonomies: Optional[Mapping[str, CurriculumTaxonomy]] = None,
         logger: Optional[logging.Logger] = None,
         max_output_tokens: int = 6500,
     ) -> None:
@@ -69,10 +71,25 @@ class CurriculumLessonService:
         self.engine = engine
         self.progress_service = progress_service
         self.taxonomy = taxonomy or load_math_taxonomy()
+        loaded = {
+            subject: load_taxonomy(subject)
+            for subject in ACTIVE_SUBJECT_KEYS
+        }
+        loaded[self.taxonomy.subject] = self.taxonomy
+        loaded.update(dict(taxonomies or {}))
+        self.taxonomies = loaded
         self.logger = logger or logging.getLogger("easynmt.curriculum_lessons")
         self.max_output_tokens = max(2500, int(max_output_tokens))
         self._locks_guard = threading.Lock()
         self._generation_locks: dict[str, threading.Lock] = {}
+
+    def _taxonomy_for(self, subject: str) -> CurriculumTaxonomy:
+        try:
+            return self.taxonomies[str(subject)]
+        except KeyError as exc:
+            raise CurriculumLessonNotAvailable(
+                "Curriculum lesson subject has no registered taxonomy."
+            ) from exc
 
     def _generation_lock(self, fingerprint: str) -> threading.Lock:
         with self._locks_guard:
@@ -119,12 +136,13 @@ class CurriculumLessonService:
             raise CurriculumLessonNotAvailable("Curriculum lesson source was not found.")
         if row["status"] != "published" or row["subject"] != subject:
             raise CurriculumLessonNotAvailable("Curriculum lesson is not active.")
+        taxonomy = self._taxonomy_for(subject)
         try:
-            topic = self.taxonomy.topic(progress.topic_id)
+            topic = taxonomy.topic(progress.topic_id)
             prerequisites = tuple(
                 LessonPrerequisite(
                     topic_id=topic_id,
-                    title=self.taxonomy.topic(topic_id).title_uk,
+                    title=taxonomy.topic(topic_id).title_uk,
                 )
                 for topic_id in topic.prerequisite_topic_ids
             )
@@ -152,11 +170,11 @@ class CurriculumLessonService:
             if item["mastery_score"] is not None
         }
         weaknesses = tuple(
-            self.taxonomy.topics_by_id[item["topic_id"]].title_uk
+            taxonomy.topics_by_id[item["topic_id"]].title_uk
             for item in progress_rows
             if item["mastery_score"] is not None
             and float(item["mastery_score"]) < float(row["mastery_target"])
-            and item["topic_id"] in self.taxonomy.topics_by_id
+            and item["topic_id"] in taxonomy.topics_by_id
         )
         xp_row = connection.execute(
             """
@@ -193,6 +211,9 @@ class CurriculumLessonService:
             mastery_target=float(row["mastery_target"]),
             target_score=int(row["target_score"]),
             language="uk",
+            topic_vocabulary=topic.vocabulary,
+            example_seeds=topic.example_seeds,
+            common_mistake_seeds=topic.common_mistakes,
         )
         fingerprint = self.engine.generation_identity(context, request)
         return replace(request, lesson_id=f"lesson-{fingerprint[:32]}"), context

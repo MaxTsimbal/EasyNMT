@@ -10,7 +10,7 @@ from ..cache import build_cache_key
 from ..models import Curriculum
 from ..schemas import AIContext
 from .taxonomy import (
-    MathTaxonomy,
+    CurriculumTaxonomy,
     map_legacy_completed_lessons,
     resolve_weakness_topic_ids,
 )
@@ -191,7 +191,7 @@ def _starting_level(context: AIContext) -> str:
 
 def build_curriculum_policy(
     context: AIContext,
-    taxonomy: MathTaxonomy,
+    taxonomy: CurriculumTaxonomy,
     *,
     today: Optional[datetime] = None,
 ) -> CurriculumPolicy:
@@ -219,6 +219,9 @@ def build_curriculum_policy(
         for topic_id, value in context.mastery_by_topic.items()
         if topic_id in taxonomy.topics_by_id and value < 0.5
     )
+    # Alias resolution began as a mathematics-only compatibility feature.
+    # Never let an alias from another subject enter this taxonomy's graph.
+    weakness_ids.intersection_update(taxonomy.topics_by_id)
 
     allowed_difficulties = _allowed_difficulties(target_score)
     target_topics = {
@@ -276,7 +279,7 @@ def build_curriculum_policy(
     )
 
 
-def curriculum_context_fingerprint(context: AIContext, taxonomy: MathTaxonomy) -> str:
+def curriculum_context_fingerprint(context: AIContext, taxonomy: CurriculumTaxonomy) -> str:
     return build_cache_key(
         "curriculum-context-v1",
         context.user_id,
@@ -338,7 +341,7 @@ def curriculum_policy_from_curriculum(curriculum: Curriculum) -> CurriculumPolic
 
 def validate_curriculum(
     curriculum: Curriculum,
-    taxonomy: MathTaxonomy,
+    taxonomy: CurriculumTaxonomy,
     *,
     policy: Optional[CurriculumPolicy] = None,
 ) -> CurriculumValidationResult:
@@ -525,7 +528,7 @@ def validate_curriculum(
 
 def should_regenerate_curriculum(
     active_curriculum: Optional[Curriculum],
-    taxonomy: MathTaxonomy,
+    taxonomy: CurriculumTaxonomy,
     evidence: RegenerationEvidence,
     *,
     now: Optional[datetime] = None,

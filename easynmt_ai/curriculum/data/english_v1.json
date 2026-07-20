@@ -1,0 +1,91 @@
+{
+  "version": "nmt-english-1.0.0",
+  "subject": "english",
+  "completeness_note_uk": "Внутрішня таксономія EasyNMT для підготовки до англомовного блоку НМТ: use of English, vocabulary та reading. Приклади й рівні складності підлягають регулярній предметній перевірці.",
+  "topics": [
+    {
+      "subject": "english", "id": "english.grammar.present_past", "slug": "present-past-tenses", "title_uk": "Present і Past: базові часові форми", "description_uk": "Present Simple/Continuous і Past Simple/Continuous: форма, значення, часові маркери та контекст.", "domain": "grammar", "difficulty": "foundation", "estimated_minutes": 120,
+      "prerequisite_topic_ids": [], "learning_objectives": ["Розрізняти базові теперішні й минулі часи за значенням і контекстними маркерами."], "competencies": ["Вибір часової форми", "Побудова ствердження, заперечення й питання"], "required": true, "recommended_after_topic_ids": [],
+      "vocabulary": ["Present Simple", "Present Continuous", "Past Simple", "Past Continuous", "time marker"],
+      "example_seeds": ["choose between a routine and an action in progress", "contrast a completed past action with background", "correct an auxiliary verb in a question"],
+      "common_mistakes": ["using Present Continuous for permanent facts", "keeping -s after does", "using Past Continuous for a completed sequence"]
+    },
+    {
+      "subject": "english", "id": "english.grammar.perfect_future", "slug": "perfect-future-forms", "title_uk": "Perfect і Future forms", "description_uk": "Present Perfect, Past Perfect та основні способи вираження майбутнього в контексті.", "domain": "grammar", "difficulty": "foundation", "estimated_minutes": 150,
+      "prerequisite_topic_ids": ["english.grammar.present_past"], "learning_objectives": ["Добирати perfect або future form за часовим зв’язком, результатом, наміром чи прогнозом."], "competencies": ["Часова перспектива", "Контекстний вибір граматичної форми"], "required": true, "recommended_after_topic_ids": [],
+      "vocabulary": ["Present Perfect", "Past Perfect", "will", "be going to", "time reference"],
+      "example_seeds": ["contrast past time with present result", "show an action completed before another past action", "choose between a plan and a spontaneous decision"],
+      "common_mistakes": ["using Present Perfect with a finished past-time marker", "using had without a second past reference", "treating every future sentence as will"]
+    },
+    {
+      "subject": "english", "id": "english.grammar.modals_conditionals", "slug": "modals-conditionals", "title_uk": "Modal verbs і Conditionals", "description_uk": "Модальні значення, умовні речення 0–3 типів, mixed conditionals та типові контекстні сигнали.", "domain": "grammar", "difficulty": "intermediate", "estimated_minutes": 180,
+      "prerequisite_topic_ids": ["english.grammar.perfect_future"], "learning_objectives": ["Виражати можливість, обов’язок, пораду й умову відповідною модальною або умовною конструкцією."], "competencies": ["Модальне значення", "Побудова умовного речення"], "required": true, "recommended_after_topic_ids": [],
+      "vocabulary": ["modal verb", "obligation", "probability", "condition", "result clause"],
+      "example_seeds": ["choose a modal for advice or obligation", "match a real condition with its result", "explain an unreal past consequence"],
+      "common_mistakes": ["adding to after a core modal", "using will in every if-clause", "mixing the time reference of condition and result"]
+    },
+    {
+      "subject": "english", "id": "english.grammar.passive_reported", "slug": "passive-reported-speech", "title_uk": "Passive Voice і Reported Speech", "description_uk": "Пасивні конструкції в різних часах, безособовий пасив і передавання чужого мовлення.", "domain": "grammar", "difficulty": "intermediate", "estimated_minutes": 150,
+      "prerequisite_topic_ids": ["english.grammar.present_past", "english.grammar.perfect_future"], "learning_objectives": ["Перетворювати активні конструкції на доречний пасив і передавати висловлення з правильними часовими та вказівними змінами."], "competencies": ["Граматична трансформація", "Контроль часової форми"], "required": true, "recommended_after_topic_ids": ["english.grammar.modals_conditionals"],
+      "vocabulary": ["Passive Voice", "agent", "Reported Speech", "reporting verb", "backshift"],
+      "example_seeds": ["transform an active sentence into the passive", "omit an unimportant agent", "report a statement with changed time reference"],
+      "common_mistakes": ["forgetting the past participle in the passive", "keeping pronouns unchanged in reported speech", "backshifting when the fact is still universally true without context"]
+    },
+    {
+      "subject": "english", "id": "english.grammar.nominals_determiners", "slug": "nominals-determiners", "title_uk": "Nouns, articles, pronouns і quantifiers", "description_uk": "Злічуваність, артиклі, займенники, визначники та кількісні слова в контексті.", "domain": "grammar", "difficulty": "foundation", "estimated_minutes": 150,
+      "prerequisite_topic_ids": [], "learning_objectives": ["Обирати форму іменника, артикль, займенник або quantifier за значенням і референцією."], "competencies": ["Іменна група", "Референція й кількість"], "required": true, "recommended_after_topic_ids": ["english.grammar.present_past"],
+      "vocabulary": ["countable noun", "uncountable noun", "article", "pronoun", "quantifier"],
+      "example_seeds": ["choose an article for first or known reference", "contrast much/many and few/little", "replace a noun phrase with an unambiguous pronoun"],
+      "common_mistakes": ["pluralising an uncountable noun", "using the with a general plural without context", "choosing a pronoun with an unclear referent"]
+    },
+    {
+      "subject": "english", "id": "english.grammar.modifiers_prepositions", "slug": "modifiers-prepositions", "title_uk": "Adjectives, adverbs і prepositions", "description_uk": "Ступені порівняння, порядок прикметників, прислівники, прийменникові сполуки та типові collocations.", "domain": "grammar", "difficulty": "intermediate", "estimated_minutes": 150,
+      "prerequisite_topic_ids": ["english.grammar.nominals_determiners"], "learning_objectives": ["Добирати прикметник, прислівник, ступінь порівняння й прийменник відповідно до структури та collocation."], "competencies": ["Модифікація значення", "Керування прийменником"], "required": true, "recommended_after_topic_ids": ["english.grammar.modals_conditionals"],
+      "vocabulary": ["adjective", "adverb", "comparative", "superlative", "preposition", "collocation"],
+      "example_seeds": ["choose adjective or adverb after a verb", "form a contextual comparison", "complete a fixed prepositional phrase"],
+      "common_mistakes": ["using an adjective to modify an action", "forming a double comparative", "translating a Ukrainian preposition word for word"]
+    },
+    {
+      "subject": "english", "id": "english.vocabulary.word_formation", "slug": "word-formation", "title_uk": "Word formation", "description_uk": "Префікси, суфікси, частини мови, негативні форми та зміни написання в завданнях use of English.", "domain": "vocabulary", "difficulty": "intermediate", "estimated_minutes": 120,
+      "prerequisite_topic_ids": ["english.grammar.nominals_determiners", "english.grammar.modifiers_prepositions"], "learning_objectives": ["Визначати потрібну частину мови й утворювати нормативну похідну форму за контекстом."], "competencies": ["Морфологічна підказка", "Контекстна перевірка слова"], "required": true, "recommended_after_topic_ids": [],
+      "vocabulary": ["prefix", "suffix", "word family", "part of speech", "negative form"],
+      "example_seeds": ["derive a noun from a verb", "choose a negative prefix", "check spelling after suffixation"],
+      "common_mistakes": ["changing meaning but not part of speech", "adding two negative markers", "ignoring spelling changes in the word family"]
+    },
+    {
+      "subject": "english", "id": "english.vocabulary.collocations_phrasal", "slug": "collocations-phrasal-verbs", "title_uk": "Collocations і phrasal verbs", "description_uk": "Стійкі словосполучення, залежні прийменники, фразові дієслова та вибір значення за контекстом.", "domain": "vocabulary", "difficulty": "intermediate", "estimated_minutes": 150,
+      "prerequisite_topic_ids": ["english.grammar.modifiers_prepositions"], "learning_objectives": ["Розпізнавати collocation або phrasal verb і добирати контекстуально точне значення."], "competencies": ["Лексична сполучуваність", "Контекстна семантика"], "required": true, "recommended_after_topic_ids": ["english.vocabulary.word_formation"],
+      "vocabulary": ["collocation", "phrasal verb", "dependent preposition", "context clue", "register"],
+      "example_seeds": ["complete a verb–noun collocation", "infer a phrasal verb from context", "choose a dependent preposition"],
+      "common_mistakes": ["translating each word of a phrasal verb separately", "combining words that are grammatical but not idiomatic", "ignoring register in a formal text"]
+    },
+    {
+      "subject": "english", "id": "english.reading.gist_detail", "slug": "reading-gist-detail", "title_uk": "Reading: gist, detail і scanning", "description_uk": "Швидке визначення теми, пошук конкретної інформації, співвіднесення запитань із перефразуванням у тексті.", "domain": "reading", "difficulty": "foundation", "estimated_minutes": 120,
+      "prerequisite_topic_ids": [], "learning_objectives": ["Обирати reading strategy для загальної ідеї або конкретної деталі й знаходити перефразовану відповідь."], "competencies": ["Skimming", "Scanning", "Пошук evidence у тексті"], "required": true, "recommended_after_topic_ids": ["english.grammar.present_past"],
+      "vocabulary": ["gist", "detail", "skimming", "scanning", "keyword", "paraphrase"],
+      "example_seeds": ["select a heading after skimming", "scan a short text for one fact", "match a question keyword with a paraphrase"],
+      "common_mistakes": ["translating every word before reading the question", "choosing an option with repeated words but wrong meaning", "using background knowledge instead of textual evidence"]
+    },
+    {
+      "subject": "english", "id": "english.reading.cohesion_inference", "slug": "reading-cohesion-inference", "title_uk": "Reading: cohesion, purpose і inference", "description_uk": "Логічні зв’язки, референція, вставлення речень, мета автора, тон і висновок на основі доказів.", "domain": "reading", "difficulty": "intermediate", "estimated_minutes": 150,
+      "prerequisite_topic_ids": ["english.reading.gist_detail"], "learning_objectives": ["Відновлювати логіку тексту й робити обмежений висновок на основі мовних доказів."], "competencies": ["Cohesion", "Reference tracking", "Evidence-based inference"], "required": true, "recommended_after_topic_ids": ["english.vocabulary.collocations_phrasal"],
+      "vocabulary": ["cohesion", "reference", "linker", "author's purpose", "tone", "inference"],
+      "example_seeds": ["identify what a pronoun refers to", "choose a linker between ideas", "infer attitude from evaluative language"],
+      "common_mistakes": ["matching a sentence by topic but not grammar", "making an inference broader than the evidence", "ignoring contrast markers that reverse the claim"]
+    },
+    {
+      "subject": "english", "id": "english.integrated.use_of_english", "slug": "integrated-use-of-english", "title_uk": "Integrated Use of English", "description_uk": "Комплексний вибір граматики й лексики в зв’язному тексті з опорою на форму, значення, collocation та discourse.", "domain": "integrated_practice", "difficulty": "advanced", "estimated_minutes": 180,
+      "prerequisite_topic_ids": ["english.grammar.passive_reported", "english.vocabulary.word_formation", "english.vocabulary.collocations_phrasal"], "learning_objectives": ["Визначати, яку граматичну або лексичну ознаку перевіряє пропуск, і перевіряти відповідь у ширшому контексті."], "competencies": ["Integrated language analysis", "Distractor elimination", "Context verification"], "required": true, "recommended_after_topic_ids": ["english.reading.cohesion_inference"],
+      "vocabulary": ["gap", "distractor", "grammar cue", "collocation", "discourse context"],
+      "example_seeds": ["classify a gap before viewing options", "eliminate a grammatically impossible distractor", "verify a collocation across the full sentence"],
+      "common_mistakes": ["choosing by translation alone", "checking only the words adjacent to the gap", "ignoring agreement or tense across clauses"]
+    },
+    {
+      "subject": "english", "id": "english.integrated.nmt_strategy", "slug": "nmt-english-strategy", "title_uk": "Стратегія англійського блоку НМТ", "description_uk": "Керування часом, порядок виконання reading/use of English, робота з дистракторами й фінальна перевірка.", "domain": "integrated_practice", "difficulty": "advanced", "estimated_minutes": 120,
+      "prerequisite_topic_ids": ["english.integrated.use_of_english", "english.reading.cohesion_inference"], "learning_objectives": ["Застосовувати відтворювану стратегію виконання й перевірки англомовного блоку НМТ."], "competencies": ["Time management", "Answer verification", "Exam strategy"], "required": false, "recommended_after_topic_ids": [],
+      "vocabulary": ["time budget", "first pass", "evidence", "distractor", "final check"],
+      "example_seeds": ["allocate time between task groups", "mark and revisit an uncertain answer", "justify a final choice with evidence"],
+      "common_mistakes": ["spending too long on one unknown word", "changing an answer without new evidence", "leaving no time to transfer or verify answers"]
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-"""Production mathematics curriculum domain."""
+"""Production multi-subject curriculum domain."""
 
 from .policy import (
     curriculum_policy_from_curriculum,
@@ -15,12 +15,14 @@ from .repository import CurriculumRepository, CurriculumStateError
 from .service import CurriculumService, CurriculumValidationOutcome
 from .taxonomy import (
     LEGACY_MATH_LESSON_TOPIC_MAP,
+    CurriculumTaxonomy,
     MathTaxonomy,
     TaxonomyTopic,
     TaxonomyValidationError,
     TaxonomyValidationIssue,
     TaxonomyValidationResult,
     load_math_taxonomy,
+    load_taxonomy,
     validate_taxonomy_payload,
 )
 
@@ -34,6 +36,7 @@ __all__ = [
     "CurriculumValidationOutcome",
     "CurriculumValidationResult",
     "LEGACY_MATH_LESSON_TOPIC_MAP",
+    "CurriculumTaxonomy",
     "MathTaxonomy",
     "TaxonomyTopic",
     "TaxonomyValidationError",
@@ -43,6 +46,7 @@ __all__ = [
     "RegenerationEvidence",
     "build_curriculum_policy",
     "load_math_taxonomy",
+    "load_taxonomy",
     "should_regenerate_curriculum",
     "validate_curriculum",
     "validate_taxonomy_payload",
