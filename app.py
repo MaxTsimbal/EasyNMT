@@ -35,6 +35,11 @@ from easynmt_ai import (
     LearningContext,
 )
 from easynmt_ai.attachments import AttachmentError, normalize_attachment_ids, save_image_upload
+from easynmt_core.progress import (
+    CurriculumProgressError,
+    CurriculumProgressRepository,
+    CurriculumProgressService,
+)
 
 from google_oauth import build_authorization_url, credentials_status, exchange_callback
 from easynmt_core.health import health_bp
@@ -337,11 +342,21 @@ ai_orchestrator = AIOrchestrator(
 )
 curriculum_repository = CurriculumRepository(DB_PATH)
 curriculum_repository.ensure_schema()
+curriculum_progress_repository = CurriculumProgressRepository(DB_PATH)
+curriculum_progress_repository.ensure_schema()
+curriculum_progress_service = CurriculumProgressService(
+    curriculum_progress_repository,
+    logger=app.logger,
+)
 curriculum_engine = CurriculumEngine(
     ai_orchestrator,
     max_output_tokens=app.config["OPENAI_CURRICULUM_MAX_OUTPUT_TOKENS"],
 )
-curriculum_service = CurriculumService(curriculum_engine, curriculum_repository)
+curriculum_service = CurriculumService(
+    curriculum_engine,
+    curriculum_repository,
+    progress_service=curriculum_progress_service,
+)
 vision_grader = VisionGradingEngine(ai_orchestrator)
 AI_UPLOAD_DIR = os.path.join(PERSISTENT_DIR, "ai_uploads")
 os.makedirs(AI_UPLOAD_DIR, exist_ok=True)
@@ -696,6 +711,8 @@ def require_login(view_func):
     @wraps(view_func)
     def wrapper(*args, **kwargs):
         if not is_logged_in():
+            if request.path.startswith("/api/"):
+                return jsonify({"ok": False, "error": "authentication_required"}), 401
             flash("Спочатку створи акаунт або увійди, щоб зберегти прогрес.", "error")
             return redirect(url_for("register"))
 
@@ -2819,6 +2836,64 @@ def progress_page():
         completed_stats=get_completed_lesson_stats(),
         quiz_attempts=get_quiz_attempt_summary(),
     )
+
+
+def curriculum_progress_error_response(error):
+    app.logger.info(
+        "Curriculum progress request rejected code=%s user_id=%s",
+        error.code,
+        session.get("user_id"),
+    )
+    return jsonify({"ok": False, "error": error.code, "message": error.message}), error.http_status
+
+
+@app.get("/api/curriculum/progress")
+@require_login
+def curriculum_progress_api():
+    """Return the authenticated learner's active curriculum read model."""
+
+    try:
+        snapshot = curriculum_progress_service.get_active_curriculum_progress(
+            user_id=int(session["user_id"]),
+            subject=session.get("subject", "none"),
+        )
+    except CurriculumProgressError as error:
+        return curriculum_progress_error_response(error)
+    return jsonify({"ok": True, "progress": snapshot.to_dict()})
+
+
+@app.post("/api/curriculum/units/<string:curriculum_unit_id>/start")
+@require_login
+def start_curriculum_unit_api(curriculum_unit_id):
+    """Start one eligible active unit; callers cannot choose state or ownership."""
+
+    if request.content_length and not request.is_json:
+        return jsonify({"ok": False, "error": "invalid_request"}), 400
+    payload = request.get_json(silent=True)
+    if payload is None:
+        if request.content_length:
+            return jsonify({"ok": False, "error": "invalid_request"}), 400
+        payload = {}
+    if not isinstance(payload, dict) or set(payload) - {"expected_version"}:
+        return jsonify({"ok": False, "error": "invalid_request"}), 400
+    expected_version = payload.get("expected_version")
+    if expected_version is not None:
+        if (
+            isinstance(expected_version, bool)
+            or not isinstance(expected_version, int)
+            or expected_version < 1
+        ):
+            return jsonify({"ok": False, "error": "invalid_version"}), 400
+    try:
+        progress = curriculum_progress_service.start_curriculum_unit(
+            user_id=int(session["user_id"]),
+            curriculum_unit_id=curriculum_unit_id,
+            expected_version=expected_version,
+            subject=session.get("subject", "none"),
+        )
+    except CurriculumProgressError as error:
+        return curriculum_progress_error_response(error)
+    return jsonify({"ok": True, "unit": progress.to_dict()})
 
 
 @app.route("/achievements")

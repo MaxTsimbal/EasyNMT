@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass, replace
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from ..engines.curriculum import CurriculumEngine
 from ..errors import AIError, AIErrorCode, EngineResult
@@ -23,6 +23,9 @@ from .policy import (
 )
 from .repository import CurriculumRepository, CurriculumStateError
 from .taxonomy import MathTaxonomy, load_math_taxonomy
+
+if TYPE_CHECKING:
+    from easynmt_core.progress import CurriculumProgressService
 
 
 @dataclass(frozen=True)
@@ -46,10 +49,12 @@ class CurriculumService:
         engine: CurriculumEngine,
         repository: CurriculumRepository,
         *,
+        progress_service: "CurriculumProgressService",
         taxonomy: Optional[MathTaxonomy] = None,
     ) -> None:
         self.engine = engine
         self.repository = repository
+        self.progress_service = progress_service
         self.taxonomy = taxonomy or engine.taxonomy or load_math_taxonomy()
 
     @staticmethod
@@ -184,7 +189,19 @@ class CurriculumService:
         if curriculum is None:
             return self._error(AIErrorCode.VALIDATION_ERROR, "Curriculum not found.")
         if curriculum.status is CurriculumStatus.PUBLISHED:
-            return EngineResult(value=curriculum)
+            try:
+                published = self.repository.publish(
+                    user_id=user_id,
+                    curriculum_id=curriculum_id,
+                    progress_initializer=self.progress_service.initialize_for_publication,
+                )
+            except sqlite3.Error:
+                return self._error(
+                    AIErrorCode.INTERNAL_ERROR,
+                    "Published curriculum progress could not be initialized.",
+                    retryable=True,
+                )
+            return EngineResult(value=published)
         if curriculum.status is CurriculumStatus.DRAFT:
             validated = self.validate_curriculum(
                 user_id=user_id,
@@ -228,6 +245,7 @@ class CurriculumService:
             published = self.repository.publish(
                 user_id=user_id,
                 curriculum_id=curriculum_id,
+                progress_initializer=self.progress_service.initialize_for_publication,
             )
         except (KeyError, CurriculumStateError):
             return self._error(

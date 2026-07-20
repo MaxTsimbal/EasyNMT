@@ -5,7 +5,7 @@ import json
 import sqlite3
 from dataclasses import replace
 from datetime import datetime, timezone
-from typing import Any, Mapping, Optional
+from typing import Any, Callable, Mapping, Optional
 
 from ..models import Curriculum, CurriculumStatus
 
@@ -458,7 +458,15 @@ class CurriculumRepository:
             raise RuntimeError("Validated curriculum disappeared")
         return stored
 
-    def publish(self, *, user_id: int, curriculum_id: str) -> Curriculum:
+    def publish(
+        self,
+        *,
+        user_id: int,
+        curriculum_id: str,
+        progress_initializer: Callable[..., None],
+    ) -> Curriculum:
+        """Publish and initialize progress in one database transaction."""
+
         connection = self.connect()
         now = utc_now()
         try:
@@ -471,58 +479,69 @@ class CurriculumRepository:
                 raise KeyError("Curriculum not found")
             current = CurriculumStatus(row["status"])
             if current is CurriculumStatus.PUBLISHED:
-                connection.rollback()
-                existing = self.get_curriculum(user_id, curriculum_id)
-                if existing is None:
-                    raise RuntimeError("Published curriculum disappeared")
-                return existing
-            if current is not CurriculumStatus.VALIDATED:
-                raise CurriculumStateError("Only a validated curriculum can be published")
+                progress_initializer(
+                    connection,
+                    user_id=int(user_id),
+                    curriculum_id=curriculum_id,
+                    previous_curriculum_ids=(),
+                )
+                connection.commit()
+            elif current is CurriculumStatus.VALIDATED:
+                previous_rows = connection.execute(
+                    """
+                    SELECT id FROM ai_curricula
+                    WHERE user_id = ? AND subject = ? AND status = 'published' AND id <> ?
+                    """,
+                    (int(user_id), row["subject"], curriculum_id),
+                ).fetchall()
 
-            previous_rows = connection.execute(
-                """
-                SELECT id FROM ai_curricula
-                WHERE user_id = ? AND subject = ? AND status = 'published' AND id <> ?
-                """,
-                (int(user_id), row["subject"], curriculum_id),
-            ).fetchall()
-            for previous in previous_rows:
+                for previous in previous_rows:
+                    connection.execute(
+                        """
+                        UPDATE ai_curricula
+                        SET status = 'superseded', superseded_at = ?
+                        WHERE id = ? AND user_id = ? AND status = 'published'
+                        """,
+                        (now, previous["id"], int(user_id)),
+                    )
+                    self._insert_event(
+                        connection,
+                        curriculum_id=previous["id"],
+                        user_id=user_id,
+                        from_status=CurriculumStatus.PUBLISHED.value,
+                        to_status=CurriculumStatus.SUPERSEDED.value,
+                        reason="new_curriculum_published",
+                        metadata={"replacement_curriculum_id": curriculum_id},
+                        created_at=now,
+                    )
                 connection.execute(
                     """
                     UPDATE ai_curricula
-                    SET status = 'superseded', superseded_at = ?
-                    WHERE id = ? AND user_id = ? AND status = 'published'
+                    SET status = 'published', published_at = ?
+                    WHERE id = ? AND user_id = ? AND status = 'validated'
                     """,
-                    (now, previous["id"], int(user_id)),
+                    (now, curriculum_id, int(user_id)),
                 )
                 self._insert_event(
                     connection,
-                    curriculum_id=previous["id"],
+                    curriculum_id=curriculum_id,
                     user_id=user_id,
-                    from_status=CurriculumStatus.PUBLISHED.value,
-                    to_status=CurriculumStatus.SUPERSEDED.value,
-                    reason="new_curriculum_published",
-                    metadata={"replacement_curriculum_id": curriculum_id},
+                    from_status=CurriculumStatus.VALIDATED.value,
+                    to_status=CurriculumStatus.PUBLISHED.value,
+                    reason="application_publish",
                     created_at=now,
                 )
-            connection.execute(
-                """
-                UPDATE ai_curricula
-                SET status = 'published', published_at = ?
-                WHERE id = ? AND user_id = ? AND status = 'validated'
-                """,
-                (now, curriculum_id, int(user_id)),
-            )
-            self._insert_event(
-                connection,
-                curriculum_id=curriculum_id,
-                user_id=user_id,
-                from_status=CurriculumStatus.VALIDATED.value,
-                to_status=CurriculumStatus.PUBLISHED.value,
-                reason="application_publish",
-                created_at=now,
-            )
-            connection.commit()
+                progress_initializer(
+                    connection,
+                    user_id=int(user_id),
+                    curriculum_id=curriculum_id,
+                    previous_curriculum_ids=tuple(
+                        previous["id"] for previous in previous_rows
+                    ),
+                )
+                connection.commit()
+            else:
+                raise CurriculumStateError("Only a validated curriculum can be published")
         except Exception:
             connection.rollback()
             raise
