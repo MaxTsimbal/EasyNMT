@@ -184,3 +184,39 @@ state, migration, XP, concurrency, and authorization policy is documented in
 [`../../easynmt_core/progress/README.md`](../../easynmt_core/progress/README.md).
 Task 3B should issue typed lesson evidence through that service and must not
 infer completion from AI output.
+
+## Development bootstrap and status
+
+The Flask CLI provisions an owner-scoped mathematics roadmap through the same
+deterministic engine, validator, repository, publication transition, and
+`CurriculumProgressService` hook used by application code. It never deletes a
+user, replaces a valid published curriculum, or rewrites existing progress.
+Repeated runs reuse valid data; repair is limited to missing rows from a
+deterministic baseline whose immutable identity still matches.
+
+```powershell
+$repo = 'C:\path\to\EasyNMT_Public'
+Set-Location -LiteralPath $repo
+.\.venv\Scripts\Activate.ps1
+python -m flask --app app curriculum status
+python -m flask --app app curriculum bootstrap-development
+python -m flask --app app curriculum status
+python app.py
+```
+
+Both commands report the resolved database target. Locally that is
+`instance\users.db` unless `EASYNMT_DB_PATH` or
+`RAILWAY_VOLUME_MOUNT_PATH` is set, exactly matching `python app.py`.
+
+Bootstrap is never automatic. On Railway or an explicitly named production
+environment, an administrator must supply both independent overrides in a
+one-off administrative job:
+
+```powershell
+$env:EASYNMT_ALLOW_PRODUCTION_CURRICULUM_BOOTSTRAP = '1'
+python -m flask --app app curriculum bootstrap-development --allow-production
+Remove-Item Env:EASYNMT_ALLOW_PRODUCTION_CURRICULUM_BOOTSTRAP
+```
+
+Inspect status before and after the job. Do not place the override in normal
+deployment configuration or startup commands.

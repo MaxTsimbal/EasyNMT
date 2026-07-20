@@ -55,7 +55,7 @@ accepted lesson always has this order:
 
 1. learning objective;
 2. NMT relevance;
-3. prerequisite reminder only when the taxonomy requires it;
+3. prerequisite reminder (the UI explicitly states when none is required);
 4. progressive core explanation;
 5. foundation, guided, and exam worked examples;
 6. diagnosed common mistakes;
@@ -68,8 +68,12 @@ competency coverage, explanation depth, distinct example progression,
 step-by-step reasoning, independent verification, concept references, mistake
 diagnosis, recap completeness, and exact assessment-blueprint coverage.
 Structurally valid but educationally incomplete AI output is rejected and is
-never persisted. There is deliberately no generic or deterministic fake lesson
-fallback: without a valid stored lesson, provider failure returns a clear 503.
+never persisted. Local development has one reviewed deterministic baseline for
+the bootstrap entry topic, `math.numbers.integers`. It passes the same typed
+model and validator, is stored as immutable structured content, and is disabled
+whenever `RAILWAY_ENVIRONMENT` is present. It can also be disabled locally with
+`EASYNMT_ALLOW_DEVELOPMENT_LESSON_FALLBACK=0`. No generic fallback exists:
+unsupported topics and production provider failures return a clear 503.
 
 ## AI and cache pipeline
 
@@ -125,8 +129,10 @@ stable JSON envelopes; the UI renders an appropriate error page.
 
 ## Persistence and rollback
 
-`CurriculumLessonRepository.ensure_schema()` is an additive, repeatable startup
-migration. It creates only:
+`CurriculumLessonRepository.ensure_schema()` is a repeatable startup migration.
+It creates the lesson tables when absent and safely expands the original
+`generation_source='openai'` constraint to accept reviewed deterministic local
+artifacts while preserving existing rows. It owns:
 
 - `curriculum_lessons`: immutable validated content, fingerprint, hash, model,
   schema/prompt versions, token usage, and provider response ID;

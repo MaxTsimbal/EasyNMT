@@ -30,8 +30,10 @@ audit events, and future-UI read models.
 The production Lesson Engine turns an in-progress curriculum unit into a
 complete structured lesson, validates educational sufficiency, and caches the
 accepted artifact in SQLite. It uses one OpenAI request through the central
-orchestrator and returns a clear 503 when neither OpenAI nor a valid cached
-lesson is available. Legacy numeric lessons continue to work offline.
+orchestrator. Local development can use the reviewed, validator-backed integer
+lesson baseline when OpenAI is unavailable; unsupported topics and production
+provider failures still return a clear 503. Legacy numeric lessons remain only
+for learners without an applicable published curriculum.
 
 SQLite is authoritative for progress, quiz attempts, unlock state, AI history,
 and quotas. Flask's signed session stores identity and lightweight navigation
@@ -40,12 +42,23 @@ state; it is not trusted as the source of XP or completion data.
 ## Local setup
 
 ```powershell
+$repo = 'C:\path\to\EasyNMT_Public'
+Set-Location -LiteralPath $repo
 python -m venv .venv
-.venv\Scripts\Activate.ps1
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 Copy-Item .env.example .env
+python -m flask --app app curriculum status
+python -m flask --app app curriculum bootstrap-development
+python -m flask --app app curriculum status
 python app.py
 ```
+
+After signing in with Mathematics selected, Dashboard continuation must resolve
+to `/curriculum/units/<unit_id>/lesson`. The status and bootstrap commands use
+the same `EASYNMT_DB_PATH` / Railway volume / local `instance\users.db`
+resolution as `python app.py`; repeated bootstrap runs reuse the owner-scoped
+published curriculum and repair only missing deterministic baseline rows.
 
 Set a local `SECRET_KEY` in `.env` if sessions should survive process restarts.
 `OPENAI_API_KEY` and Google OAuth credentials are optional for the offline core.
