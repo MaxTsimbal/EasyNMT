@@ -25,6 +25,7 @@ from easynmt_ai.curriculum.policy import (
 from easynmt_ai.curriculum.taxonomy import MATH_TAXONOMY_FILE
 from easynmt_ai.models import CurriculumStatus
 from easynmt_ai.prompts.curriculum import build_curriculum_prompt
+from easynmt_core.progress import CurriculumProgressRepository, CurriculumProgressService
 
 
 class FakeGateway:
@@ -448,11 +449,46 @@ class CurriculumLifecycleTests(unittest.TestCase):
             "INSERT INTO users (id, name) VALUES (?, ?)",
             ((1, "Owner"), (2, "Other")),
         )
+        connection.executescript(
+            """
+            CREATE TABLE completed_lessons (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                subject TEXT NOT NULL,
+                lesson_id INTEGER NOT NULL,
+                best_score INTEGER NOT NULL DEFAULT 0,
+                total INTEGER NOT NULL DEFAULT 0,
+                UNIQUE(user_id, subject, lesson_id)
+            );
+            CREATE TABLE user_subject_progress (
+                user_id INTEGER NOT NULL,
+                subject TEXT NOT NULL,
+                progress INTEGER NOT NULL DEFAULT 0,
+                xp INTEGER NOT NULL DEFAULT 0,
+                streak INTEGER NOT NULL DEFAULT 1,
+                updated_at TEXT,
+                PRIMARY KEY(user_id, subject)
+            );
+            CREATE TABLE user_plans (
+                user_id INTEGER PRIMARY KEY,
+                subject TEXT,
+                progress INTEGER NOT NULL DEFAULT 0,
+                xp INTEGER NOT NULL DEFAULT 0,
+                updated_at TEXT
+            );
+            """
+        )
         connection.commit()
         connection.close()
         self.repository = CurriculumRepository(self.db_path)
         self.repository.ensure_schema()
         self.taxonomy = load_math_taxonomy()
+        self.progress_repository = CurriculumProgressRepository(self.db_path)
+        self.progress_repository.ensure_schema()
+        self.progress_service = CurriculumProgressService(
+            self.progress_repository,
+            taxonomy=self.taxonomy,
+        )
         self.logger = logging.getLogger("tests.curriculum.lifecycle")
         self.logger.handlers = [logging.NullHandler()]
         self.logger.propagate = False
@@ -469,6 +505,7 @@ class CurriculumLifecycleTests(unittest.TestCase):
         return CurriculumService(
             engine,
             self.repository,
+            progress_service=self.progress_service,
             taxonomy=self.taxonomy,
         ), gateway
 
@@ -520,8 +557,42 @@ class CurriculumLifecycleTests(unittest.TestCase):
         self.assertEqual(len(gateway.calls), 1)
         self.assertEqual(len(service.get_curriculum_history(user_id=1, subject="math")), 1)
 
+    def test_republishing_backfills_progress_for_an_existing_active_curriculum(self):
+        service, published = self.create_published()
+        connection = sqlite3.connect(self.db_path)
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute(
+            "DELETE FROM curriculum_progress_events WHERE curriculum_id = ?",
+            (published.id,),
+        )
+        connection.execute(
+            "DELETE FROM curriculum_checkpoint_progress WHERE curriculum_id = ?",
+            (published.id,),
+        )
+        connection.execute(
+            "DELETE FROM curriculum_unit_progress WHERE curriculum_id = ?",
+            (published.id,),
+        )
+        connection.commit()
+        connection.close()
+
+        repeated = service.publish_curriculum(user_id=1, curriculum_id=published.id)
+        self.assertTrue(repeated.success)
+        snapshot = self.progress_service.get_curriculum_progress(
+            user_id=1,
+            curriculum_id=published.id,
+        )
+        self.assertEqual(snapshot.total_units, len(published.units))
+        self.assertGreater(snapshot.available_units + snapshot.completed_units, 0)
+
     def test_new_publication_supersedes_old_and_preserves_version_history(self):
         service, first = self.create_published()
+        first_progress = self.progress_service.get_curriculum_progress(
+            user_id=1,
+            curriculum_id=first.id,
+        )
+        self.assertEqual(first_progress.total_units, len(first.units))
+        self.assertFalse(first_progress.historical)
         second_draft = service.generate_curriculum_draft(
             math_context(goal_score=190),
             generation_reason="target_score_changed",
@@ -538,6 +609,16 @@ class CurriculumLifecycleTests(unittest.TestCase):
         self.assertEqual(self.repository.get_active(1, "math").id, second.value.id)
         history = self.repository.get_history(1, "math")
         self.assertEqual([item.curriculum_version for item in history], [2, 1])
+        second_progress = self.progress_service.get_curriculum_progress(
+            user_id=1,
+            curriculum_id=second.value.id,
+        )
+        self.assertEqual(second_progress.total_units, len(second.value.units))
+        self.assertFalse(second_progress.historical)
+        self.assertTrue(self.progress_service.get_curriculum_progress(
+            user_id=1,
+            curriculum_id=first.id,
+        ).historical)
 
     def test_failed_publication_rolls_back_superseding_the_active_version(self):
         service, first = self.create_published()
