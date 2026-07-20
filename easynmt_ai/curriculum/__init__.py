@@ -1,6 +1,7 @@
 """Production mathematics curriculum domain."""
 
 from .policy import (
+    curriculum_policy_from_curriculum,
     CurriculumPolicy,
     CurriculumValidationIssue,
     CurriculumValidationResult,
@@ -26,6 +27,7 @@ from .taxonomy import (
 __all__ = [
     "CurriculumPolicy",
     "CurriculumRepository",
+    "curriculum_policy_from_curriculum",
     "CurriculumService",
     "CurriculumStateError",
     "CurriculumValidationIssue",

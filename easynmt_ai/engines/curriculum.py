@@ -11,6 +11,7 @@ from ..curriculum.policy import (
     CurriculumPolicy,
     build_curriculum_policy,
     curriculum_context_fingerprint,
+    curriculum_policy_from_curriculum,
     curriculum_request_fingerprint,
     validate_curriculum,
 )
@@ -287,6 +288,70 @@ class CurriculumEngine(AIEngine[Curriculum]):
         elif checkpoints:
             checkpoints[-1]["reason_code"] = "final_review"
         return {"units": units, "review_checkpoints": checkpoints}
+
+    def deterministic_baseline(
+        self,
+        context: AIContext,
+        *,
+        generation_reason: str = "manual_request",
+        existing_curriculum: Curriculum | None = None,
+    ) -> Curriculum:
+        """Build a locally validated baseline without contacting a provider.
+
+        The baseline uses the same taxonomy, policy, identifiers, models, and
+        validator as provider-backed generation. An existing deterministic
+        curriculum can be supplied to reconstruct only its expected immutable
+        structure for safe missing-row repair.
+        """
+
+        if existing_curriculum is None:
+            context_fingerprint, request_fingerprint, policy = self.generation_identity(
+                context,
+                generation_reason=generation_reason,
+            )
+            curriculum_version = 1
+            created_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        else:
+            if existing_curriculum.user_id != context.user_id:
+                raise ValueError("existing curriculum owner does not match context")
+            if existing_curriculum.subject != context.subject:
+                raise ValueError("existing curriculum subject does not match context")
+            policy = curriculum_policy_from_curriculum(existing_curriculum)
+            context_fingerprint = (
+                existing_curriculum.generation_metadata.context_fingerprint
+            )
+            request_fingerprint = (
+                existing_curriculum.generation_metadata.request_fingerprint
+            )
+            generation_reason = existing_curriculum.creation_reason
+            curriculum_version = existing_curriculum.curriculum_version
+            created_at = existing_curriculum.created_at
+
+        baseline = self._curriculum_from_proposal(
+            self._deterministic_payload(policy),
+            context=context,
+            policy=policy,
+            generation_reason=generation_reason,
+            curriculum_version=curriculum_version,
+            context_fingerprint=context_fingerprint,
+            request_fingerprint=request_fingerprint,
+            created_at=created_at,
+            source="deterministic",
+        )
+        if existing_curriculum is None:
+            return baseline
+        return replace(
+            baseline,
+            id=existing_curriculum.id,
+            curriculum_version=existing_curriculum.curriculum_version,
+            status=existing_curriculum.status,
+            creation_reason=existing_curriculum.creation_reason,
+            generation_metadata=existing_curriculum.generation_metadata,
+            prompt_version=existing_curriculum.prompt_version,
+            schema_version=existing_curriculum.schema_version,
+            model_identifier=existing_curriculum.model_identifier,
+            created_at=existing_curriculum.created_at,
+        )
 
     def generate(
         self,

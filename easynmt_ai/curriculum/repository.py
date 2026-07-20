@@ -397,6 +397,189 @@ class CurriculumRepository:
         finally:
             connection.close()
 
+    def repair_missing_baseline_structure(
+        self,
+        *,
+        user_id: int,
+        curriculum_id: str,
+        expected: Curriculum,
+    ) -> dict[str, int]:
+        """Insert missing rows for an owned deterministic published baseline.
+
+        Existing rows are immutable. Conflicting positions, topics, or IDs are
+        rejected instead of being overwritten or deleted.
+        """
+
+        connection = self.connect()
+        inserted_units = 0
+        inserted_checkpoints = 0
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT * FROM ai_curricula WHERE id = ? AND user_id = ?",
+                (curriculum_id, int(user_id)),
+            ).fetchone()
+            if row is None:
+                raise KeyError("Curriculum not found")
+            if row["status"] != CurriculumStatus.PUBLISHED.value:
+                raise CurriculumStateError("Only a published curriculum can be repaired")
+            if row["generation_source"] != "deterministic":
+                raise CurriculumStateError("Provider-authored curricula are never auto-repaired")
+            if (
+                expected.id != curriculum_id
+                or expected.user_id != int(user_id)
+                or expected.generation_metadata.request_fingerprint
+                != row["request_fingerprint"]
+            ):
+                raise CurriculumStateError("Repair baseline identity does not match")
+
+            existing_units = connection.execute(
+                "SELECT unit_id, position, topic_id FROM ai_curriculum_units WHERE curriculum_id = ?",
+                (curriculum_id,),
+            ).fetchall()
+            expected_units = {unit.id: unit for unit in expected.units}
+            for item in existing_units:
+                expected_unit = expected_units.get(item["unit_id"])
+                if (
+                    expected_unit is None
+                    or int(item["position"]) != expected_unit.order
+                    or item["topic_id"] != expected_unit.topic_id
+                ):
+                    raise CurriculumStateError(
+                        "Existing unit structure differs from the deterministic baseline"
+                    )
+            units_by_id = {item["unit_id"]: item for item in existing_units}
+            occupied_positions = {int(item["position"]) for item in existing_units}
+            occupied_topics = {item["topic_id"] for item in existing_units}
+            for unit in expected.units:
+                if unit.id in units_by_id:
+                    continue
+                if unit.order in occupied_positions or unit.topic_id in occupied_topics:
+                    raise CurriculumStateError(
+                        "Missing unit cannot be repaired without overwriting existing data"
+                    )
+                connection.execute(
+                    """
+                    INSERT INTO ai_curriculum_units (
+                        curriculum_id, unit_id, position, topic_id,
+                        prerequisite_topic_ids_json, prerequisite_explanation,
+                        priority, difficulty, estimated_duration_minutes,
+                        study_sessions, mastery_target, reason_code
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        curriculum_id,
+                        unit.id,
+                        unit.order,
+                        unit.topic_id,
+                        self._json(unit.prerequisite_topic_ids),
+                        unit.prerequisite_explanation,
+                        unit.priority,
+                        unit.difficulty,
+                        unit.estimated_duration_minutes,
+                        unit.study_sessions,
+                        unit.mastery_target,
+                        unit.reason_code,
+                    ),
+                )
+                inserted_units += 1
+                occupied_positions.add(unit.order)
+                occupied_topics.add(unit.topic_id)
+
+            existing_checkpoints = connection.execute(
+                """
+                SELECT checkpoint_id, position, after_unit_order,
+                       topic_ids_json, reason_code, estimated_minutes
+                FROM ai_curriculum_checkpoints WHERE curriculum_id = ?
+                """,
+                (curriculum_id,),
+            ).fetchall()
+            expected_checkpoints = {
+                checkpoint.id: (position, checkpoint)
+                for position, checkpoint in enumerate(expected.review_checkpoints, 1)
+            }
+            for item in existing_checkpoints:
+                expected_item = expected_checkpoints.get(item["checkpoint_id"])
+                if expected_item is None:
+                    raise CurriculumStateError(
+                        "Existing checkpoint structure differs from the deterministic baseline"
+                    )
+                position, expected_checkpoint = expected_item
+                try:
+                    existing_topic_ids = tuple(
+                        json.loads(item["topic_ids_json"] or "[]")
+                    )
+                except (TypeError, ValueError, json.JSONDecodeError) as exc:
+                    raise CurriculumStateError(
+                        "Existing checkpoint topics are malformed"
+                    ) from exc
+                if (
+                    int(item["position"]) != position
+                    or int(item["after_unit_order"])
+                    != expected_checkpoint.after_unit_order
+                    or existing_topic_ids != expected_checkpoint.topic_ids
+                    or item["reason_code"] != expected_checkpoint.reason_code
+                    or int(item["estimated_minutes"])
+                    != expected_checkpoint.estimated_minutes
+                ):
+                    raise CurriculumStateError(
+                        "Existing checkpoint structure differs from the deterministic baseline"
+                    )
+            checkpoint_ids = {item["checkpoint_id"] for item in existing_checkpoints}
+            checkpoint_positions = {
+                int(item["position"]) for item in existing_checkpoints
+            }
+            for position, checkpoint in enumerate(expected.review_checkpoints, 1):
+                if checkpoint.id in checkpoint_ids:
+                    continue
+                if position in checkpoint_positions:
+                    raise CurriculumStateError(
+                        "Missing checkpoint cannot be repaired without overwriting existing data"
+                    )
+                connection.execute(
+                    """
+                    INSERT INTO ai_curriculum_checkpoints (
+                        curriculum_id, checkpoint_id, position, after_unit_order,
+                        topic_ids_json, reason_code, estimated_minutes
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        curriculum_id,
+                        checkpoint.id,
+                        position,
+                        checkpoint.after_unit_order,
+                        self._json(checkpoint.topic_ids),
+                        checkpoint.reason_code,
+                        checkpoint.estimated_minutes,
+                    ),
+                )
+                inserted_checkpoints += 1
+                checkpoint_positions.add(position)
+
+            if inserted_units or inserted_checkpoints:
+                self._insert_event(
+                    connection,
+                    curriculum_id=curriculum_id,
+                    user_id=user_id,
+                    from_status=CurriculumStatus.PUBLISHED.value,
+                    to_status=CurriculumStatus.PUBLISHED.value,
+                    reason="development_bootstrap_repair",
+                    metadata={
+                        "inserted_units": inserted_units,
+                        "inserted_checkpoints": inserted_checkpoints,
+                    },
+                )
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+        return {
+            "units": inserted_units,
+            "checkpoints": inserted_checkpoints,
+        }
+
     def save_validation(
         self,
         *,

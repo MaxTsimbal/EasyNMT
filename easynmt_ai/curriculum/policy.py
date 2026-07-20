@@ -317,7 +317,9 @@ def curriculum_request_fingerprint(
     )
 
 
-def _policy_from_curriculum(curriculum: Curriculum) -> CurriculumPolicy:
+def curriculum_policy_from_curriculum(curriculum: Curriculum) -> CurriculumPolicy:
+    """Rebuild the immutable policy recorded with a persisted curriculum."""
+
     metadata = curriculum.generation_metadata
     return CurriculumPolicy(
         target_score=curriculum.target_score,
@@ -340,7 +342,7 @@ def validate_curriculum(
     *,
     policy: Optional[CurriculumPolicy] = None,
 ) -> CurriculumValidationResult:
-    policy = policy or _policy_from_curriculum(curriculum)
+    policy = policy or curriculum_policy_from_curriculum(curriculum)
     issues: list[CurriculumValidationIssue] = []
     if curriculum.subject != taxonomy.subject:
         issues.append(CurriculumValidationIssue(

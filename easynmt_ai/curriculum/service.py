@@ -129,6 +129,51 @@ class CurriculumService:
             )
         return replace(generated, value=stored)
 
+    def generate_baseline_curriculum_draft(
+        self,
+        context: AIContext,
+        *,
+        generation_reason: str = "manual_request",
+    ) -> EngineResult[Curriculum]:
+        """Persist an idempotent deterministic draft without provider access."""
+
+        if context.subject != self.taxonomy.subject:
+            return self._error(
+                AIErrorCode.VALIDATION_ERROR,
+                "A curriculum is not available for this subject.",
+            )
+        try:
+            baseline = self.engine.deterministic_baseline(
+                context,
+                generation_reason=generation_reason,
+            )
+        except (TypeError, ValueError):
+            return self._error(
+                AIErrorCode.VALIDATION_ERROR,
+                "The baseline curriculum request is invalid.",
+            )
+        existing = self.repository.find_by_request_fingerprint(
+            context.user_id,
+            context.subject,
+            baseline.generation_metadata.request_fingerprint,
+        )
+        if existing is not None:
+            return EngineResult(value=existing, cached=True)
+        try:
+            stored = self.repository.create_draft(baseline)
+        except (CurriculumStateError, TypeError, ValueError):
+            return self._error(
+                AIErrorCode.VALIDATION_ERROR,
+                "The baseline curriculum could not be persisted.",
+            )
+        except sqlite3.Error:
+            return self._error(
+                AIErrorCode.INTERNAL_ERROR,
+                "Curriculum persistence is temporarily unavailable.",
+                retryable=True,
+            )
+        return EngineResult(value=stored, fallback_used=True)
+
     def validate_curriculum(
         self,
         *,

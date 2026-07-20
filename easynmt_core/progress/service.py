@@ -444,6 +444,133 @@ class CurriculumProgressService:
             previous_curriculum_ids=previous_curriculum_ids,
         )
 
+    def repair_missing_progress_for_published_curriculum(
+        self,
+        *,
+        user_id: int,
+        curriculum_id: str,
+    ) -> dict[str, int]:
+        """Backfill only missing progress rows after a safe structure repair."""
+
+        connection = self.repository.connect()
+        repaired_units = 0
+        repaired_checkpoints = 0
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            curriculum = self.repository.curriculum_row(
+                connection,
+                user_id=user_id,
+                curriculum_id=curriculum_id,
+            )
+            self._assert_active(curriculum)
+            now = utc_now()
+            units = connection.execute(
+                """
+                SELECT unit_id, topic_id FROM ai_curriculum_units
+                WHERE curriculum_id = ? ORDER BY position
+                """,
+                (curriculum_id,),
+            ).fetchall()
+            existing_units = {
+                row["curriculum_unit_id"]
+                for row in connection.execute(
+                    """
+                    SELECT curriculum_unit_id FROM curriculum_unit_progress
+                    WHERE user_id = ? AND curriculum_id = ?
+                    """,
+                    (int(user_id), curriculum_id),
+                ).fetchall()
+            }
+            for unit in units:
+                if unit["unit_id"] in existing_units:
+                    continue
+                connection.execute(
+                    """
+                    INSERT INTO curriculum_unit_progress (
+                        id, user_id, curriculum_id, curriculum_unit_id, topic_id,
+                        state, mastery_band, attempt_count, xp_awarded,
+                        last_activity_at, source, version, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, 'locked', 'unknown', 0, 0, ?,
+                              'curriculum', 1, ?, ?)
+                    """,
+                    (
+                        self._stable_id(
+                            "cup",
+                            user_id,
+                            curriculum_id,
+                            unit["unit_id"],
+                        ),
+                        int(user_id),
+                        curriculum_id,
+                        unit["unit_id"],
+                        unit["topic_id"],
+                        now,
+                        now,
+                        now,
+                    ),
+                )
+                repaired_units += 1
+
+            checkpoints = connection.execute(
+                """
+                SELECT checkpoint_id FROM ai_curriculum_checkpoints
+                WHERE curriculum_id = ? ORDER BY position
+                """,
+                (curriculum_id,),
+            ).fetchall()
+            existing_checkpoints = {
+                row["checkpoint_id"]
+                for row in connection.execute(
+                    """
+                    SELECT checkpoint_id FROM curriculum_checkpoint_progress
+                    WHERE user_id = ? AND curriculum_id = ?
+                    """,
+                    (int(user_id), curriculum_id),
+                ).fetchall()
+            }
+            for checkpoint in checkpoints:
+                if checkpoint["checkpoint_id"] in existing_checkpoints:
+                    continue
+                connection.execute(
+                    """
+                    INSERT INTO curriculum_checkpoint_progress (
+                        id, user_id, curriculum_id, checkpoint_id, state,
+                        attempt_count, last_activity_at, version, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, 'locked', 0, ?, 1, ?, ?)
+                    """,
+                    (
+                        self._stable_id(
+                            "ccp",
+                            user_id,
+                            curriculum_id,
+                            checkpoint["checkpoint_id"],
+                        ),
+                        int(user_id),
+                        curriculum_id,
+                        checkpoint["checkpoint_id"],
+                        now,
+                        now,
+                        now,
+                    ),
+                )
+                repaired_checkpoints += 1
+
+            self._recalculate_in_transaction(
+                connection,
+                user_id=user_id,
+                curriculum_id=curriculum_id,
+            )
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+        return {
+            "units": repaired_units,
+            "checkpoints": repaired_checkpoints,
+        }
+
     def initialize_curriculum_progress(
         self,
         *,
