@@ -135,6 +135,50 @@ class LessonEngineContractTests(unittest.TestCase):
         self.assertEqual(result.error.code, AIErrorCode.VALIDATION_ERROR)
         self.assertFalse(result.fallback_used)
 
+    def test_reviewed_development_baseline_uses_the_production_contract(self):
+        gateway = FakeGateway(
+            AIResult(
+                "",
+                "offline",
+                "OpenAI is not configured.",
+                error_code=AIErrorCode.DISABLED.value,
+            )
+        )
+        result = LessonEngine(
+            AIOrchestrator(_gateway=gateway),
+            allow_development_fallback=True,
+        ).generate(self.context, self.request)
+
+        self.assertTrue(result.success)
+        self.assertTrue(result.fallback_used)
+        self.assertEqual(result.value.section_order, LESSON_SECTION_ORDER)
+        self.assertEqual(result.value.generation_metadata.source, "deterministic")
+        self.assertTrue(validate_lesson(result.value, self.request).valid)
+
+    def test_development_baseline_does_not_fabricate_unknown_topics(self):
+        unsupported_request = LessonGenerationRequest(
+            **{
+                **self.request.__dict__,
+                "topic_id": "math.algebra.linear_equations",
+            }
+        )
+        gateway = FakeGateway(
+            AIResult(
+                "",
+                "offline",
+                "OpenAI is not configured.",
+                error_code=AIErrorCode.DISABLED.value,
+            )
+        )
+        result = LessonEngine(
+            AIOrchestrator(_gateway=gateway),
+            allow_development_fallback=True,
+        ).generate(self.context, unsupported_request)
+
+        self.assertFalse(result.success)
+        self.assertFalse(result.fallback_used)
+        self.assertEqual(result.error.code, AIErrorCode.DISABLED)
+
     def test_prompt_uses_separate_teaching_obligations_and_safe_context(self):
         prompt = build_lesson_prompt(self.context, self.request)
         for obligation in (
@@ -487,6 +531,121 @@ class CurriculumLessonServiceTests(unittest.TestCase):
         finally:
             connection.close()
 
+    def test_development_baseline_is_persisted_and_cached_by_production_service(self):
+        self.start()
+        disabled_gateway = FakeGateway(
+            AIResult("", "offline", "disabled", error_code="disabled")
+        )
+        service = CurriculumLessonService(
+            self.lesson_repository,
+            LessonEngine(
+                AIOrchestrator(_gateway=disabled_gateway),
+                allow_development_fallback=True,
+            ),
+            self.progress_service,
+            logger=self.service.logger,
+        )
+
+        first = service.deliver_lesson(
+            user_id=1,
+            curriculum_unit_id=self.unit_id,
+            subject="math",
+        )
+        second = service.deliver_lesson(
+            user_id=1,
+            curriculum_unit_id=self.unit_id,
+            subject="math",
+        )
+
+        self.assertEqual(first.lesson.generation_metadata.source, "deterministic")
+        self.assertFalse(first.cached)
+        self.assertTrue(second.cached)
+        self.assertEqual(first.lesson.id, second.lesson.id)
+        self.assertEqual(len(disabled_gateway.calls), 1)
+        connection = self.lesson_repository.connect()
+        try:
+            row = connection.execute(
+                "SELECT generation_source FROM curriculum_lessons WHERE id = ?",
+                (first.lesson.id,),
+            ).fetchone()
+            self.assertEqual(row["generation_source"], "deterministic")
+        finally:
+            connection.close()
+
+    def test_generation_source_migration_preserves_existing_openai_lessons(self):
+        migration_path = f"{self.temp_dir.name}/lesson-migration.db"
+        connection = sqlite3.connect(migration_path)
+        connection.row_factory = sqlite3.Row
+        connection.executescript(
+            """
+            PRAGMA foreign_keys = ON;
+            CREATE TABLE users (id INTEGER PRIMARY KEY);
+            CREATE TABLE ai_curricula (
+                id TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                UNIQUE(id, user_id)
+            );
+            CREATE TABLE ai_curriculum_units (
+                curriculum_id TEXT NOT NULL,
+                unit_id TEXT NOT NULL,
+                PRIMARY KEY(curriculum_id, unit_id)
+            );
+            CREATE TABLE curriculum_lessons (
+                id TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                curriculum_id TEXT NOT NULL,
+                curriculum_unit_id TEXT NOT NULL,
+                topic_id TEXT NOT NULL,
+                request_fingerprint TEXT NOT NULL,
+                content_hash TEXT NOT NULL,
+                content_json TEXT NOT NULL,
+                generation_source TEXT NOT NULL CHECK(generation_source = 'openai'),
+                schema_version TEXT NOT NULL,
+                prompt_version TEXT NOT NULL,
+                model_identifier TEXT NOT NULL,
+                provider_response_id TEXT,
+                input_tokens INTEGER,
+                output_tokens INTEGER,
+                total_tokens INTEGER,
+                generated_at TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                UNIQUE(user_id, curriculum_id, curriculum_unit_id, request_fingerprint)
+            );
+            INSERT INTO users (id) VALUES (1);
+            INSERT INTO ai_curricula (id, user_id) VALUES ('cur-old', 1);
+            INSERT INTO ai_curriculum_units (curriculum_id, unit_id)
+            VALUES ('cur-old', 'unit-old');
+            INSERT INTO curriculum_lessons (
+                id, user_id, curriculum_id, curriculum_unit_id, topic_id,
+                request_fingerprint, content_hash, content_json,
+                generation_source, schema_version, prompt_version,
+                model_identifier, generated_at, created_at
+            ) VALUES (
+                'lesson-old', 1, 'cur-old', 'unit-old', 'math.numbers.integers',
+                'fingerprint-old', 'hash-old', '{}', 'openai',
+                'lesson-v1', 'lesson-prompt-v1', 'provider-model',
+                '2026-01-01T00:00:00+00:00', '2026-01-01T00:00:00+00:00'
+            );
+            """
+        )
+        connection.commit()
+
+        CurriculumLessonRepository._migrate_generation_source_constraint(connection)
+
+        row = connection.execute(
+            "SELECT id, generation_source FROM curriculum_lessons"
+        ).fetchone()
+        schema = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE name = 'curriculum_lessons'"
+        ).fetchone()[0]
+        self.assertEqual(dict(row), {
+            "id": "lesson-old",
+            "generation_source": "openai",
+        })
+        self.assertIn("'deterministic'", schema)
+        self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
+        connection.close()
+
     def test_schema_constraints_and_integrity(self):
         connection = self.lesson_repository.connect()
         try:
@@ -618,8 +777,19 @@ class CurriculumLessonApiTests(unittest.TestCase):
             self.app_module.ai_orchestrator._gateway = original_gateway
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        self.assertIn("1. Навчальна мета", html)
-        self.assertIn("9. Перехід до перевірки", html)
+        section_labels = (
+            "1. Навчальна мета",
+            "2. Зв’язок із НМТ",
+            "3. Коротке нагадування",
+            "4. Основне пояснення",
+            "5. Розв’язані приклади",
+            "6. Типові помилки",
+            "7. Практичні поради",
+            "8. Мініпідсумок",
+            "9. Перехід до перевірки",
+        )
+        section_positions = [html.index(label) for label in section_labels]
+        self.assertEqual(section_positions, sorted(section_positions))
         self.assertIn("delivery_token", html)
         legacy_url = self.client.get("/lesson/1")
         self.assertEqual(legacy_url.status_code, 302)
@@ -628,6 +798,73 @@ class CurriculumLessonApiTests(unittest.TestCase):
                 f"/curriculum/units/{self.unit_id}/lesson"
             )
         )
+
+    def test_accessible_legacy_math_topic_redirects_to_its_mapped_unit(self):
+        mapped_unit_id = f"quadratic-unit-{uuid.uuid4().hex}"
+        connection = self.app_module.get_db_connection()
+        connection.execute(
+            """
+            INSERT INTO ai_curriculum_units (
+                curriculum_id, unit_id, position, topic_id,
+                prerequisite_topic_ids_json, prerequisite_explanation,
+                priority, difficulty, estimated_duration_minutes,
+                study_sessions, mastery_target, reason_code
+            ) VALUES (?, ?, 2, 'math.algebra.quadratic_equations', '[]', '',
+                      'core', 'adaptive', 30, 1, 0.75, 'score_priority')
+            """,
+            (self.curriculum_id, mapped_unit_id),
+        )
+        connection.commit()
+        connection.close()
+        self.app_module.curriculum_progress_service.repair_missing_progress_for_published_curriculum(
+            user_id=self.user_id,
+            curriculum_id=self.curriculum_id,
+        )
+        self.start_unit()
+        self.app_module.curriculum_progress_service.start_curriculum_unit(
+            user_id=self.user_id,
+            curriculum_id=self.curriculum_id,
+            curriculum_unit_id=mapped_unit_id,
+        )
+
+        response = self.client.get("/lesson/1")
+
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            response.headers["Location"].endswith(
+                f"/curriculum/units/{mapped_unit_id}/lesson"
+            )
+        )
+
+    def test_legacy_lesson_remains_for_user_without_published_curriculum(self):
+        marker = uuid.uuid4().hex
+        connection = self.app_module.get_db_connection()
+        compatibility_user_id = int(connection.execute(
+            "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
+            ("Compatibility learner", f"compatibility-{marker}@example.com", "unused"),
+        ).lastrowid)
+        connection.execute(
+            """
+            INSERT INTO user_plans (user_id, goal, subject, time_left)
+            VALUES (?, '170', 'math', '3-plus')
+            """,
+            (compatibility_user_id,),
+        )
+        connection.commit()
+        connection.close()
+        compatibility_client = self.app_module.app.test_client()
+        with compatibility_client.session_transaction() as user_session:
+            user_session["user_id"] = compatibility_user_id
+            user_session["user_name"] = "Compatibility learner"
+            user_session["subject"] = "math"
+            user_session["goal"] = "170"
+            user_session["time_left"] = "3-plus"
+
+        response = compatibility_client.get("/lesson/1")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.request.path, "/lesson/1")
+        self.assertIn("Квадратні рівняння", response.get_data(as_text=True))
 
     def test_dashboard_starts_available_unit_then_opens_production_lesson(self):
         dashboard = self.client.get("/dashboard")

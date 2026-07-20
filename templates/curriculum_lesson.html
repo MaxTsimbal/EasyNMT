@@ -18,7 +18,7 @@
   <nav class="lesson-map human-map" aria-label="План уроку">
     <a href="#objective">1. Мета</a>
     <a href="#nmt">2. На НМТ</a>
-    {% if production_lesson.prerequisite_reminder.needed %}<a href="#prerequisites">3. Передумови</a>{% endif %}
+    <a href="#prerequisites">3. Передумови</a>
     <a href="#concepts">4. Пояснення</a>
     <a href="#examples">5. Приклади</a>
     <a href="#mistakes">6. Помилки</a>
@@ -46,16 +46,18 @@
     </div>
   </section>
 
-  {% if production_lesson.prerequisite_reminder.needed %}
   <section id="prerequisites" class="lesson-teacher-block glass-card">
     <span class="section-kicker">3. Коротке нагадування</span>
     <h2>Що варто пригадати</h2>
+    {% if production_lesson.prerequisite_reminder.needed %}
     <p>{{ production_lesson.prerequisite_reminder.explanation }}</p>
     <ul class="self-check-list">
       {% for point in production_lesson.prerequisite_reminder.points %}<li>□ {{ point }}</li>{% endfor %}
     </ul>
+    {% else %}
+    <p>Окремі передумови не потрібні: цей урок починається з базових понять.</p>
+    {% endif %}
   </section>
-  {% endif %}
 
   <section id="concepts" class="lesson-teacher-block glass-card">
     <span class="section-kicker">4. Основне пояснення</span>
