@@ -739,6 +739,112 @@ class CurriculumProgressService:
         finally:
             connection.close()
 
+    def get_active_unit_progress_in_transaction(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        user_id: int,
+        curriculum_unit_id: str,
+        curriculum_id: Optional[str] = None,
+        subject: Optional[str] = None,
+    ) -> CurriculumUnitProgress:
+        """Read an active owner-scoped unit inside a caller-owned transaction."""
+
+        row = self._unit_for_update(
+            connection,
+            user_id=user_id,
+            curriculum_unit_id=curriculum_unit_id,
+            curriculum_id=curriculum_id,
+            expected_version=None,
+            subject=subject,
+        )
+        return self.repository.progress_from_row(row)
+
+    def _mark_lesson_completed_in_transaction(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        row: sqlite3.Row,
+        user_id: int,
+        completion_evidence: LessonCompletionEvidence,
+        expected_version: Optional[int],
+    ) -> sqlite3.Row:
+        event_key = (
+            f"lesson-completed:{row['curriculum_id']}:"
+            f"{row['curriculum_unit_id']}:{completion_evidence.evidence_id}"
+        )
+        existing_event = connection.execute(
+            """
+            SELECT reason, idempotency_key, created_at
+            FROM curriculum_progress_events WHERE event_key = ?
+            """,
+            (event_key,),
+        ).fetchone()
+        if existing_event:
+            if (
+                existing_event["reason"] != completion_evidence.source.value
+                or existing_event["idempotency_key"]
+                != completion_evidence.evidence_id
+                or existing_event["created_at"]
+                != completion_evidence.verified_at.isoformat(timespec="seconds")
+            ):
+                raise InvalidProgressTransition(
+                    "Lesson evidence ID was reused with different evidence."
+                )
+            return connection.execute(
+                "SELECT * FROM curriculum_unit_progress WHERE id = ?",
+                (row["id"],),
+            ).fetchone()
+        self._check_expected_version(row, expected_version)
+        if CurriculumUnitState(row["state"]) is not CurriculumUnitState.IN_PROGRESS:
+            raise InvalidProgressTransition("Only an in-progress lesson can be completed.")
+        if completion_evidence.source is LessonCompletionSource.LEGACY_LESSON:
+            expected_topic = LEGACY_MATH_LESSON_TOPIC_MAP.get(
+                int(completion_evidence.legacy_lesson_id)
+            )
+            legacy_completion = connection.execute(
+                """
+                SELECT 1 FROM completed_lessons
+                WHERE user_id = ? AND subject = ? AND lesson_id = ?
+                """,
+                (
+                    int(user_id),
+                    row["subject"],
+                    int(completion_evidence.legacy_lesson_id),
+                ),
+            ).fetchone()
+            if expected_topic != row["topic_id"] or legacy_completion is None:
+                raise InvalidProgressTransition(
+                    "Legacy lesson evidence does not match this curriculum topic."
+                )
+        now = completion_evidence.verified_at.isoformat(timespec="seconds")
+        transitioned = self._transition(
+            connection,
+            row,
+            CurriculumUnitState.LESSON_COMPLETED,
+            now=now,
+            assignments={
+                "lesson_completed_at": now,
+                "mastery_band": MasteryBand.INTRODUCED.value,
+            },
+        )
+        self.repository.insert_event(
+            connection,
+            event_key=event_key,
+            event_type="curriculum_unit_lesson_completed",
+            user_id=user_id,
+            curriculum_id=row["curriculum_id"],
+            curriculum_unit_id=row["curriculum_unit_id"],
+            topic_id=row["topic_id"],
+            previous_state=row["state"],
+            new_state=transitioned["state"],
+            reason=completion_evidence.source.value,
+            idempotency_key=completion_evidence.evidence_id,
+            metadata={"legacy_lesson_id": completion_evidence.legacy_lesson_id},
+            created_at=now,
+        )
+        return transitioned
+
     def mark_lesson_completed(
         self,
         *,
@@ -761,77 +867,12 @@ class CurriculumProgressService:
                 expected_version=expected_version,
                 check_expected_version=False,
             )
-            event_key = (
-                f"lesson-completed:{row['curriculum_id']}:"
-                f"{row['curriculum_unit_id']}:{completion_evidence.evidence_id}"
-            )
-            existing_event = connection.execute(
-                """
-                SELECT reason, idempotency_key, created_at
-                FROM curriculum_progress_events WHERE event_key = ?
-                """,
-                (event_key,),
-            ).fetchone()
-            if existing_event:
-                if (
-                    existing_event["reason"] != completion_evidence.source.value
-                    or existing_event["idempotency_key"]
-                    != completion_evidence.evidence_id
-                    or existing_event["created_at"]
-                    != completion_evidence.verified_at.isoformat(timespec="seconds")
-                ):
-                    raise InvalidProgressTransition(
-                        "Lesson evidence ID was reused with different evidence."
-                    )
-                connection.commit()
-                return self.repository.progress_from_row(row)
-            self._check_expected_version(row, expected_version)
-            if CurriculumUnitState(row["state"]) is not CurriculumUnitState.IN_PROGRESS:
-                raise InvalidProgressTransition("Only an in-progress lesson can be completed.")
-            if completion_evidence.source is LessonCompletionSource.LEGACY_LESSON:
-                expected_topic = LEGACY_MATH_LESSON_TOPIC_MAP.get(
-                    int(completion_evidence.legacy_lesson_id)
-                )
-                legacy_completion = connection.execute(
-                    """
-                    SELECT 1 FROM completed_lessons
-                    WHERE user_id = ? AND subject = ? AND lesson_id = ?
-                    """,
-                    (
-                        int(user_id),
-                        row["subject"],
-                        int(completion_evidence.legacy_lesson_id),
-                    ),
-                ).fetchone()
-                if expected_topic != row["topic_id"] or legacy_completion is None:
-                    raise InvalidProgressTransition(
-                        "Legacy lesson evidence does not match this curriculum topic."
-                    )
-            now = completion_evidence.verified_at.isoformat(timespec="seconds")
-            transitioned = self._transition(
+            transitioned = self._mark_lesson_completed_in_transaction(
                 connection,
-                row,
-                CurriculumUnitState.LESSON_COMPLETED,
-                now=now,
-                assignments={
-                    "lesson_completed_at": now,
-                    "mastery_band": MasteryBand.INTRODUCED.value,
-                },
-            )
-            self.repository.insert_event(
-                connection,
-                event_key=event_key,
-                event_type="curriculum_unit_lesson_completed",
+                row=row,
                 user_id=user_id,
-                curriculum_id=row["curriculum_id"],
-                curriculum_unit_id=row["curriculum_unit_id"],
-                topic_id=row["topic_id"],
-                previous_state=row["state"],
-                new_state=transitioned["state"],
-                reason=completion_evidence.source.value,
-                idempotency_key=completion_evidence.evidence_id,
-                metadata={"legacy_lesson_id": completion_evidence.legacy_lesson_id},
-                created_at=now,
+                completion_evidence=completion_evidence,
+                expected_version=expected_version,
             )
             connection.commit()
             return self.repository.progress_from_row(transitioned)
@@ -840,6 +881,49 @@ class CurriculumProgressService:
             raise
         finally:
             connection.close()
+
+    def _mark_assessment_required_in_transaction(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        row: sqlite3.Row,
+        user_id: int,
+        expected_version: Optional[int],
+        now: Optional[str] = None,
+    ) -> sqlite3.Row:
+        current = CurriculumUnitState(row["state"])
+        if current is CurriculumUnitState.ASSESSMENT_REQUIRED:
+            return row
+        self._check_expected_version(row, expected_version)
+        if current is not CurriculumUnitState.LESSON_COMPLETED:
+            raise InvalidProgressTransition(
+                "Assessment can only follow a completed lesson."
+            )
+        transition_time = now or utc_now()
+        transitioned = self._transition(
+            connection,
+            row,
+            CurriculumUnitState.ASSESSMENT_REQUIRED,
+            now=transition_time,
+            assignments={"assessment_required_at": transition_time},
+        )
+        self.repository.insert_event(
+            connection,
+            event_key=(
+                f"assessment-required:{row['curriculum_id']}:"
+                f"{row['curriculum_unit_id']}:{row['version']}"
+            ),
+            event_type="curriculum_unit_assessment_required",
+            user_id=user_id,
+            curriculum_id=row["curriculum_id"],
+            curriculum_unit_id=row["curriculum_unit_id"],
+            topic_id=row["topic_id"],
+            previous_state=current.value,
+            new_state=transitioned["state"],
+            reason="lesson_completion_verified",
+            created_at=transition_time,
+        )
+        return transitioned
 
     def mark_assessment_required(
         self,
@@ -860,38 +944,11 @@ class CurriculumProgressService:
                 expected_version=expected_version,
                 check_expected_version=False,
             )
-            current = CurriculumUnitState(row["state"])
-            if current is CurriculumUnitState.ASSESSMENT_REQUIRED:
-                connection.commit()
-                return self.repository.progress_from_row(row)
-            self._check_expected_version(row, expected_version)
-            if current is not CurriculumUnitState.LESSON_COMPLETED:
-                raise InvalidProgressTransition(
-                    "Assessment can only follow a completed lesson."
-                )
-            now = utc_now()
-            transitioned = self._transition(
+            transitioned = self._mark_assessment_required_in_transaction(
                 connection,
-                row,
-                CurriculumUnitState.ASSESSMENT_REQUIRED,
-                now=now,
-                assignments={"assessment_required_at": now},
-            )
-            self.repository.insert_event(
-                connection,
-                event_key=(
-                    f"assessment-required:{row['curriculum_id']}:"
-                    f"{row['curriculum_unit_id']}:{row['version']}"
-                ),
-                event_type="curriculum_unit_assessment_required",
+                row=row,
                 user_id=user_id,
-                curriculum_id=row["curriculum_id"],
-                curriculum_unit_id=row["curriculum_unit_id"],
-                topic_id=row["topic_id"],
-                previous_state=current.value,
-                new_state=transitioned["state"],
-                reason="lesson_completion_verified",
-                created_at=now,
+                expected_version=expected_version,
             )
             connection.commit()
             return self.repository.progress_from_row(transitioned)
@@ -900,6 +957,61 @@ class CurriculumProgressService:
             raise
         finally:
             connection.close()
+
+    def complete_lesson_for_assessment_in_transaction(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        user_id: int,
+        curriculum_unit_id: str,
+        completion_evidence: LessonCompletionEvidence,
+        curriculum_id: Optional[str] = None,
+        subject: Optional[str] = None,
+    ) -> CurriculumUnitProgress:
+        """Apply trusted lesson evidence and require assessment atomically.
+
+        The caller owns the transaction. This is the production Lesson Engine
+        integration boundary; progress transitions still occur only here.
+        """
+
+        if not isinstance(completion_evidence, LessonCompletionEvidence):
+            raise InvalidProgressTransition("Typed lesson completion evidence is required.")
+        row = self._unit_for_update(
+            connection,
+            user_id=user_id,
+            curriculum_unit_id=curriculum_unit_id,
+            curriculum_id=curriculum_id,
+            expected_version=None,
+            subject=subject,
+            check_expected_version=False,
+        )
+        state = CurriculumUnitState(row["state"])
+        if state is CurriculumUnitState.IN_PROGRESS:
+            row = self._mark_lesson_completed_in_transaction(
+                connection,
+                row=row,
+                user_id=user_id,
+                completion_evidence=completion_evidence,
+                expected_version=None,
+            )
+            state = CurriculumUnitState(row["state"])
+        if state is CurriculumUnitState.LESSON_COMPLETED:
+            row = self._mark_assessment_required_in_transaction(
+                connection,
+                row=row,
+                user_id=user_id,
+                expected_version=None,
+                now=completion_evidence.verified_at.isoformat(timespec="seconds"),
+            )
+            state = CurriculumUnitState(row["state"])
+        if state not in {
+            CurriculumUnitState.ASSESSMENT_REQUIRED,
+            CurriculumUnitState.COMPLETED,
+        }:
+            raise InvalidProgressTransition(
+                "Lesson completion is not allowed from the current unit state."
+            )
+        return self.repository.progress_from_row(row)
 
     def _existing_assessment(
         self,
