@@ -278,24 +278,66 @@ def quiz_boundary_fallback(lesson: Lesson, question: QuizQuestion) -> str:
     )
 
 
+def _relevant_concept(lesson: Lesson, question: QuizQuestion, message: str = ""):
+    if not lesson.concepts:
+        return None
+    query_tokens = {
+        token for token in normalize_text(f"{question.prompt} {message}").split()
+        if len(token) >= 3
+    }
+    best = lesson.concepts[0]
+    best_score = -1
+    for concept in lesson.concepts:
+        haystack = normalize_text(
+            f"{concept.title} {concept.what} {concept.how} {concept.when_used} {concept.common_confusion}"
+        )
+        score = sum(1 for token in query_tokens if token in haystack)
+        if score > best_score:
+            best = concept
+            best_score = score
+    return best
+
+
+def _plain_question_prompt(prompt: str) -> str:
+    value = str(prompt or "").strip()
+    value = re.sub(
+        r"^(?:розв['’]?яжи|відтвори|покажи|запиши)(?:\s+або\s+[^:]+)?(?:\s+повний\s+хід)?(?:\s+для\s+завдання)?\s*:\s*",
+        "",
+        value,
+        flags=re.IGNORECASE,
+    ).strip()
+    return value or str(prompt or "").strip()
+
+
 def quiz_fallback(lesson: Lesson, question: QuizQuestion, *, message: str) -> str:
-    rule = lesson.concepts[0].how if lesson.concepts else "знайди ключову ознаку й обери відповідне правило"
+    concept = _relevant_concept(lesson, question, message)
+    rule = concept.how if concept else "знайди ключову ознаку й зістав її з правилом уроку"
+    visible_task = _plain_question_prompt(question.prompt)
+    lowered = normalize_text(message)
+
     if question.answer_type == "choice":
         task = (
-            "Тут треба не вгадати, а порівняти кожен видимий варіант із правилом теми. "
-            "Спочатку знайди в умові слово або ознаку, яка визначає потрібне правило."
+            "Знайди в умові слово або ознаку, яка підказує потрібне правило. "
+            "Після цього перевір кожен варіант за цим правилом, не вгадуючи."
         )
     elif question.answer_type == "short_text":
         task = (
-            "Тут достатньо 1–2 власних речень. Назви головну ідею або випадок використання, "
-            "а потім, якщо питають, додай форму чи коротке пояснення."
+            "Дай коротку відповідь своїми словами: назви головну ідею, а якщо завдання просить форму чи спосіб, додай її окремо."
         )
     else:
         task = (
-            "Розбий роботу на чотири частини: дані або ознаки, правило, основні кроки, перевірка. "
-            "Не треба писати довгий твір, але хід має бути видимим."
+            "Тут потрібні дві частини: кінцева відповідь і 1–2 речення, чому ти обрав саме це правило. "
+            "Почни з ключової ознаки в умові, потім назви правило й застосуй його сам."
         )
-    return f"Простіше: {task} Загальна підказка з уроку: {rule}"
+
+    if "правил" in lowered:
+        return f"Пригадай таку загальну схему: {rule} Потім сам застосуй її до завдання «{visible_task}»."
+    if "приклад" in lowered:
+        return (
+            f"Для схожого завдання спочатку шукай ту саму ключову ознаку, а далі працюй за схемою: {rule} "
+            "Використай інші слова або числа й не перенось готовий результат у своє питання."
+        )
+    return f"Простіше: {task} Саме завдання: «{visible_task}». Загальна схема з уроку: {rule}"
 
 
 def _reference_similarity(answer: str, reference: str) -> float:

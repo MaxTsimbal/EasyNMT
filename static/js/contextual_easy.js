@@ -7,32 +7,100 @@
     const closeButton = document.getElementById("contextualEasyClose");
     const messages = document.getElementById("contextualEasyMessages");
     const contextLabel = document.getElementById("contextualEasyContextLabel");
+    const modeLabel = document.getElementById("contextualEasyMode");
     const quickActions = document.getElementById("contextualEasyQuickActions");
     const form = document.getElementById("contextualEasyComposer");
     const input = document.getElementById("contextualEasyInput");
     const sendButton = document.getElementById("contextualEasySend");
 
-    if (!launcher || !panel || !messages || !form || !input) return;
+    if (!launcher || !panel || !messages || !form || !input || !sendButton) return;
 
+    const markdown = window.EasyChatV2Markdown;
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const surface = panel.dataset.surface || "lesson";
     const endpoint = panel.dataset.endpoint || "";
+    const statusEndpoint = panel.dataset.statusEndpoint || "";
     const csrf = panel.dataset.csrf || "";
     const attemptToken = panel.dataset.attemptToken || "";
     const histories = new Map();
+
     let activeContextKey = surface === "quiz" ? "" : "lesson:overview";
     let activeQuestionId = "";
     let activeSectionId = "";
     let busy = false;
+    let controller = null;
+    let autoFollow = true;
 
     const isMobile = () => window.matchMedia("(max-width: 720px)").matches;
-
     const cleanText = (value) => String(value || "").replace(/^\s*(?:Easy|Ізі)\s*:\s*/i, "").trim();
 
-    const scrollToBottom = () => {
-        messages.scrollTop = messages.scrollHeight;
+    const hideGlobalLoader = () => {
+        const loader = document.getElementById("pageLoader");
+        loader?.classList.add("hidden");
+        loader?.setAttribute("aria-hidden", "true");
+        document.body.classList.remove("easy-transition-loading");
     };
 
-    const createMessage = (role, text, { loading = false } = {}) => {
+    const isNearBottom = () => (
+        messages.scrollHeight - messages.scrollTop - messages.clientHeight < 90
+    );
+
+    const scrollToBottom = (behavior = "auto", force = false) => {
+        if (!force && !autoFollow && !isNearBottom()) return;
+        messages.scrollTo({
+            top: messages.scrollHeight,
+            behavior: reduceMotion ? "auto" : behavior,
+        });
+    };
+
+    messages.addEventListener("scroll", () => {
+        autoFollow = isNearBottom();
+    }, { passive: true });
+
+    const setMode = (mode) => {
+        if (!modeLabel) return;
+        const normalized = String(mode || "").toLowerCase();
+        const modes = {
+            openai: ["Онлайн AI", "is-online"],
+            offline: ["Офлайн підказка", "is-offline"],
+            limit: ["Ліміт AI", "is-limit"],
+            guarded: ["Без готових відповідей", "is-guarded"],
+            error: ["Помилка AI", "is-error"],
+            checking: ["Перевіряю AI", "is-checking"],
+        };
+        const [label, className] = modes[normalized] || ["Easy готовий", "is-ready"];
+        modeLabel.className = `contextual-easy-mode ${className}`;
+        modeLabel.textContent = label;
+    };
+
+    const checkAiStatus = async () => {
+        if (!statusEndpoint) {
+            setMode("ready");
+            return;
+        }
+        try {
+            const response = await fetch(statusEndpoint, {
+                credentials: "same-origin",
+                headers: { "Accept": "application/json", "X-Requested-With": "XMLHttpRequest" },
+            });
+            const data = await response.json().catch(() => ({}));
+            setMode(data.mode === "openai" ? "openai" : "offline");
+        } catch {
+            setMode("offline");
+        }
+    };
+
+    const renderRichText = async (node, text) => {
+        const value = cleanText(text);
+        if (markdown?.render) {
+            node.innerHTML = markdown.render(value);
+            await markdown.typesetMath?.(node);
+        } else {
+            node.textContent = value;
+        }
+    };
+
+    const createMessage = (role, text, { loading = false, pending = false } = {}) => {
         const article = document.createElement("article");
         article.className = `contextual-easy-message contextual-easy-message-${role}`;
 
@@ -52,27 +120,59 @@
             name.textContent = "Easy";
             bubble.appendChild(name);
         }
-        const paragraph = document.createElement("p");
+
+        const content = document.createElement("div");
+        content.className = "contextual-easy-answer";
         if (loading) {
-            paragraph.className = "contextual-easy-typing";
-            paragraph.innerHTML = "<span></span><span></span><span></span>";
+            content.classList.add("contextual-easy-typing");
+            content.innerHTML = "<span></span><span></span><span></span><small>Easy думає</small>";
+        } else if (pending) {
+            content.classList.add("is-streaming");
+        } else if (role === "assistant") {
+            renderRichText(content, text);
         } else {
-            paragraph.textContent = cleanText(text);
+            content.textContent = cleanText(text);
         }
-        bubble.appendChild(paragraph);
+
+        bubble.appendChild(content);
         article.appendChild(bubble);
         messages.appendChild(article);
-        scrollToBottom();
-        return { article, paragraph };
+        autoFollow = true;
+        scrollToBottom("smooth", true);
+        return { article, content };
+    };
+
+    const typeAnswer = async (node, text, signal) => {
+        const value = cleanText(text);
+        node.classList.remove("contextual-easy-typing");
+        node.classList.add("is-streaming");
+        node.textContent = "";
+
+        if (reduceMotion || value.length > 2400) {
+            node.textContent = value;
+        } else {
+            const tokens = value.match(/\S+\s*/g) || [value];
+            for (const token of tokens) {
+                if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+                node.textContent += token;
+                scrollToBottom("auto");
+                const delay = /[.!?]\s*$/.test(token) ? 52 : /[,;:]\s*$/.test(token) ? 28 : 13;
+                await new Promise((resolve) => window.setTimeout(resolve, delay));
+            }
+        }
+
+        node.classList.remove("is-streaming");
+        await renderRichText(node, value);
+        scrollToBottom("smooth");
     };
 
     const contextIntro = () => {
         if (surface === "quiz") {
             return activeQuestionId
-                ? "Поясню умову простіше або нагадаю правило. Готову відповідь, правильний варіант чи перевірку твоєї відповіді під час тесту не дам."
+                ? "Я бачу саме це питання. Поясню умову простіше, нагадаю правило або покажу інший схожий приклад без готової відповіді."
                 : "Натисни «Пояснити з Easy» біля питання. Я побачу саме його й допоможу розібрати формулювання без готової відповіді.";
         }
-        return "Я бачу цей урок і можу пояснити поточний фрагмент простіше, розібрати правило або дати інший приклад.";
+        return "Я бачу цей урок і поточний фрагмент. Можу пояснити його простіше, розібрати правило або дати інший приклад.";
     };
 
     const currentHistory = () => histories.get(activeContextKey) || [];
@@ -85,6 +185,8 @@
             return;
         }
         history.forEach((item) => createMessage(item.role, item.text));
+        autoFollow = true;
+        scrollToBottom("auto", true);
     };
 
     const setOpen = (open) => {
@@ -98,13 +200,28 @@
         }
         document.body.classList.toggle("contextual-easy-mobile-open", open && isMobile());
         if (open) {
+            hideGlobalLoader();
             renderContextHistory();
             window.setTimeout(() => input.focus({ preventScroll: true }), 120);
         }
     };
 
+    const stopCurrentRequest = () => {
+        if (!busy) return;
+        controller?.abort();
+    };
+
+    const setBusy = (value) => {
+        busy = Boolean(value);
+        panel.classList.toggle("is-generating", busy);
+        messages.setAttribute("aria-busy", busy ? "true" : "false");
+        sendButton.classList.toggle("is-stop", busy);
+        sendButton.setAttribute("aria-label", busy ? "Зупинити відповідь" : "Надіслати запитання");
+    };
+
     const updateContext = ({ key, label, questionId = "", sectionId = "" }) => {
         if (!key) return;
+        if (busy) stopCurrentRequest();
         activeContextKey = key;
         activeQuestionId = questionId;
         activeSectionId = sectionId;
@@ -118,21 +235,46 @@
         histories.set(activeContextKey, history.slice(-12));
     };
 
+    const requestAnswer = async (payload, signal) => {
+        const response = await fetch(endpoint, {
+            method: "POST",
+            credentials: "same-origin",
+            signal,
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "X-Requested-With": "XMLHttpRequest",
+                "X-CSRF-Token": csrf,
+            },
+            body: JSON.stringify(payload),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.ok === false) {
+            throw new Error(data.message || data.error || `Помилка ${response.status}`);
+        }
+        return data;
+    };
+
     const submitMessage = async (message) => {
         const text = String(message || "").trim();
-        if (!text || busy || !endpoint) return;
+        if (busy) {
+            stopCurrentRequest();
+            return;
+        }
+        if (!text || !endpoint) return;
         if (surface === "quiz" && !activeQuestionId) {
             createMessage("assistant", "Спочатку обери питання кнопкою «Пояснити з Easy».");
             return;
         }
 
-        busy = true;
-        sendButton?.setAttribute("disabled", "disabled");
+        hideGlobalLoader();
+        setBusy(true);
+        controller = new AbortController();
         appendHistory("user", text);
         createMessage("user", text);
         input.value = "";
         input.style.height = "auto";
-        const loading = createMessage("assistant", "", { loading: true });
+        const pending = createMessage("assistant", "", { loading: true });
 
         const payload = {
             message: text,
@@ -146,30 +288,27 @@
         }
 
         try {
-            const response = await fetch(endpoint, {
-                method: "POST",
-                credentials: "same-origin",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Accept": "application/json",
-                    "X-CSRF-Token": csrf,
-                },
-                body: JSON.stringify(payload),
-            });
-            const data = await response.json().catch(() => ({}));
-            const answer = cleanText(data.answer || data.message || data.error || "Не вдалося отримати пояснення. Спробуй ще раз.");
-            loading.article.remove();
+            const data = await requestAnswer(payload, controller.signal);
+            const answer = cleanText(data.answer || data.message || "Не вдалося отримати пояснення. Спробуй ще раз.");
+            setMode(data.mode || "ready");
+            await typeAnswer(pending.content, answer, controller.signal);
             appendHistory("assistant", answer);
-            createMessage("assistant", answer);
-        } catch (_error) {
-            loading.article.remove();
-            const answer = "Зв’язок перервався. Перевір інтернет і повтори запит.";
-            appendHistory("assistant", answer);
-            createMessage("assistant", answer);
+        } catch (error) {
+            pending.article.remove();
+            if (error.name === "AbortError") {
+                createMessage("assistant", "Відповідь зупинено. Можеш сформулювати запит інакше.");
+            } else {
+                setMode("error");
+                const answer = `Не вдалося отримати пояснення. ${error.message || "Перевір з’єднання та повтори запит."}`;
+                appendHistory("assistant", answer);
+                createMessage("assistant", answer);
+            }
         } finally {
-            busy = false;
-            sendButton?.removeAttribute("disabled");
-            input.focus({ preventScroll: true });
+            controller = null;
+            setBusy(false);
+            hideGlobalLoader();
+            const restoreFocus = !isMobile() || document.activeElement === input;
+            if (restoreFocus) input.focus({ preventScroll: true });
         }
     };
 
@@ -177,7 +316,11 @@
     closeButton?.addEventListener("click", () => setOpen(false));
     backdrop?.addEventListener("click", () => setOpen(false));
     document.addEventListener("keydown", (event) => {
-        if (event.key === "Escape" && panel.classList.contains("is-open")) setOpen(false);
+        if (event.key === "Escape" && busy) {
+            stopCurrentRequest();
+        } else if (event.key === "Escape" && panel.classList.contains("is-open")) {
+            setOpen(false);
+        }
     });
 
     input.addEventListener("input", () => {
@@ -192,7 +335,15 @@
     });
     form.addEventListener("submit", (event) => {
         event.preventDefault();
-        submitMessage(input.value);
+        event.stopPropagation();
+        hideGlobalLoader();
+        if (busy) stopCurrentRequest();
+        else submitMessage(input.value);
+    });
+    sendButton.addEventListener("click", (event) => {
+        if (!busy) return;
+        event.preventDefault();
+        stopCurrentRequest();
     });
     quickActions?.addEventListener("click", (event) => {
         const button = event.target.closest("[data-easy-message]");
@@ -227,7 +378,7 @@
                 const visible = entries
                     .filter((entry) => entry.isIntersecting)
                     .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-                if (visible && !panel.matches(":focus-within")) selectQuestion(visible.target);
+                if (visible && !panel.matches(":focus-within") && !busy) selectQuestion(visible.target);
             }, { rootMargin: "-28% 0px -48% 0px", threshold: [0.2, 0.45, 0.7] });
             questionCards.forEach((card) => observer.observe(card));
         }
@@ -240,7 +391,7 @@
             activeSectionId = id;
             activeContextKey = `lesson:${id || "overview"}`;
             if (contextLabel) contextLabel.textContent = title;
-            if (panel.classList.contains("is-open")) renderContextHistory();
+            if (panel.classList.contains("is-open") && !busy) renderContextHistory();
         };
         if (sections.length) {
             setSection(sections[0]);
@@ -248,7 +399,7 @@
                 const visible = entries
                     .filter((entry) => entry.isIntersecting)
                     .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-                if (visible) setSection(visible.target);
+                if (visible && !busy) setSection(visible.target);
             }, { rootMargin: "-20% 0px -58% 0px", threshold: [0.15, 0.4, 0.7] });
             sections.forEach((section) => observer.observe(section));
         }
@@ -263,4 +414,7 @@
             document.body.classList.add("contextual-easy-mobile-open");
         }
     });
+
+    hideGlobalLoader();
+    checkAiStatus();
 })();

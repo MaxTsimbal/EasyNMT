@@ -3523,9 +3523,22 @@ def _run_contextual_easy(*, engine_name, user_id, subject, prompt, fallback):
         parser=parse_contextual_easy_reply,
         max_output_tokens=700,
     )
-    if not result.success:
-        return fallback, "offline", used_today, daily_limit
-    return result.value["answer"], "openai", used_today, daily_limit
+    if result.success:
+        return result.value["answer"], "openai", used_today, daily_limit
+
+    # Some model/provider combinations may reject strict JSON schema output.
+    # Retry once as plain text so contextual Easy stays genuinely conversational
+    # instead of silently collapsing to the deterministic template.
+    text_result = ai_orchestrator.complete_prompt_text(
+        engine_name=f"{engine_name}.text",
+        context=context,
+        prompt=prompt,
+        max_output_tokens=700,
+    )
+    text_answer = ai_orchestrator.clean_text(text_result.text)
+    if text_result.mode == "openai" and text_answer:
+        return text_answer, "openai", used_today, daily_limit
+    return fallback, "offline", used_today, daily_limit
 
 
 @app.post("/api/curriculum/units/<string:curriculum_unit_id>/lesson-easy")

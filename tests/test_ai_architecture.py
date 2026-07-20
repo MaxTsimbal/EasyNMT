@@ -199,6 +199,23 @@ class AIFoundationArchitectureTests(unittest.TestCase):
         self.assertEqual(len(gateway.calls), 1)
         self.assertEqual(gateway.calls[0]["max_output_tokens"], 600)
 
+    def test_text_prompt_fallback_uses_same_custom_boundary_without_schema(self):
+        gateway = FakeGateway(AIResult("Жива відповідь Easy", "openai"))
+        orchestrator = AIOrchestrator(_gateway=gateway)
+
+        result = orchestrator.complete_prompt_text(
+            engine_name="contextual_easy.quiz.text",
+            context=self.context,
+            prompt=self.prompt(),
+            max_output_tokens=321,
+        )
+
+        self.assertEqual(result.mode, "openai")
+        self.assertEqual(result.text, "Жива відповідь Easy")
+        self.assertIsNone(gateway.calls[0]["response_format"])
+        self.assertEqual(gateway.calls[0]["max_output_tokens"], 321)
+        self.assertEqual(gateway.calls[0]["metadata"]["format"], "text_fallback")
+
     def test_invalid_json_returns_structured_error_and_failure_log(self):
         gateway = FakeGateway(AIResult("not-json", "openai", usage={"total_tokens": 3}))
         logger = logging.getLogger("tests.easynmt.ai.invalid_json")

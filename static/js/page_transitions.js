@@ -129,7 +129,7 @@
     document.addEventListener("submit", (event) => {
         const form = event.target;
         if (!(form instanceof HTMLFormElement) || event.defaultPrevented) return;
-        if (form.dataset.noTransition !== undefined || form.target === "_blank") return;
+        if (form.dataset.noTransition !== undefined || form.target === "_blank" || form.closest(".contextual-easy-panel")) return;
 
         const submitter = event.submitter;
         const type = submitter?.dataset?.transition || form.dataset.transition || "enter";

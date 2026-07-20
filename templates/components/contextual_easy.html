@@ -24,6 +24,7 @@
   aria-hidden="true"
   data-surface="{{ easy_surface }}"
   data-endpoint="{{ easy_endpoint }}"
+  data-status-endpoint="{{ url_for('ai_status_api') }}"
   data-csrf="{{ csrf_token() }}"
   data-unit-id="{{ production_lesson.curriculum_unit_id if easy_surface == 'lesson' else production_quiz.curriculum_unit_id }}"
   {% if easy_surface == 'quiz' %}data-attempt-token="{{ quiz_attempt_token }}"{% endif %}
@@ -39,6 +40,7 @@
         <small id="contextualEasyContextLabel">
           {% if easy_surface == 'quiz' %}Обери питання, яке треба пояснити{% else %}{{ production_lesson.title }}{% endif %}
         </small>
+        <span class="contextual-easy-mode is-checking" id="contextualEasyMode" aria-live="polite">Перевіряю AI</span>
       </span>
     </div>
     <button class="contextual-easy-close" id="contextualEasyClose" type="button" aria-label="Згорнути Easy">×</button>
@@ -65,7 +67,7 @@
     {% endif %}
   </div>
 
-  <form class="contextual-easy-composer" id="contextualEasyComposer">
+  <form class="contextual-easy-composer" id="contextualEasyComposer" data-no-transition>
     <label class="sr-only" for="contextualEasyInput">Запитання до Easy</label>
     <textarea
       id="contextualEasyInput"
@@ -75,8 +77,10 @@
       required
     ></textarea>
     <button type="submit" id="contextualEasySend" aria-label="Надіслати запитання">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 12 15-7-4 14-3-5-8-2Z"></path><path d="m12 14 7-9"></path></svg>
+      <svg class="contextual-easy-send-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m4 12 15-7-4 14-3-5-8-2Z"></path><path d="m12 14 7-9"></path></svg>
+      <span class="contextual-easy-stop-icon" aria-hidden="true"></span>
     </button>
   </form>
 </aside>
+<script src="{{ url_for('static', filename='js/easy_chat_v3/markdown.js') }}" defer></script>
 <script src="{{ url_for('static', filename='js/contextual_easy.js') }}" defer></script>

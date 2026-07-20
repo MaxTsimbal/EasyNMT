@@ -11,6 +11,7 @@ from easynmt_core.contextual_easy import (
     lesson_prompt_context,
     parse_contextual_easy_reply,
     quiz_prompt_context,
+    quiz_fallback,
 )
 from easynmt_core.quizzes import QuizQuestion
 from tests.lesson_fixtures import valid_lesson_proposal
@@ -100,6 +101,16 @@ class ContextualEasyPolicyTests(unittest.TestCase):
         result = bounded_history(raw, limit=8)
         self.assertEqual(len(result), 7)
         self.assertTrue(all(item["role"] == "user" for item in result))
+
+    def test_offline_quiz_fallback_is_question_aware_and_human(self):
+        answer = quiz_fallback(
+            self.lesson,
+            self.question,
+            message="Поясни простіше",
+        )
+        self.assertIn("Саме завдання", answer)
+        self.assertIn("She ___ (go)", answer)
+        self.assertNotIn("Правильна відповідь", answer)
 
     def test_prompt_contract_is_structured(self):
         prompt = build_contextual_easy_prompt(

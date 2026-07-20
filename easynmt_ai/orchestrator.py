@@ -246,6 +246,46 @@ class AIOrchestrator:
             user_id=context.user_id,
         )
 
+    def complete_prompt_text(
+        self,
+        *,
+        engine_name: str,
+        context: AIContext,
+        prompt: PromptSpec,
+        attachments: tuple = (),
+        model: str | None = None,
+        max_output_tokens: int | None = None,
+    ) -> AIResult:
+        """Execute a specialized prompt as plain text.
+
+        This is a resilient second path for compact tutor surfaces when a model
+        or provider rejects structured output. The same instructions and bounded
+        server context are preserved, but no JSON schema is requested.
+        """
+
+        token_limit = max_output_tokens or context.available_tokens
+        return self._call(
+            lambda: self._gateway.complete_custom(
+                instructions=(
+                    prompt.instructions
+                    + "\n\nПоверни лише готовий текст відповіді для учня, без JSON, службових полів або пояснення формату."
+                ),
+                text=prompt.user_input,
+                attachments=attachments,
+                model=model,
+                max_output_tokens=token_limit,
+                metadata={
+                    "app": "EasyNMT",
+                    "engine": engine_name,
+                    "user_id": str(context.user_id),
+                    "format": "text_fallback",
+                },
+                response_format=None,
+            ),
+            engine_name=engine_name,
+            user_id=context.user_id,
+        )
+
     @staticmethod
     def _decode_json(text: str) -> Mapping[str, Any]:
         candidate = str(text or "").strip()
