@@ -30,6 +30,7 @@ from .models import (
 )
 from .policy import CURRICULUM_UNIT_COMPLETION_XP, VALID_TRANSITIONS
 from .repository import CurriculumProgressRepository
+from .service import CurriculumProgressService
 
 __all__ = [
     "AssessmentEvidenceInvalid",
@@ -42,6 +43,7 @@ __all__ = [
     "CurriculumProgressError",
     "CurriculumProgressNotFound",
     "CurriculumProgressRepository",
+    "CurriculumProgressService",
     "CurriculumProgressSnapshot",
     "CurriculumSuperseded",
     "CurriculumUnitNotFound",
