@@ -160,9 +160,11 @@ writes.
 ## Legacy compatibility
 
 The server-rendered legacy lessons, `completed_lessons`, quiz attempts,
-`lesson_readiness`, numeric legacy unlocking, and dashboard data remain in
-place. They continue to drive the current UI. For curriculum progress, the
-canonical bridge is deliberately small:
+`lesson_readiness`, and numeric legacy unlocking remain in place for old URLs
+and learners without a published curriculum. When an active published
+curriculum exists, the dashboard, Today, Library, and Planner instead render
+the authoritative curriculum snapshot and open production unit lessons. The
+canonical legacy evidence bridge remains deliberately small:
 
 - lesson 1 -> `math.algebra.quadratic_equations`;
 - lesson 2 -> `math.algebra.linear_equations`;
@@ -170,14 +172,16 @@ canonical bridge is deliberately small:
 
 Only a stored completion with a matching subject, lesson ID, user, and canonical
 topic is accepted as legacy evidence. Numeric legacy order never unlocks a
-curriculum unit. A later UI migration can retire the legacy path only after its
-lesson, assessment, and dashboard consumers use this service.
+curriculum unit. The compatibility path can be retired only after every
+existing learner has a published curriculum and old numeric URLs are no longer
+supported.
 
 ## API and authorization
 
 The curriculum progress and Task 3B lesson integration exposes:
 
 - `GET /api/curriculum/progress` for the signed-in user's active session subject;
+- `POST /curriculum/units/<unit_id>/start` for CSRF-protected HTML navigation;
 - `POST /api/curriculum/units/<unit_id>/start` with optional
   `expected_version`.
 - `GET /api/curriculum/units/<unit_id>/lesson` for a validated lesson and
@@ -203,8 +207,8 @@ prompts, uploads, and image contents are not stored in progress events.
 - There is no public assessment-result route because the production
   Quiz/Grading caller belongs to Task 3C.
 - Mastery policy is deliberately conservative and does not implement decay.
-- The current dashboard still reads the legacy progress model; the new snapshot
-  is ready for a later UI migration.
+- Curriculum navigation reads the authoritative snapshot; legacy navigation is
+  used only when no published curriculum exists for the current subject.
 - SQLite is appropriate for the current single-database deployment. A future
   multi-process/distributed store must preserve the same transaction,
   idempotency, and ownership semantics.

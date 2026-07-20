@@ -6,8 +6,11 @@ artifact. This package is the application boundary around the AI
 and the handoff to `CurriculumProgressService`. It never calculates XP,
 mastery, unlocking, or assessment results.
 
-The current numeric `/lesson/<id>` experience remains unchanged. Production
-curriculum lessons use unit IDs and can be adopted incrementally.
+Active dashboard, Today, Library, and Planner navigation uses production
+curriculum unit IDs whenever the signed-in learner has a published curriculum.
+The numeric `/lesson/<id>` experience remains available only as a compatibility
+fallback for existing users and old URLs that do not yet have a published
+curriculum.
 
 ## Lesson lifecycle
 
@@ -109,13 +112,16 @@ mastery score; assessment remains the only route to those effects.
 
 Routes are:
 
+- `POST /curriculum/units/<unit_id>/start` for server-rendered navigation;
 - `GET /curriculum/units/<unit_id>/lesson`;
 - `POST /curriculum/units/<unit_id>/lesson-complete`;
 - `GET /api/curriculum/units/<unit_id>/lesson`;
 - `POST /api/curriculum/units/<unit_id>/lesson-complete`.
 
 All require authentication. POST routes use the existing global CSRF guard.
-API errors are stable JSON envelopes; the UI renders an appropriate error page.
+The HTML start route accepts only the CSRF field, delegates the state change to
+`CurriculumProgressService`, and redirects to lesson delivery. API errors are
+stable JSON envelopes; the UI renders an appropriate error page.
 
 ## Persistence and rollback
 
