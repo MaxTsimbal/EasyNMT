@@ -16,6 +16,7 @@ from easynmt_ai import (
 )
 from easynmt_ai.models import LearningPlan
 from easynmt_ai.prompts import PromptSpec
+from tests.lesson_fixtures import valid_lesson_proposal
 
 
 class FakeGateway:
@@ -70,18 +71,7 @@ CURRICULUM_PAYLOAD = {
     "rationale": "Start with a prerequisite topic.",
 }
 
-LESSON_PAYLOAD = {
-    "id": "lesson-1",
-    "title": "Linear equations",
-    "subject": "math",
-    "objective": "Solve one-variable equations",
-    "explanation": "Keep both sides balanced.",
-    "examples": ["x + 2 = 5, so x = 3"],
-    "practice_tasks": ["Solve 2x = 8"],
-    "summary": "Apply the same inverse operation to both sides.",
-    "difficulty": "foundation",
-    "estimated_minutes": 35,
-}
+LESSON_PAYLOAD = valid_lesson_proposal()
 
 QUIZ_PAYLOAD = {
     "id": "quiz-1",

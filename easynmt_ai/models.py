@@ -447,38 +447,7 @@ class Curriculum(SerializableAIModel):
         )
 
 
-@dataclass(frozen=True)
-class Lesson(SerializableAIModel):
-    id: str
-    title: str
-    subject: str
-    objective: str
-    explanation: str
-    examples: tuple[str, ...]
-    practice_tasks: tuple[str, ...]
-    summary: str
-    difficulty: str
-    estimated_minutes: int
-
-    @classmethod
-    def from_dict(cls, value: Mapping[str, Any]) -> "Lesson":
-        data = _mapping(value, "lesson")
-        examples = _strings(data.get("examples", ()), "lesson.examples")
-        practice_tasks = _strings(data.get("practice_tasks", ()), "lesson.practice_tasks")
-        if not examples or not practice_tasks:
-            raise AIModelValidationError("lesson examples and practice tasks must not be empty")
-        return cls(
-            id=_text(data.get("id"), "lesson.id"),
-            title=_text(data.get("title"), "lesson.title"),
-            subject=_text(data.get("subject"), "lesson.subject"),
-            objective=_text(data.get("objective"), "lesson.objective"),
-            explanation=_text(data.get("explanation"), "lesson.explanation"),
-            examples=examples,
-            practice_tasks=practice_tasks,
-            summary=_text(data.get("summary"), "lesson.summary"),
-            difficulty=_text(data.get("difficulty"), "lesson.difficulty"),
-            estimated_minutes=_integer(data.get("estimated_minutes"), "lesson.estimated_minutes", minimum=1),
-        )
+from .lessons.models import Lesson
 
 
 @dataclass(frozen=True)

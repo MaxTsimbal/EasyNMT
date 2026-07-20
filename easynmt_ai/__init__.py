@@ -4,6 +4,13 @@ from .cache import AICache, NullAICache, build_cache_key
 from .curriculum import CurriculumRepository, CurriculumService
 from .engines import CurriculumEngine, GradingEngine, LessonEngine, QuizEngine
 from .errors import AIError, AIErrorCode, EngineResult
+from .lessons import (
+    LESSON_SECTION_ORDER,
+    LessonGenerationRequest,
+    LessonValidationIssue,
+    LessonValidationResult,
+    validate_lesson,
+)
 from .models import (
     Curriculum,
     CurriculumStatus,
@@ -45,10 +52,15 @@ __all__ = [
     "LearningContext",
     "Lesson",
     "LessonEngine",
+    "LessonGenerationRequest",
+    "LessonValidationIssue",
+    "LessonValidationResult",
+    "LESSON_SECTION_ORDER",
     "NullAICache",
     "Question",
     "Quiz",
     "QuizEngine",
     "ReviewCheckpoint",
     "build_cache_key",
+    "validate_lesson",
 ]

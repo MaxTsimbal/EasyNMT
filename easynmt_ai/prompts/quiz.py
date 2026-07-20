@@ -53,7 +53,7 @@ def build_quiz_prompt(context: AIContext, lesson: Lesson, *, question_count: int
         user_input=json.dumps(
             {
                 "context": context.for_prompt(),
-                "lesson": lesson.to_dict(),
+                "lesson": lesson.for_quiz(),
                 "question_count": question_count,
             },
             ensure_ascii=False,

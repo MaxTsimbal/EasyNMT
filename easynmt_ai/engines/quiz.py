@@ -26,7 +26,7 @@ class QuizEngine(AIEngine[Quiz]):
         if not 1 <= question_count <= 50:
             raise ValueError("question_count must be between 1 and 50")
         prompt = build_quiz_prompt(context, lesson, question_count=question_count)
-        cache_key = build_cache_key("v1", context.for_prompt(), lesson.to_dict(), question_count)
+        cache_key = build_cache_key("v2", context.for_prompt(), lesson.for_quiz(), question_count)
 
         def parse(payload):
             quiz = Quiz.from_dict(payload)
