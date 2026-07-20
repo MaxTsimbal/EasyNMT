@@ -1,0 +1,62 @@
+"""Server-authoritative curriculum progress subsystem."""
+
+from .errors import (
+    AssessmentEvidenceInvalid,
+    CurriculumNotActive,
+    CurriculumOwnershipError,
+    CurriculumProgressError,
+    CurriculumProgressNotFound,
+    CurriculumSuperseded,
+    CurriculumUnitNotFound,
+    InvalidProgressTransition,
+    PrerequisitesNotSatisfied,
+    ProgressConflict,
+    ProgressInitializationError,
+)
+from .models import (
+    AssessmentSource,
+    CheckpointState,
+    CurriculumCheckpointProgressView,
+    CurriculumProgressSnapshot,
+    CurriculumUnitProgress,
+    CurriculumUnitProgressView,
+    CurriculumUnitState,
+    LessonCompletionEvidence,
+    LessonCompletionSource,
+    MasteryBand,
+    ReviewReason,
+    ServerVerifiedAssessmentResult,
+    UnlockRecalculationResult,
+)
+from .policy import CURRICULUM_UNIT_COMPLETION_XP, VALID_TRANSITIONS
+from .repository import CurriculumProgressRepository
+
+__all__ = [
+    "AssessmentEvidenceInvalid",
+    "AssessmentSource",
+    "CURRICULUM_UNIT_COMPLETION_XP",
+    "CheckpointState",
+    "CurriculumCheckpointProgressView",
+    "CurriculumNotActive",
+    "CurriculumOwnershipError",
+    "CurriculumProgressError",
+    "CurriculumProgressNotFound",
+    "CurriculumProgressRepository",
+    "CurriculumProgressSnapshot",
+    "CurriculumSuperseded",
+    "CurriculumUnitNotFound",
+    "CurriculumUnitProgress",
+    "CurriculumUnitProgressView",
+    "CurriculumUnitState",
+    "InvalidProgressTransition",
+    "LessonCompletionEvidence",
+    "LessonCompletionSource",
+    "MasteryBand",
+    "PrerequisitesNotSatisfied",
+    "ProgressConflict",
+    "ProgressInitializationError",
+    "ReviewReason",
+    "ServerVerifiedAssessmentResult",
+    "UnlockRecalculationResult",
+    "VALID_TRANSITIONS",
+]
