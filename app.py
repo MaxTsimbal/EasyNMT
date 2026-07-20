@@ -10,7 +10,9 @@ import uuid
 from datetime import date as dt_date, datetime, timedelta, timezone
 from functools import wraps
 
+import click
 from flask import Flask, Response, abort, flash, jsonify, redirect, render_template, request, send_file, session, stream_with_context, url_for
+from flask.cli import AppGroup
 from dotenv import load_dotenv
 
 # Load local development settings before Config reads environment variables.
@@ -36,6 +38,7 @@ from easynmt_ai import (
     LearningContext,
 )
 from easynmt_ai.attachments import AttachmentError, normalize_attachment_ids, save_image_upload
+from easynmt_ai.curriculum import LEGACY_MATH_LESSON_TOPIC_MAP
 from easynmt_core.progress import (
     CurriculumProgressError,
     CurriculumProgressNotFound,
@@ -47,6 +50,10 @@ from easynmt_core.lessons import (
     CurriculumLessonRenderer,
     CurriculumLessonRepository,
     CurriculumLessonService,
+)
+from easynmt_core.curriculum_bootstrap import (
+    CurriculumBootstrapError,
+    DevelopmentCurriculumBootstrapService,
 )
 
 from google_oauth import build_authorization_url, credentials_status, exchange_callback
@@ -359,6 +366,7 @@ curriculum_progress_service = CurriculumProgressService(
 curriculum_lesson_engine = LessonEngine(
     ai_orchestrator,
     max_output_tokens=app.config["OPENAI_LESSON_MAX_OUTPUT_TOKENS"],
+    allow_development_fallback=app.config["ALLOW_DEVELOPMENT_LESSON_FALLBACK"],
 )
 curriculum_lesson_repository = CurriculumLessonRepository(DB_PATH)
 curriculum_lesson_repository.ensure_schema()
@@ -379,10 +387,84 @@ curriculum_service = CurriculumService(
     curriculum_repository,
     progress_service=curriculum_progress_service,
 )
+curriculum_bootstrap_service = DevelopmentCurriculumBootstrapService(
+    DB_PATH,
+    curriculum_service,
+    curriculum_repository,
+)
 vision_grader = VisionGradingEngine(ai_orchestrator)
 AI_UPLOAD_DIR = os.path.join(PERSISTENT_DIR, "ai_uploads")
 os.makedirs(AI_UPLOAD_DIR, exist_ok=True)
 app.config["DATABASE_PATH"] = DB_PATH
+
+
+curriculum_cli = AppGroup("curriculum", help="Inspect or provision curricula.")
+
+
+@curriculum_cli.command("status")
+def curriculum_status_command():
+    """Report the active database and persisted curriculum state."""
+
+    status = curriculum_bootstrap_service.status()
+    click.echo(f"database_target={status.database_target}")
+    click.echo(f"users={status.users_count}")
+    click.echo(f"curricula={status.curricula_count}")
+    click.echo(f"published_curricula={status.published_curricula_count}")
+    click.echo(f"curriculum_units={status.curriculum_units_count}")
+    if not status.mathematics:
+        click.echo("mathematics=none")
+    for item in status.mathematics:
+        click.echo(
+            "mathematics="
+            f"user:{item['user_id']} "
+            f"curriculum:{item['curriculum_id']} "
+            f"status:{item['status']} "
+            f"version:{item['version']} "
+            f"units:{item['unit_count']} "
+            f"progress:{item['progress_count']}"
+        )
+
+
+@curriculum_cli.command("bootstrap-development")
+@click.option(
+    "--user-id",
+    "user_ids",
+    type=click.IntRange(min=1),
+    multiple=True,
+    help="Provision only the selected existing learner; repeat as needed.",
+)
+@click.option(
+    "--allow-production",
+    is_flag=True,
+    help="First half of the explicit production safety override.",
+)
+def curriculum_bootstrap_command(user_ids, allow_production):
+    """Create, repair, or reuse safe owner-scoped mathematics curricula."""
+
+    try:
+        report = curriculum_bootstrap_service.bootstrap(
+            user_ids=user_ids,
+            allow_production=allow_production,
+        )
+    except CurriculumBootstrapError as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(f"database_target={report.database_target}")
+    click.echo(
+        f"created={report.created} reused={report.reused} repaired={report.repaired}"
+    )
+    for item in report.users:
+        click.echo(
+            f"user={item.user_id} action={item.action} "
+            f"curriculum={item.curriculum_id} published={str(item.published).lower()} "
+            f"repaired_units={item.repaired_units} "
+            f"repaired_checkpoints={item.repaired_checkpoints} "
+            f"repaired_progress_units={item.repaired_progress_units} "
+            f"repaired_progress_checkpoints={item.repaired_progress_checkpoints}"
+        )
+        click.echo("unit_ids=" + ",".join(item.unit_ids))
+
+
+app.cli.add_command(curriculum_cli)
 
 
 def current_user_name():
@@ -1205,6 +1287,30 @@ def get_active_curriculum_navigation(subject_key=None):
     except CurriculumProgressNotFound:
         return None
     return curriculum_lesson_renderer.navigation_context(snapshot)
+
+
+def get_legacy_curriculum_target(
+    curriculum_navigation,
+    lesson_id,
+    *,
+    allow_start=False,
+):
+    """Resolve a legacy math ID without weakening curriculum availability rules."""
+
+    if curriculum_navigation.get("subject") == "math":
+        topic_id = LEGACY_MATH_LESSON_TOPIC_MAP.get(int(lesson_id))
+        if topic_id:
+            mapped = next(
+                (
+                    unit
+                    for unit in curriculum_navigation["units"]
+                    if unit["topic_id"] == topic_id
+                ),
+                None,
+            )
+            if mapped and (mapped["can_open"] or (allow_start and mapped["can_start"])):
+                return mapped
+    return curriculum_navigation["current_unit"]
 
 
 def get_diagnostic_result(subject_key=None):
@@ -2283,7 +2389,11 @@ def switch_subject(subject):
     if curriculum_navigation and (requested_curriculum_unit or requested_lesson):
         target_unit_id = (
             requested_curriculum_unit
-            or curriculum_navigation["current_unit"]["unit_id"]
+            or get_legacy_curriculum_target(
+                curriculum_navigation,
+                requested_lesson,
+                allow_start=True,
+            )["unit_id"]
         )
         target_unit = next(
             (
@@ -2415,12 +2525,15 @@ def mark_lesson_ready(lesson_id):
         abort(404)
     curriculum_navigation = get_active_curriculum_navigation()
     if curriculum_navigation:
-        current_unit = curriculum_navigation["current_unit"]
-        if current_unit["can_open"]:
+        target_unit = get_legacy_curriculum_target(
+            curriculum_navigation,
+            lesson_id,
+        )
+        if target_unit["can_open"]:
             return redirect(
                 url_for(
                     "curriculum_lesson_page",
-                    curriculum_unit_id=current_unit["unit_id"],
+                    curriculum_unit_id=target_unit["unit_id"],
                 )
             )
         flash(
@@ -2551,12 +2664,15 @@ def lesson(lesson_id=1):
         abort(404)
     curriculum_navigation = get_active_curriculum_navigation()
     if curriculum_navigation:
-        current_unit = curriculum_navigation["current_unit"]
-        if current_unit["can_open"]:
+        target_unit = get_legacy_curriculum_target(
+            curriculum_navigation,
+            lesson_id,
+        )
+        if target_unit["can_open"]:
             return redirect(
                 url_for(
                     "curriculum_lesson_page",
-                    curriculum_unit_id=current_unit["unit_id"],
+                    curriculum_unit_id=target_unit["unit_id"],
                 )
             )
         flash(

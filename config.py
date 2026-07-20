@@ -39,6 +39,10 @@ class Config:
     OPENAI_LESSON_MAX_OUTPUT_TOKENS = int(
         os.environ.get("OPENAI_LESSON_MAX_OUTPUT_TOKENS", "6500")
     )
+    ALLOW_DEVELOPMENT_LESSON_FALLBACK = (
+        not bool(os.environ.get("RAILWAY_ENVIRONMENT"))
+        and os.environ.get("EASYNMT_ALLOW_DEVELOPMENT_LESSON_FALLBACK", "1") == "1"
+    )
     OPENAI_TIMEOUT_SECONDS = float(os.environ.get("OPENAI_TIMEOUT_SECONDS", "45"))
     OPENAI_MAX_RETRIES = int(os.environ.get("OPENAI_MAX_RETRIES", "1"))
     OPENAI_STORE_RESPONSES = os.environ.get("OPENAI_STORE_RESPONSES", "0") == "1"
