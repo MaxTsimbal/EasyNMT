@@ -3,9 +3,9 @@
 {% block content %}
 <div class="result-page human-result-page">
   <header class="lesson-header fade-up">
-    <span class="pill">Production Quiz Engine</span>
+    <span class="pill">Результат перевірки</span>
     <h1>{% if attempt.passed %}Тему завершено{% else %}Потрібне ще одне коло практики{% endif %}</h1>
-    <p>{% if attempt.passed %}Сервер зарахував {{ attempt.score }} з {{ attempt.total }} балів і оновив маршрут.{% else %}Ти набрав {{ attempt.score }} з {{ attempt.total }}. Для проходження потрібно {{ pass_score }}. Нижче видно, де саме загубилися бали.{% endif %}</p>
+    <p>{% if attempt.passed %}Ти набрав {{ attempt.score }} з {{ attempt.total }} балів. Тему зараховано, а навчальний маршрут оновлено.{% else %}Ти набрав {{ attempt.score }} з {{ attempt.total }}. Для проходження потрібно {{ pass_score }}. Нижче видно, де саме загубилися бали.{% endif %}</p>
   </header>
 
   <div class="result-summary-grid">
@@ -17,12 +17,23 @@
   <section class="review-panel goal-card">
     <div class="review-heading">
       <span class="score">Розбір відповідей</span>
-      <span class="desc">Бали рахує сервер. Короткі правильні відповіді теж зараховуються, а за неповну відповідь можна отримати частину балів.</span>
+      <span class="desc">Короткі правильні відповіді теж зараховуються. За правильну частину неповної відповіді можна отримати частину балів.</span>
     </div>
     <div class="review-list">
       {% for item in attempt.review %}
       <article class="review-item {% if item.earned == item.points %}correct{% elif item.earned > 0 %}partial{% else %}wrong{% endif %}">
-        <div class="review-question"><span>{{ item.number }}.</span> {{ item.question }}</div>
+        <div class="review-question">
+          <span>{{ item.number }}.</span>
+          {% if item.instruction and item.task %}
+          <div class="review-question-copy">
+            <small><b>Що зробити:</b> {{ item.instruction }}</small>
+            <p><b>Завдання:</b> {{ item.task }}</p>
+            {% if item.answer_format %}<small><b>Як відповісти:</b> {{ item.answer_format }}</small>{% endif %}
+          </div>
+          {% else %}
+          {{ item.question }}
+          {% endif %}
+        </div>
         <div class="review-score">{{ item.earned }} / {{ item.points }} балів</div>
         <div class="review-answer">Твоя відповідь: <b>{{ item.user_answer }}</b></div>
         <div class="review-explanation">{{ item.explanation }}</div>

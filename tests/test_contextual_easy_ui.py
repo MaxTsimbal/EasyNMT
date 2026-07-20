@@ -32,6 +32,16 @@ class ContextualEasyUiContractTests(unittest.TestCase):
         self.assertIn('openai: ["Онлайн AI"', script)
         self.assertIn('offline: ["Офлайн підказка"', script)
 
+    def test_quiz_ui_shows_action_task_and_answer_format(self):
+        quiz = (ROOT / "templates/curriculum_quiz.html").read_text(encoding="utf-8")
+        result = (ROOT / "templates/curriculum_quiz_result.html").read_text(encoding="utf-8")
+        for source in (quiz, result):
+            self.assertIn("Що зробити", source)
+            self.assertIn("Завдання", source)
+            self.assertIn("Як відповісти", source)
+        self.assertNotIn("Production Quiz Engine", quiz)
+        self.assertNotIn("Production Quiz Engine", result)
+
 
 if __name__ == "__main__":
     unittest.main()

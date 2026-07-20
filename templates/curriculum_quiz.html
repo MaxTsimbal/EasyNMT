@@ -4,7 +4,7 @@
 {% block content %}
 <div class="lesson-page beginner-lesson-page">
   <div class="lesson-topline">
-    <span>Production Quiz Engine</span>
+    <span>Перевірка після уроку</span>
     <span>12 питань</span>
     <span>18 / 24 для проходження</span>
   </div>
@@ -12,7 +12,7 @@
   <header class="lesson-header fade-up">
     <span class="pill">Перевірка знань за завершеним уроком</span>
     <h1>{{ production_quiz.title }}</h1>
-    <p>Питання сформовано лише з матеріалу цього уроку. Результат, XP і відкриття наступної теми визначає сервер.</p>
+    <p>Усі завдання стосуються матеріалу цього уроку. Результат, XP і прогрес збережуться автоматично.</p>
   </header>
 
   <div class="quiz-levels-legend">
@@ -29,12 +29,29 @@
     <section class="goal-card quiz-question {% if question.points == 1 %}quiz-basic{% elif question.points == 2 %}quiz-middle{% else %}quiz-advanced{% endif %}"
       data-easy-question-id="{{ question.id }}"
       data-easy-question-number="{{ loop.index }}"
-      data-easy-question-prompt="{{ question.prompt|striptags|e }}">
+      data-easy-question-prompt="{{ (question.task or question.prompt)|striptags|e }}">
       <div class="quiz-question-head">
         <span class="quiz-badge">{{ loop.index }} / 12</span>
         <span class="quiz-points">{{ question.points }} {% if question.points == 1 %}бал{% else %}бали{% endif %}</span>
       </div>
-      <span class="score">{{ question.prompt }}</span>
+      {% if question.instruction and question.task and question.answer_format %}
+      <div class="quiz-copy-block">
+        <div class="quiz-copy-row quiz-copy-instruction">
+          <span class="quiz-copy-label">Що зробити</span>
+          <p>{{ question.instruction }}</p>
+        </div>
+        <div class="quiz-copy-row quiz-copy-task">
+          <span class="quiz-copy-label">Завдання</span>
+          <p>{{ question.task }}</p>
+        </div>
+        <div class="quiz-copy-row quiz-copy-format">
+          <span class="quiz-copy-label">Як відповісти</span>
+          <p>{{ question.answer_format }}</p>
+        </div>
+      </div>
+      {% else %}
+      <span class="score quiz-legacy-prompt">{{ question.prompt }}</span>
+      {% endif %}
       <button type="button" class="contextual-easy-question-button" data-easy-open-question="{{ question.id }}">
         <span aria-hidden="true">✦</span> Пояснити з Easy
       </button>
@@ -50,7 +67,7 @@
       </div>
       {% elif question.answer_type == 'short_text' %}
       <div class="written-answer-wrap">
-        <textarea name="answer_{{ question.id }}" class="written-answer" rows="3" maxlength="4000" placeholder="Напиши коротко, але змістовно" required>{{ quiz_draft_answers.get(question.id, '') }}</textarea>
+        <textarea name="answer_{{ question.id }}" class="written-answer" rows="3" maxlength="4000" placeholder="Напиши коротку відповідь своїми словами" required>{{ quiz_draft_answers.get(question.id, '') }}</textarea>
         <p class="answer-hint">Пиши своїми словами. Одне правильне речення може дати повний бал.</p>
       </div>
       {% else %}
@@ -59,7 +76,7 @@
           <div class="paper-task-icon">🧩</div>
           <div><b>Без твору на пів сторінки</b><p>Правильна кінцева відповідь уже дає частину балів. Для повного бала додай 1–2 речення пояснення.</p></div>
         </div>
-        <textarea name="answer_{{ question.id }}" class="written-answer" rows="6" maxlength="8000" placeholder="Відповідь + коротко чому" required>{{ quiz_draft_answers.get(question.id, '') }}</textarea>
+        <textarea name="answer_{{ question.id }}" class="written-answer" rows="6" maxlength="8000" placeholder="Спочатку відповідь, нижче коротко поясни правило або крок" required>{{ quiz_draft_answers.get(question.id, '') }}</textarea>
       </div>
       {% endif %}
     </section>

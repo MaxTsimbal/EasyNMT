@@ -173,12 +173,12 @@ class ProductionQuizServiceTests(unittest.TestCase):
             connection.execute("BEGIN IMMEDIATE")
             upgraded = self.quiz_repository.save_quiz(connection, user_id=1, quiz=current)
             connection.commit()
-            self.assertEqual(upgraded.schema_version, "quiz.v1.2-contextual-easy")
+            self.assertEqual(upgraded.schema_version, "quiz.v1.3-student-clarity")
             row = connection.execute(
                 "SELECT schema_version FROM curriculum_quizzes WHERE id = ?",
                 (current.id,),
             ).fetchone()
-            self.assertEqual(row[0], "quiz.v1.2-contextual-easy")
+            self.assertEqual(row[0], "quiz.v1.3-student-clarity")
         finally:
             connection.close()
 
@@ -641,7 +641,12 @@ class HumanAnswerGradingHotfixTests(unittest.TestCase):
             },
         })
         quiz = build_deterministic_quiz(Lesson.from_dict(payload))
-        self.assertIn("Правильна кінцева відповідь дає 2 бали", quiz.questions[8].prompt)
-        self.assertIn("Розв’яжи завдання", quiz.questions[10].prompt)
-        self.assertTrue(quiz.questions[11].prompt.startswith("Поясни, як перевірити власний результат"))
-        self.assertEqual(quiz.schema_version, "quiz.v1.2-contextual-easy")
+        self.assertEqual(quiz.questions[8].instruction, "Виконай конкретне завдання.")
+        self.assertTrue(quiz.questions[8].task)
+        self.assertIn("Відповідь дає 2 бали", quiz.questions[8].answer_format)
+        self.assertEqual(quiz.questions[10].instruction, "Виконай конкретне завдання.")
+        self.assertTrue(quiz.questions[10].task)
+        self.assertEqual(quiz.questions[11].instruction, "Поясни, як перевірити результат.")
+        self.assertIn("завдання №11", quiz.questions[11].task)
+        self.assertTrue(all(q.instruction and q.task and q.answer_format for q in quiz.questions))
+        self.assertEqual(quiz.schema_version, "quiz.v1.3-student-clarity")

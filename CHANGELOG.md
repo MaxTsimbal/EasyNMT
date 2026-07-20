@@ -1,5 +1,16 @@
 # EasyNMT Changelog
 
+## Task 3C.2 — Student Clarity Final (2026-07-20)
+
+- Split every quiz item into a clear action, concrete task, and answer format.
+- Added 225 reviewed fallback tasks covering all 75 published curriculum topics.
+- Replaced abstract skill labels in questions 9–12 with actual exercises.
+- Preserved partial-credit grading for correct results and natural-language answers.
+- Passed the visible active question and answer format to Contextual Easy without exposing grading keys.
+- Preserved Easy Chat v3.0.1 typing, smooth scrolling, stop control, and local loading state.
+- Kept legacy quiz snapshots readable while upgrading new quiz content to `quiz.v1.3-student-clarity`.
+- Added full curriculum coverage, public-payload, compatibility, UI, and Easy-context regression tests.
+
 ## Task 3C.1 — Production Quiz Foundation (2026-07-20)
 
 - Added a production quiz for every completed curriculum lesson.

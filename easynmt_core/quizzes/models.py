@@ -43,6 +43,9 @@ class QuizQuestion:
     primary_answers: tuple[str, ...] = ()
     secondary_answers: tuple[str, ...] = ()
     feedback_hint: str = "Звір відповідь із правилом уроку й спробуй ще раз."
+    instruction: str = ""
+    task: str = ""
+    answer_format: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "id", _text(self.id, "question.id", maximum=160))
@@ -59,6 +62,15 @@ class QuizQuestion:
         object.__setattr__(self, "primary_answers", _string_tuple(self.primary_answers, "question.primary_answers", allow_empty=True))
         object.__setattr__(self, "secondary_answers", _string_tuple(self.secondary_answers, "question.secondary_answers", allow_empty=True))
         object.__setattr__(self, "feedback_hint", _text(self.feedback_hint, "question.feedback_hint", maximum=2000))
+        for name in ("instruction", "task", "answer_format"):
+            value = getattr(self, name)
+            if value:
+                object.__setattr__(self, name, _text(value, f"question.{name}", maximum=4000))
+            else:
+                object.__setattr__(self, name, "")
+        structured = (self.instruction, self.task, self.answer_format)
+        if any(structured) and not all(structured):
+            raise ValueError("structured question copy requires instruction, task, and answer_format")
         if isinstance(self.points, bool) or not isinstance(self.points, int) or self.points not in {1, 2, 3}:
             raise ValueError("question.points must be 1, 2, or 3")
         if self.answer_type == "choice":
@@ -89,6 +101,9 @@ class QuizQuestion:
             primary_answers=tuple(value.get("primary_answers") or ()),
             secondary_answers=tuple(value.get("secondary_answers") or ()),
             feedback_hint=value.get("feedback_hint", "Звір відповідь із правилом уроку й спробуй ще раз."),
+            instruction=value.get("instruction", ""),
+            task=value.get("task", ""),
+            answer_format=value.get("answer_format", ""),
         )
 
     def to_dict(self, *, include_answer_key: bool = True) -> dict[str, Any]:

@@ -80,6 +80,9 @@ class CurriculumQuizService:
                 primary_answers=question.primary_answers,
                 secondary_answers=question.secondary_answers,
                 feedback_hint=question.feedback_hint,
+                instruction=question.instruction,
+                task=question.task,
+                answer_format=question.answer_format,
             ))
         return ProductionQuiz(
             id=quiz.id,
@@ -379,6 +382,9 @@ class CurriculumQuizService:
                     "question_id": question.id,
                     "number": index,
                     "question": question.prompt,
+                    "instruction": question.instruction,
+                    "task": question.task,
+                    "answer_format": question.answer_format,
                     "answer_type": question.answer_type,
                     "user_answer": answer,
                     "correct_answer": question.correct_answer,

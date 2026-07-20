@@ -166,6 +166,9 @@ def quiz_prompt_context(
         "lesson_title": lesson.title,
         "question_number": question_number,
         "question": question.prompt,
+        "instruction": question.instruction or "Виконай завдання.",
+        "task": question.task or question.prompt,
+        "answer_format": question.answer_format or "Дай коротку відповідь за умовою.",
         "answer_type": question.answer_type,
         "visible_options": list(question.options),
         "lesson_objective": lesson.objective_overview,
@@ -206,6 +209,9 @@ def _instructions(surface: str) -> str:
 - НЕ виконуй обчислення або мовне перетворення до фінального результату поточного питання;
 - можеш перефразувати умову простіше, пояснити термін, нагадати загальне правило,
   розкласти інструкцію на кроки та показати СХОЖИЙ приклад з іншими даними;
+- коли учень просить «поясни простіше», чітко розділи відповідь на три частини:
+  1) що саме треба зробити; 2) на що звернути увагу; 3) як оформити відповідь;
+- не повторюй складне формулювання дослівно: переклади його на звичайну учнівську мову;
 - схожий приклад не повинен повторювати імена, числа, слова, варіанти чи кінцеву відповідь поточного питання;
 - якщо учень просить готову відповідь, коротко відмов і відразу дай корисний наступний крок;
 - закінчи дією, яку учень може виконати сам, а не готовим результатом.
@@ -271,9 +277,10 @@ def lesson_fallback(lesson: Lesson, *, message: str, section_id: str = "") -> st
 
 def quiz_boundary_fallback(lesson: Lesson, question: QuizQuestion) -> str:
     rule = lesson.concepts[0].how if lesson.concepts else "знайди ключову ознаку та зістав її з правилом уроку"
+    visible_task = question.task or question.prompt
     return (
         "Готову відповідь або перевірку твого варіанта під час тесту я не дам. "
-        f"Зате допоможу пройти завдання чесно: спочатку визнач, що саме питають у фразі «{question.prompt}». "
+        f"Зате допоможу пройти завдання чесно. Тут треба працювати з таким завданням: «{visible_task}». "
         f"Потім пригадай загальну схему уроку: {rule} Зроби перший крок сам і звір його з умовою."
     )
 
@@ -282,7 +289,7 @@ def _relevant_concept(lesson: Lesson, question: QuizQuestion, message: str = "")
     if not lesson.concepts:
         return None
     query_tokens = {
-        token for token in normalize_text(f"{question.prompt} {message}").split()
+        token for token in normalize_text(f"{question.task or question.prompt} {message}").split()
         if len(token) >= 3
     }
     best = lesson.concepts[0]
@@ -312,32 +319,31 @@ def _plain_question_prompt(prompt: str) -> str:
 def quiz_fallback(lesson: Lesson, question: QuizQuestion, *, message: str) -> str:
     concept = _relevant_concept(lesson, question, message)
     rule = concept.how if concept else "знайди ключову ознаку й зістав її з правилом уроку"
-    visible_task = _plain_question_prompt(question.prompt)
+    visible_task = question.task or _plain_question_prompt(question.prompt)
+    instruction = question.instruction or "Виконай завдання"
+    answer_format = question.answer_format or "дай коротку відповідь за умовою"
     lowered = normalize_text(message)
 
     if question.answer_type == "choice":
-        task = (
-            "Знайди в умові слово або ознаку, яка підказує потрібне правило. "
-            "Після цього перевір кожен варіант за цим правилом, не вгадуючи."
-        )
+        next_step = "Знайди в умові ключову ознаку, а потім перевір усі варіанти за одним правилом."
     elif question.answer_type == "short_text":
-        task = (
-            "Дай коротку відповідь своїми словами: назви головну ідею, а якщо завдання просить форму чи спосіб, додай її окремо."
-        )
+        next_step = "Назви головну думку своїми словами; якщо просять дві частини, запиши їх окремо."
     else:
-        task = (
-            "Тут потрібні дві частини: кінцева відповідь і 1–2 речення, чому ти обрав саме це правило. "
-            "Почни з ключової ознаки в умові, потім назви правило й застосуй його сам."
-        )
+        next_step = "Спочатку отримай власний результат, потім додай 1–2 речення про правило або ознаку."
 
     if "правил" in lowered:
-        return f"Пригадай таку загальну схему: {rule} Потім сам застосуй її до завдання «{visible_task}»."
+        return f"Загальна схема для цього питання: {rule} Потім сам застосуй її до завдання «{visible_task}»."
     if "приклад" in lowered:
         return (
             f"Для схожого завдання спочатку шукай ту саму ключову ознаку, а далі працюй за схемою: {rule} "
             "Використай інші слова або числа й не перенось готовий результат у своє питання."
         )
-    return f"Простіше: {task} Саме завдання: «{visible_task}». Загальна схема з уроку: {rule}"
+    return (
+        f"Простіше:\n1. Що зробити: {instruction}\n"
+        f"2. З чим працювати: {visible_task}\n"
+        f"3. Як оформити: {answer_format}\n"
+        f"Перший крок: {next_step} Загальна схема з уроку: {rule}"
+    )
 
 
 def _reference_similarity(answer: str, reference: str) -> float:

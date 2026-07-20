@@ -108,7 +108,9 @@ class ContextualEasyPolicyTests(unittest.TestCase):
             self.question,
             message="Поясни простіше",
         )
-        self.assertIn("Саме завдання", answer)
+        self.assertIn("1. Що зробити", answer)
+        self.assertIn("2. З чим працювати", answer)
+        self.assertIn("3. Як оформити", answer)
         self.assertIn("She ___ (go)", answer)
         self.assertNotIn("Правильна відповідь", answer)
 
