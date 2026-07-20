@@ -32,6 +32,7 @@ from easynmt_ai import (
     CurriculumEngine,
     CurriculumRepository,
     CurriculumService,
+    LessonEngine,
     LearningContext,
 )
 from easynmt_ai.attachments import AttachmentError, normalize_attachment_ids, save_image_upload
@@ -39,6 +40,12 @@ from easynmt_core.progress import (
     CurriculumProgressError,
     CurriculumProgressRepository,
     CurriculumProgressService,
+)
+from easynmt_core.lessons import (
+    CurriculumLessonError,
+    CurriculumLessonRenderer,
+    CurriculumLessonRepository,
+    CurriculumLessonService,
 )
 
 from google_oauth import build_authorization_url, credentials_status, exchange_callback
@@ -348,6 +355,20 @@ curriculum_progress_service = CurriculumProgressService(
     curriculum_progress_repository,
     logger=app.logger,
 )
+curriculum_lesson_engine = LessonEngine(
+    ai_orchestrator,
+    max_output_tokens=app.config["OPENAI_LESSON_MAX_OUTPUT_TOKENS"],
+)
+curriculum_lesson_repository = CurriculumLessonRepository(DB_PATH)
+curriculum_lesson_repository.ensure_schema()
+curriculum_lesson_service = CurriculumLessonService(
+    curriculum_lesson_repository,
+    curriculum_lesson_engine,
+    curriculum_progress_service,
+    logger=app.logger,
+    max_output_tokens=app.config["OPENAI_LESSON_MAX_OUTPUT_TOKENS"],
+)
+curriculum_lesson_renderer = CurriculumLessonRenderer()
 curriculum_engine = CurriculumEngine(
     ai_orchestrator,
     max_output_tokens=app.config["OPENAI_CURRICULUM_MAX_OUTPUT_TOKENS"],
@@ -2847,6 +2868,28 @@ def curriculum_progress_error_response(error):
     return jsonify({"ok": False, "error": error.code, "message": error.message}), error.http_status
 
 
+def curriculum_lesson_error_response(error):
+    app.logger.info(
+        "Curriculum lesson request rejected code=%s user_id=%s",
+        error.code,
+        session.get("user_id"),
+    )
+    if request.path.startswith("/api/"):
+        return jsonify({"ok": False, "error": error.code, "message": error.message}), error.http_status
+    titles = {
+        403: "Немає доступу",
+        404: "Урок не знайдено",
+        409: "Урок поки недоступний",
+        503: "AI-викладач тимчасово недоступний",
+    }
+    return render_template(
+        "error.html",
+        status=error.http_status,
+        title=titles.get(error.http_status, "Не вдалося відкрити урок"),
+        message=error.message,
+    ), error.http_status
+
+
 @app.get("/api/curriculum/progress")
 @require_login
 def curriculum_progress_api():
@@ -2894,6 +2937,102 @@ def start_curriculum_unit_api(curriculum_unit_id):
     except CurriculumProgressError as error:
         return curriculum_progress_error_response(error)
     return jsonify({"ok": True, "unit": progress.to_dict()})
+
+
+@app.get("/api/curriculum/units/<string:curriculum_unit_id>/lesson")
+@require_login
+def curriculum_lesson_api(curriculum_unit_id):
+    """Deliver a validated structured lesson for one active curriculum unit."""
+
+    try:
+        delivery = curriculum_lesson_service.deliver_lesson(
+            user_id=int(session["user_id"]),
+            curriculum_unit_id=curriculum_unit_id,
+            subject=get_subject_key(),
+        )
+    except CurriculumLessonError as error:
+        return curriculum_lesson_error_response(error)
+    except CurriculumProgressError as error:
+        return curriculum_progress_error_response(error)
+    return jsonify({"ok": True, **delivery.to_dict()})
+
+
+@app.get("/curriculum/units/<string:curriculum_unit_id>/lesson")
+@require_login
+def curriculum_lesson_page(curriculum_unit_id):
+    """Render the same structured artifact returned by the lesson API."""
+
+    try:
+        delivery = curriculum_lesson_service.deliver_lesson(
+            user_id=int(session["user_id"]),
+            curriculum_unit_id=curriculum_unit_id,
+            subject=get_subject_key(),
+        )
+    except CurriculumLessonError as error:
+        return curriculum_lesson_error_response(error)
+    except CurriculumProgressError as error:
+        return curriculum_lesson_error_response(error)
+    return render_template(
+        "curriculum_lesson.html",
+        **get_user_data(),
+        **curriculum_lesson_renderer.template_context(delivery),
+    )
+
+
+def curriculum_lesson_completion_payload():
+    if request.path.startswith("/api/"):
+        if not request.is_json:
+            return None
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict) or set(payload) != {"delivery_token"}:
+            return None
+        return payload.get("delivery_token")
+    if set(request.form) - {"_csrf_token", "delivery_token"}:
+        return None
+    return request.form.get("delivery_token")
+
+
+@app.post("/api/curriculum/units/<string:curriculum_unit_id>/lesson-complete")
+@require_login
+def complete_curriculum_lesson_api(curriculum_unit_id):
+    """Consume server delivery evidence; browser progress fields are rejected."""
+
+    delivery_token = curriculum_lesson_completion_payload()
+    if delivery_token is None:
+        return jsonify({"ok": False, "error": "invalid_request"}), 400
+    try:
+        result = curriculum_lesson_service.complete_lesson(
+            user_id=int(session["user_id"]),
+            curriculum_unit_id=curriculum_unit_id,
+            subject=get_subject_key(),
+            delivery_token=delivery_token,
+        )
+    except CurriculumLessonError as error:
+        return curriculum_lesson_error_response(error)
+    except CurriculumProgressError as error:
+        return curriculum_progress_error_response(error)
+    return jsonify({"ok": True, "completion": result.to_dict()})
+
+
+@app.post("/curriculum/units/<string:curriculum_unit_id>/lesson-complete")
+@require_login
+def complete_curriculum_lesson_page(curriculum_unit_id):
+    delivery_token = curriculum_lesson_completion_payload()
+    if delivery_token is None:
+        abort(400, description="Некоректне підтвердження уроку.")
+    try:
+        curriculum_lesson_service.complete_lesson(
+            user_id=int(session["user_id"]),
+            curriculum_unit_id=curriculum_unit_id,
+            subject=get_subject_key(),
+            delivery_token=delivery_token,
+        )
+    except CurriculumLessonError as error:
+        return curriculum_lesson_error_response(error)
+    except CurriculumProgressError as error:
+        return curriculum_lesson_error_response(error)
+    flash("Урок завершено. Наступний крок — перевірка знань.", "success")
+    return redirect(url_for("curriculum_lesson_page", curriculum_unit_id=curriculum_unit_id))
 
 
 @app.route("/achievements")

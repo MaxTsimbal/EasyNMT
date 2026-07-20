@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}{{ production_lesson.title }} | EasyNMT{% endblock %}
+{% block body_class %}lesson-active-page{% endblock %}
+{% block content %}
+<div class="lesson-page beginner-lesson-page">
+  <div class="lesson-topline">
+    <span>AI-урок</span>
+    <span>{{ production_lesson.difficulty }}</span>
+    <span>{{ production_lesson.estimated_minutes }} хв</span>
+  </div>
+
+  <header class="lesson-header fade-up">
+    <span class="pill">Персональний урок за твоїм маршрутом</span>
+    <h1>{{ production_lesson.title }}</h1>
+    <p>{{ production_lesson.objective_overview }}</p>
+  </header>
+
+  <nav class="lesson-map human-map" aria-label="План уроку">
+    <a href="#objective">1. Мета</a>
+    <a href="#nmt">2. На НМТ</a>
+    {% if production_lesson.prerequisite_reminder.needed %}<a href="#prerequisites">3. Передумови</a>{% endif %}
+    <a href="#concepts">4. Пояснення</a>
+    <a href="#examples">5. Приклади</a>
+    <a href="#mistakes">6. Помилки</a>
+    <a href="#tips">7. Поради</a>
+    <a href="#recap">8. Підсумок</a>
+    <a href="#assessment">9. Перевірка</a>
+  </nav>
+
+  <section id="objective" class="lesson-teacher-block glass-card">
+    <span class="section-kicker">1. Навчальна мета</span>
+    <h2>Що ти опануєш</h2>
+    <p>{{ production_lesson.objective_overview }}</p>
+    <ul class="self-check-list">
+      {% for objective in production_lesson.objectives %}<li>□ {{ objective }}</li>{% endfor %}
+    </ul>
+  </section>
+
+  <section id="nmt" class="lesson-teacher-block glass-card">
+    <span class="section-kicker">2. Зв’язок із НМТ</span>
+    <h2>Навіщо ця тема на іспиті</h2>
+    <p>{{ production_lesson.nmt_relevance }}</p>
+    <div class="teacher-note accent">
+      <b>Типові формати завдань</b>
+      <span>{{ production_lesson.nmt_task_types|join(' • ') }}</span>
+    </div>
+  </section>
+
+  {% if production_lesson.prerequisite_reminder.needed %}
+  <section id="prerequisites" class="lesson-teacher-block glass-card">
+    <span class="section-kicker">3. Коротке нагадування</span>
+    <h2>Що варто пригадати</h2>
+    <p>{{ production_lesson.prerequisite_reminder.explanation }}</p>
+    <ul class="self-check-list">
+      {% for point in production_lesson.prerequisite_reminder.points %}<li>□ {{ point }}</li>{% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  <section id="concepts" class="lesson-teacher-block glass-card">
+    <span class="section-kicker">4. Основне пояснення</span>
+    <h2>Розберімо тему по частинах</h2>
+    {% for concept in production_lesson.concepts %}
+    <article class="teacher-note{% if loop.index is odd %} accent{% endif %}">
+      <b>{{ loop.index }}. {{ concept.title }}</b>
+      <span><strong>Що це:</strong> {{ concept.what }}</span>
+      <span><strong>Чому працює:</strong> {{ concept.why }}</span>
+      <span><strong>Як застосувати:</strong> {{ concept.how }}</span>
+      <span><strong>Коли використовувати:</strong> {{ concept.when_used }}</span>
+      <span><strong>На НМТ:</strong> {{ concept.nmt_use }}</span>
+      <span><strong>Не переплутай:</strong> {{ concept.common_confusion }}</span>
+    </article>
+    {% endfor %}
+  </section>
+
+  <section id="examples" class="lesson-teacher-block glass-card">
+    <span class="section-kicker">5. Розв’язані приклади</span>
+    <h2>Від базового кроку до формату НМТ</h2>
+    {% for example in production_lesson.worked_examples %}
+    <article class="glass-card">
+      <small>{{ example.difficulty }}</small>
+      <h3>Приклад {{ loop.index }}</h3>
+      <p><strong>Умова:</strong> {{ example.problem }}</p>
+      <p><strong>План:</strong> {{ example.reasoning }}</p>
+      <ol class="teacher-steps">
+        {% for step in example.steps %}
+        <li><span>{{ step.order }}</span><p><strong>{{ step.work }}</strong><br>{{ step.explanation }}</p></li>
+        {% endfor %}
+      </ol>
+      <div class="teacher-note accent"><b>Відповідь</b><span>{{ example.final_answer }}</span></div>
+      <p><strong>Перевірка:</strong> {{ example.verification }}</p>
+    </article>
+    {% endfor %}
+  </section>
+
+  <section id="mistakes" class="lesson-teacher-block glass-card">
+    <span class="section-kicker">6. Типові помилки</span>
+    <h2>Де найчастіше втрачають бали</h2>
+    <div class="mistake-grid">
+      {% for mistake in production_lesson.common_mistakes %}
+      <article>
+        <span>!</span>
+        <p><strong>Хибний хід:</strong> {{ mistake.incorrect_reasoning }}</p>
+        <p><strong>Чому це помилка:</strong> {{ mistake.why_incorrect }}</p>
+        <p><strong>Як помітити:</strong> {{ mistake.recognition }}</p>
+        <p><strong>Як виправити:</strong> {{ mistake.correction }}</p>
+        <p><strong>Як уникнути:</strong> {{ mistake.prevention }}</p>
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section id="tips" class="lesson-teacher-block glass-card">
+    <span class="section-kicker">7. Практичні поради</span>
+    <h2>Як працювати швидше й надійніше</h2>
+    <ol class="teacher-steps">
+      {% for tip in production_lesson.practical_tips %}
+      <li><span>{{ loop.index }}</span><p><strong>{{ tip.advice }}</strong><br>{{ tip.use_when }}<br><small>Ознака: {{ tip.recognition_pattern }}</small></p></li>
+      {% endfor %}
+    </ol>
+  </section>
+
+  <section id="recap" class="lesson-teacher-block glass-card">
+    <span class="section-kicker">8. Мініпідсумок</span>
+    <h2>Що забрати з собою</h2>
+    <h3>Головні ідеї</h3>
+    <ul class="self-check-list">{% for item in production_lesson.recap.main_ideas %}<li>✓ {{ item }}</li>{% endfor %}</ul>
+    {% if production_lesson.recap.formulas %}
+    <h3>Формули</h3>
+    <div class="formula-shelf">{% for formula in production_lesson.recap.formulas %}<code>{{ formula }}</code>{% endfor %}</div>
+    {% endif %}
+    <h3>Попередження</h3>
+    <ul class="self-check-list">{% for item in production_lesson.recap.warnings %}<li>! {{ item }}</li>{% endfor %}</ul>
+    <h3>Ти вже маєш уміти</h3>
+    <ul class="self-check-list">{% for item in production_lesson.recap.can_solve %}<li>□ {{ item }}</li>{% endfor %}</ul>
+  </section>
+
+  <section id="assessment" class="lesson-teacher-block glass-card">
+    <span class="section-kicker">9. Перехід до перевірки</span>
+    <h2>Готовність до наступного кроку</h2>
+    <p>{{ production_lesson.assessment_transition.message }}</p>
+    <ul class="self-check-list">
+      {% for item in production_lesson.assessment_transition.readiness_checklist %}<li>□ {{ item }}</li>{% endfor %}
+    </ul>
+    {% if lesson_can_complete %}
+    <form method="post" action="{{ url_for('complete_curriculum_lesson_page', curriculum_unit_id=production_lesson.curriculum_unit_id) }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="delivery_token" value="{{ lesson_delivery_token }}">
+      <button class="button button-primary" type="submit">Я пройшов урок →</button>
+    </form>
+    {% elif lesson_assessment_ready %}
+    <div class="teacher-note accent"><b>Урок завершено</b><span>Перевірка знань буде підключена в Task 3C. Прогрес і XP зміняться лише після серверно перевіреної спроби.</span></div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

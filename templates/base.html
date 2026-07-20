@@ -43,7 +43,7 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body class="cosmic-body {% block body_class %}{% endblock %}">
-{% set focus_learning_page = request.endpoint in ['lesson', 'quiz', 'result', 'example_detail', 'theory_detail'] %}
+{% set focus_learning_page = request.endpoint in ['lesson', 'quiz', 'result', 'example_detail', 'theory_detail', 'curriculum_lesson_page'] %}
 <a class="skip-link" href="#main-content">Перейти до основного вмісту</a>
 <div class="cosmic-background" aria-hidden="true">
     <div class="cosmic-gradient cosmic-gradient-one"></div><div class="cosmic-gradient cosmic-gradient-two"></div><div class="cosmic-gradient cosmic-gradient-three"></div>
