@@ -17,6 +17,27 @@
     </div>
 
     <div class="level-path">
+        {% if curriculum_navigation %}
+        {% for unit in curriculum_navigation.units %}
+            {% if unit.can_open %}
+            <a href="{{ url_for('curriculum_lesson_page', curriculum_unit_id=unit.unit_id) }}" class="level-card {% if unit.is_completed %}is-complete{% elif unit.is_current %}is-current{% endif %}">
+            {% elif unit.can_start %}
+            <form class="curriculum-level-form" method="post" action="{{ url_for('start_curriculum_unit_page', curriculum_unit_id=unit.unit_id) }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <button class="level-card {% if unit.is_current %}is-current{% endif %}" type="submit">
+            {% else %}
+            <div class="level-card is-locked" aria-disabled="true">
+            {% endif %}
+                <div class="level-number">{% if unit.is_completed %}✓{% elif unit.is_locked %}🔒{% else %}{{ unit.order }}{% endif %}</div>
+                <div class="level-copy">
+                    <span class="level-kicker">Тема {{ unit.order }} · {{ unit.status_label }}</span>
+                    <h2>{{ unit.title }}</h2>
+                    <p>{{ unit.description }}</p>
+                </div>
+                <span class="level-action">{{ unit.action_label }}</span>
+            {% if unit.can_open %}</a>{% elif unit.can_start %}</button></form>{% else %}</div>{% endif %}
+        {% endfor %}
+        {% else %}
         {% for lesson in lessons %}
             {% set completed = lesson.id in completed_lessons %}
             {% set unlocked = lesson.id in unlocked_lessons %}
@@ -34,6 +55,7 @@
                 <span class="level-action">{% if completed %}Повторити{% elif unlocked %}Почати тему →{% else %}Ще закрито{% endif %}</span>
             {% if unlocked %}</a>{% else %}</div>{% endif %}
         {% endfor %}
+        {% endif %}
     </div>
 
     <div class="goal-grid compact-actions">

@@ -38,6 +38,7 @@ from easynmt_ai import (
 from easynmt_ai.attachments import AttachmentError, normalize_attachment_ids, save_image_upload
 from easynmt_core.progress import (
     CurriculumProgressError,
+    CurriculumProgressNotFound,
     CurriculumProgressRepository,
     CurriculumProgressService,
 )
@@ -1317,6 +1318,25 @@ def get_user_data():
     attempt_summary = get_quiz_attempt_summary(subject_key)
     journey_complete = completed_count >= lessons_total and lessons_total > 0
 
+    curriculum_navigation = None
+    if session.get("user_id") and subject_key != "none":
+        try:
+            curriculum_snapshot = curriculum_progress_service.get_active_curriculum_progress(
+                user_id=int(session["user_id"]),
+                subject=subject_key,
+            )
+        except CurriculumProgressNotFound:
+            pass
+        else:
+            curriculum_navigation = curriculum_lesson_renderer.navigation_context(
+                curriculum_snapshot
+            )
+            completed_count = curriculum_navigation["completed_count"]
+            lessons_total = curriculum_navigation["total_count"]
+            progress = curriculum_navigation["progress_percent"]
+            journey_complete = curriculum_navigation["journey_complete"]
+            session["progress"] = progress
+
     return {
         "goal": goal,
         "subject_key": subject_key,
@@ -1326,7 +1346,11 @@ def get_user_data():
         "unlocked_lessons": unlocked_lessons,
         "completed_count": completed_count,
         "lessons_total": lessons_total,
-        "first_topic": first_lesson["title"],
+        "first_topic": (
+            curriculum_navigation["current_unit"]["title"]
+            if curriculum_navigation
+            else first_lesson["title"]
+        ),
         "first_lesson_id": first_lesson["id"],
         "lesson_goal": first_lesson["goal"],
         "time_left": time_names.get(time_key, "Ще не вибрано"),
@@ -1338,6 +1362,7 @@ def get_user_data():
         "achievement_count": len(get_achievements()),
         "attempt_summary": attempt_summary,
         "journey_complete": journey_complete,
+        "curriculum_navigation": curriculum_navigation,
         "resume_lesson_id": resume_lesson_id,
         "user_name": current_user_name(),
         "is_logged_in": is_logged_in(),
@@ -2939,6 +2964,26 @@ def start_curriculum_unit_api(curriculum_unit_id):
     return jsonify({"ok": True, "unit": progress.to_dict()})
 
 
+@app.post("/curriculum/units/<string:curriculum_unit_id>/start")
+@require_login
+def start_curriculum_unit_page(curriculum_unit_id):
+    """Start an available unit from server-rendered navigation, then teach it."""
+
+    if set(request.form) - {"_csrf_token"}:
+        abort(400, description="Некоректний запит на початок уроку.")
+    try:
+        curriculum_progress_service.start_curriculum_unit(
+            user_id=int(session["user_id"]),
+            curriculum_unit_id=curriculum_unit_id,
+            subject=get_subject_key(),
+        )
+    except CurriculumProgressError as error:
+        return curriculum_lesson_error_response(error)
+    return redirect(
+        url_for("curriculum_lesson_page", curriculum_unit_id=curriculum_unit_id)
+    )
+
+
 @app.get("/api/curriculum/units/<string:curriculum_unit_id>/lesson")
 @require_login
 def curriculum_lesson_api(curriculum_unit_id):
@@ -3730,9 +3775,12 @@ def library():
         "history": "📜 Історія України",
         "english": "🇬🇧 Англійська мова",
     }
+    user_data = get_user_data()
     catalog_view = []
     for key, lessons in LESSON_CATALOG.items():
         if key == "none":
+            continue
+        if key == get_subject_key() and user_data.get("curriculum_navigation"):
             continue
         completed = get_completed_lessons(key)
         catalog_view.append({
@@ -3743,7 +3791,7 @@ def library():
             "progress": round((len(completed) / max(1, len(lessons))) * 100),
         })
 
-    return render_template("library.html", **get_user_data(), catalog_view=catalog_view)
+    return render_template("library.html", **user_data, catalog_view=catalog_view)
 
 
 @app.route("/planner")
@@ -3752,18 +3800,20 @@ def planner():
     if not onboarding_complete():
         return redirect(url_for("goal"))
 
-    lessons = get_lessons_for_subject()
-    completed = get_completed_lessons()
+    user_data = get_user_data()
     plan_rows = []
-    for index, item in enumerate(lessons, start=1):
-        plan_rows.append({
-            "week": index,
-            "lesson": item,
-            "status": "Завершено" if item["id"] in completed else ("Сьогодні" if item["id"] == get_next_unfinished_lesson_id() else "Заплановано"),
-            "tasks": ["Теорія", "Приклади", "Smart-тест", "Повторення помилок"],
-        })
+    if not user_data.get("curriculum_navigation"):
+        lessons = get_lessons_for_subject()
+        completed = get_completed_lessons()
+        for index, item in enumerate(lessons, start=1):
+            plan_rows.append({
+                "week": index,
+                "lesson": item,
+                "status": "Завершено" if item["id"] in completed else ("Сьогодні" if item["id"] == get_next_unfinished_lesson_id() else "Заплановано"),
+                "tasks": ["Теорія", "Приклади", "Smart-тест", "Повторення помилок"],
+            })
 
-    return render_template("planner.html", **get_user_data(), plan_rows=plan_rows)
+    return render_template("planner.html", **user_data, plan_rows=plan_rows)
 
 
 @app.route("/mistakes")

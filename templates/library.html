@@ -4,6 +4,31 @@
 <div class="lesson-page">
     <div class="logo">EasyNMT</div>
     <div class="lesson-header fade-up"><span class="pill">📚 Lesson Center</span><h1>Бібліотека уроків</h1><p>Усі предмети й теми в одному місці. Можеш подивитися прогрес по кожному напрямку.</p></div>
+    {% if curriculum_navigation %}
+    <div class="goal-card library-subject-card">
+        <span class="score">{{ subject }} · персональний маршрут</span>
+        <span class="desc">Прогрес: {{ curriculum_navigation.progress_percent }}%</span>
+        <div class="progress-bar" style="margin:16px 0;"><div class="progress-fill" style="width:{{ curriculum_navigation.progress_percent }}%;"></div></div>
+        {% for unit in curriculum_navigation.units %}
+            {% if unit.can_open %}
+            <a class="mini-lesson-row {% if unit.is_completed %}completed-row{% endif %}" href="{{ url_for('curriculum_lesson_page', curriculum_unit_id=unit.unit_id) }}">
+                <span><span class="mini-lesson-title">{% if unit.is_completed %}✅{% else %}○{% endif %} Тема {{ unit.order }}: {{ unit.title }}</span><span class="mini-lesson-meta">{{ unit.status_label }} · структурований AI-урок</span></span><span>→</span>
+            </a>
+            {% elif unit.can_start %}
+            <form method="post" action="{{ url_for('start_curriculum_unit_page', curriculum_unit_id=unit.unit_id) }}" class="library-lesson-form">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="mini-lesson-row">
+                    <span><span class="mini-lesson-title">○ Тема {{ unit.order }}: {{ unit.title }}</span><span class="mini-lesson-meta">{{ unit.status_label }} · структурований AI-урок</span></span><span>→</span>
+                </button>
+            </form>
+            {% else %}
+            <div class="mini-lesson-row is-locked" aria-disabled="true">
+                <span><span class="mini-lesson-title">🔒 Тема {{ unit.order }}: {{ unit.title }}</span><span class="mini-lesson-meta">{{ unit.description }}</span></span>
+            </div>
+            {% endif %}
+        {% endfor %}
+    </div><br>
+    {% endif %}
     {% for block in catalog_view %}
     <div class="goal-card library-subject-card">
         <span class="score">{{ block.name }}</span>

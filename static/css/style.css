@@ -6152,6 +6152,45 @@ body.dashboard-v0981 .dashboard-level-card {
     transition: transform .18s ease, border-color .18s ease, background .18s ease;
 }
 
+.curriculum-open-form,
+.dashboard-level-form,
+.curriculum-level-form {
+    margin: 0;
+}
+
+.dashboard-level-form .dashboard-level-card,
+.curriculum-level-form .level-card {
+    width: 100%;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    appearance: none;
+    cursor: pointer;
+    box-shadow: none;
+}
+
+.dashboard-level-form .dashboard-level-copy {
+    display: grid;
+    min-width: 0;
+    gap: 2px;
+    color: inherit !important;
+    font-size: inherit !important;
+}
+
+.dashboard-level-form .dashboard-level-copy strong {
+    color: var(--color-text, #f7f7ff);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.curriculum-level-form .level-card:hover,
+.dashboard-level-form .dashboard-level-card:hover {
+    transform: translateY(-2px);
+    box-shadow: none;
+    filter: none;
+}
+
 body.dashboard-v0981 a.dashboard-level-card:hover {
     transform: translateY(-3px);
     border-color: rgba(167,139,250,.36);

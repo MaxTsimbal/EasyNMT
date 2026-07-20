@@ -71,7 +71,19 @@
                             <strong>{{ first_topic }}</strong>
                             <span>{{ subject }} · {{ daily_time }}</span>
                         </div>
+                        {% if curriculum_navigation %}
+                            {% set current_unit = curriculum_navigation.current_unit %}
+                            {% if current_unit.can_start %}
+                            <form class="curriculum-open-form" method="post" action="{{ url_for('start_curriculum_unit_page', curriculum_unit_id=current_unit.unit_id) }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <button class="button button-primary" type="submit">{{ current_unit.action_label }}</button>
+                            </form>
+                            {% elif current_unit.can_open %}
+                            <a class="button button-primary" href="{{ url_for('curriculum_lesson_page', curriculum_unit_id=current_unit.unit_id) }}">{{ current_unit.action_label }}</a>
+                            {% endif %}
+                        {% else %}
                         <a class="button button-primary" href="{{ url_for('lesson', lesson_id=first_lesson_id) }}">{% if journey_complete %}Повторити{% else %}Продовжити{% endif %} <span>→</span></a>
+                        {% endif %}
                     </div>
                 </div>
 
@@ -109,6 +121,32 @@
                     <a class="text-link" href="{{ url_for('library') }}">Усі уроки →</a>
                 </div>
                 <div class="dashboard-levels-row">
+                    {% if curriculum_navigation %}
+                    {% for unit in curriculum_navigation.units %}
+                    {% if unit.can_open %}
+                    <a class="dashboard-level-card {% if unit.is_completed %}completed{% elif unit.is_current %}current{% endif %}" href="{{ url_for('curriculum_lesson_page', curriculum_unit_id=unit.unit_id) }}">
+                        <span class="dashboard-level-number">{{ unit.order }}</span>
+                        <div><small>{{ unit.status_label }}</small><strong>{{ unit.title }}</strong><span>{{ subject }} · AI-урок</span></div>
+                        <span class="dashboard-level-state">{% if unit.is_completed %}✓{% else %}→{% endif %}</span>
+                    </a>
+                    {% elif unit.can_start %}
+                    <form class="dashboard-level-form" method="post" action="{{ url_for('start_curriculum_unit_page', curriculum_unit_id=unit.unit_id) }}">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <button class="dashboard-level-card {% if unit.is_current %}current{% endif %}" type="submit">
+                            <span class="dashboard-level-number">{{ unit.order }}</span>
+                            <span class="dashboard-level-copy"><small>{{ unit.status_label }}</small><strong>{{ unit.title }}</strong><span>{{ subject }} · AI-урок</span></span>
+                            <span class="dashboard-level-state">→</span>
+                        </button>
+                    </form>
+                    {% else %}
+                    <div class="dashboard-level-card locked" aria-label="Урок закритий">
+                        <span class="dashboard-level-number">{{ unit.order }}</span>
+                        <div><small>{{ unit.status_label }}</small><strong>{{ unit.title }}</strong><span>{{ unit.description }}</span></div>
+                        <span class="dashboard-level-state" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                    {% else %}
                     {% for lesson in lessons %}
                     {% set is_completed = lesson.id in completed_lessons %}
                     {% set is_unlocked = lesson.id in unlocked_lessons %}
@@ -126,6 +164,7 @@
                     </div>
                     {% endif %}
                     {% endfor %}
+                    {% endif %}
                 </div>
             </section>
 

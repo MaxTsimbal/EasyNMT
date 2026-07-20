@@ -5,6 +5,22 @@
     <div class="logo">EasyNMT</div>
     <div class="lesson-header fade-up"><span class="pill">📅 Study Planner</span><h1>Твій план підготовки</h1><p>{{ subject }} · ціль {{ goal }} · режим {{ daily_time }}</p></div>
     <div class="goal-card premium"><span class="score">🧭 План на найближчий етап</span><span class="desc">Рухайся урок за уроком: теорія → приклади → тест → повторення помилок.</span></div><br>
+    {% if curriculum_navigation %}
+    {% for unit in curriculum_navigation.units %}
+    <div class="goal-card planner-row {% if unit.is_current %}premium{% endif %}">
+        <span class="score">Етап {{ unit.order }} · {{ unit.title }}</span>
+        <span class="desc">Статус: <b>{{ unit.status_label }}</b><br>{{ unit.description }}</span>
+        {% if unit.can_open %}
+        <br><a href="{{ url_for('curriculum_lesson_page', curriculum_unit_id=unit.unit_id) }}"><button>{{ unit.action_label }}</button></a>
+        {% elif unit.can_start %}
+        <form class="curriculum-open-form" method="post" action="{{ url_for('start_curriculum_unit_page', curriculum_unit_id=unit.unit_id) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button type="submit">{{ unit.action_label }}</button>
+        </form>
+        {% endif %}
+    </div><br>
+    {% endfor %}
+    {% else %}
     {% for row in plan_rows %}
     <div class="goal-card planner-row {% if row.status == 'Сьогодні' %}premium{% endif %}">
         <span class="score">Тиждень {{ row.week }} · {{ row.lesson.title }}</span>
@@ -12,5 +28,6 @@
         <br><a href="/lesson/{{ row.lesson.id }}"><button>Відкрити урок</button></a>
     </div><br>
     {% endfor %}
+    {% endif %}
 </div>
 {% endblock %}
