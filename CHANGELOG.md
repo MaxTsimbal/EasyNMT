@@ -1,5 +1,17 @@
 # EasyNMT Changelog
 
+## Task 3C Final Candidate — Human Grading + Contextual Easy (2026-07-20)
+
+- Reworked written-answer grading around meaning and partial credit instead of near-verbatim reference matching.
+- Replaced abstract late-quiz prompts with concrete tasks grounded in lesson examples.
+- Added compact Contextual Easy assistance to production lessons and quizzes.
+- Bound quiz help to the server-validated active attempt and selected question.
+- Prevented Easy from revealing, confirming, eliminating toward, or solving active-test answers.
+- Added server-side answer-request blocking, answer-key exclusion, output leak checks, and safe offline fallbacks.
+- Added desktop floating-panel and mobile bottom-sheet interfaces with per-question/per-section context.
+- Added contextual Easy API, security, ownership, snapshot, prompt-contract, and regression coverage.
+- Complete regression suite: 127 tests passed.
+
 ## Task 3C.1 — Production Quiz Foundation (2026-07-20)
 
 - Added a production quiz for every completed curriculum lesson.

@@ -22,6 +22,8 @@ and uses only curated lesson material.
   delivery evidence, rendering, and the Task 3A completion handoff.
 - `easynmt_core/quizzes/` — Task 3C.1 production quiz snapshots, sessions,
   deterministic server grading, drafts, attempts, XP, and atomic unlocks.
+- `easynmt_core/contextual_easy.py` — lesson-aware Easy assistance and a
+  restricted quiz-help boundary with server-side answer-leak protection.
 - `templates/` and `static/` — server-rendered UI and browser behavior.
 - `tests/` — security, quiz consistency, persistence, API, and route regression
   coverage.
@@ -44,6 +46,25 @@ and quotas. Flask's signed session stores identity and lightweight navigation
 state; it is not trusted as the source of XP or completion data. Production
 quizzes contain 12 questions worth 24 points, require 18 points to pass, and
 commit the attempt, XP, completion, and next-unit unlock atomically.
+
+
+## Task 3C final candidate
+
+Production quizzes now grade ordinary learner wording instead of requiring a
+near-verbatim copy of the reference answer. Correct final results receive their
+core credit, while reasoning earns the remaining points. Late-quiz prompts are
+concrete tasks rather than labels for a skill.
+
+Contextual Easy is embedded directly in production lessons and quizzes. Lesson
+mode can teach from the current lesson and active section. Quiz mode is bound to
+the server-validated active question and may simplify the instruction, define a
+term, remind the relevant general rule, or demonstrate a genuinely different
+example. It cannot reveal, confirm, eliminate toward, or solve the current
+answer. The server excludes answer-key fields from the AI context, blocks direct
+answer requests before model use, and checks generated output for leaks.
+
+See [INSTALL_TASK_3C_FINAL.md](INSTALL_TASK_3C_FINAL.md) and
+[TASK_3C_FINAL_REPORT.md](TASK_3C_FINAL_REPORT.md).
 
 ## Local setup
 

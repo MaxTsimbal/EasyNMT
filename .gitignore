@@ -20,5 +20,3 @@ instance/*.sqlite3
 .vscode/
 .DS_Store
 Thumbs.db
-
-railway-users-backup-*.db

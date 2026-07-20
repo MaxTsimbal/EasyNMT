@@ -158,7 +158,20 @@ class CurriculumQuizRepository:
             raise CurriculumQuizPersistenceError("Quiz could not be persisted.")
         stored = self.quiz_from_row(row)
         if stored.to_dict() != quiz.to_dict():
-            raise CurriculumQuizPersistenceError("A different immutable quiz owns this lesson identity.")
+            if stored.id != quiz.id or stored.schema_version == quiz.schema_version:
+                raise CurriculumQuizPersistenceError("A different immutable quiz owns this lesson identity.")
+            connection.execute(
+                """
+                UPDATE curriculum_quizzes
+                SET content_hash = ?, content_json = ?, schema_version = ?, generation_source = ?
+                WHERE id = ? AND user_id = ?
+                """,
+                (
+                    digest, canonical_json(payload), quiz.schema_version,
+                    quiz.generation_source, quiz.id, int(user_id),
+                ),
+            )
+            return quiz
         return stored
 
     @staticmethod

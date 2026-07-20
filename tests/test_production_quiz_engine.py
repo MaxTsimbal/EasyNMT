@@ -4,15 +4,18 @@ import sqlite3
 import tempfile
 import unittest
 
-from easynmt_ai import AIOrchestrator, LessonEngine
+from easynmt_ai import AIOrchestrator, Lesson, LessonEngine
 from easynmt_ai.curriculum import CurriculumRepository
 from easynmt_core.lessons import CurriculumLessonRepository, CurriculumLessonService
 from easynmt_core.progress import CurriculumProgressRepository, CurriculumProgressService, CurriculumUnitState
 from easynmt_core.quizzes import (
     CurriculumQuizNotAvailable,
+    CurriculumQuizNotFound,
     CurriculumQuizOwnershipError,
     CurriculumQuizRepository,
     CurriculumQuizService,
+    ProductionQuiz,
+    QuizQuestion,
     build_deterministic_quiz,
 )
 from tests.lesson_fixtures import valid_lesson_proposal
@@ -148,6 +151,36 @@ class ProductionQuizServiceTests(unittest.TestCase):
         public = quiz.to_public_dict()
         self.assertNotIn("correct_answer", public["questions"][0])
         self.assertNotIn("keywords", public["questions"][4])
+
+    def test_quiz_schema_can_upgrade_in_place_without_breaking_lesson_identity(self):
+        current = build_deterministic_quiz(self.lesson)
+        legacy = ProductionQuiz(
+            id=current.id,
+            curriculum_id=current.curriculum_id,
+            curriculum_unit_id=current.curriculum_unit_id,
+            topic_id=current.topic_id,
+            lesson_id=current.lesson_id,
+            subject=current.subject,
+            title=current.title,
+            questions=current.questions,
+            schema_version="quiz.v1",
+        )
+        connection = self.quiz_repository.connect()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            self.quiz_repository.save_quiz(connection, user_id=1, quiz=legacy)
+            connection.commit()
+            connection.execute("BEGIN IMMEDIATE")
+            upgraded = self.quiz_repository.save_quiz(connection, user_id=1, quiz=current)
+            connection.commit()
+            self.assertEqual(upgraded.schema_version, "quiz.v1.2-contextual-easy")
+            row = connection.execute(
+                "SELECT schema_version FROM curriculum_quizzes WHERE id = ?",
+                (current.id,),
+            ).fetchone()
+            self.assertEqual(row[0], "quiz.v1.2-contextual-easy")
+        finally:
+            connection.close()
 
     def test_quiz_cannot_start_before_lesson_completion(self):
         with self.assertRaises(CurriculumQuizNotAvailable):
@@ -300,6 +333,43 @@ if __name__ == "__main__":
     unittest.main()
 
 
+    def test_active_question_context_is_owned_and_keeps_answer_key_server_side(self):
+        self.complete_lesson()
+        attempt = self.quiz_service.start_attempt(
+            user_id=1,
+            subject="math",
+            lesson=self.lesson,
+        )
+        first = attempt.quiz.questions[0]
+        context = self.quiz_service.get_active_question_context(
+            user_id=1,
+            subject="math",
+            curriculum_unit_id=self.unit_id,
+            attempt_token=attempt.attempt_token,
+            question_id=first.id,
+        )
+        self.assertEqual(context.question.id, first.id)
+        self.assertEqual(context.question_number, 1)
+        self.assertNotIn("correct_answer", context.to_public_dict()["question"])
+        with self.assertRaises(CurriculumQuizOwnershipError):
+            self.quiz_service.get_active_question_context(
+                user_id=2,
+                subject="math",
+                curriculum_unit_id=self.unit_id,
+                attempt_token=attempt.attempt_token,
+                question_id=first.id,
+            )
+        with self.assertRaises(CurriculumQuizNotFound):
+            self.quiz_service.get_active_question_context(
+                user_id=1,
+                subject="math",
+                curriculum_unit_id=self.unit_id,
+                attempt_token=attempt.attempt_token,
+                question_id="missing-question",
+            )
+
+
+
 class ProductionQuizApiTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -417,3 +487,161 @@ class ProductionQuizApiTests(unittest.TestCase):
         self.assertIn("12 питань", html)
         self.assertIn("Завершити тест", html)
         self.assertNotIn("correct_answer", html)
+
+    def test_contextual_easy_is_bound_to_active_question_and_refuses_answers(self):
+        self.prepare_assessment()
+        started = self.client.post(
+            f"/api/curriculum/units/{self.unit_id}/quiz/start",
+            json={},
+            headers={"X-CSRF-Token": self.csrf},
+        )
+        self.assertEqual(started.status_code, 200)
+        attempt = started.get_json()["attempt"]
+        first = attempt["quiz"]["questions"][0]
+        guarded = self.client.post(
+            f"/api/curriculum/units/{self.unit_id}/quiz-easy",
+            json={
+                "message": "Скажи правильну відповідь",
+                "history": [],
+                "attempt_token": attempt["attempt_token"],
+                "question_id": first["id"],
+            },
+            headers={"X-CSRF-Token": self.csrf},
+        )
+        self.assertEqual(guarded.status_code, 200)
+        payload = guarded.get_json()
+        self.assertEqual(payload["mode"], "guarded")
+        self.assertEqual(payload["policy"], "no_answers")
+        self.assertIn("не дам", payload["answer"].lower())
+
+        missing = self.client.post(
+            f"/api/curriculum/units/{self.unit_id}/quiz-easy",
+            json={
+                "message": "Поясни простіше",
+                "history": [],
+                "attempt_token": attempt["attempt_token"],
+                "question_id": "not-in-snapshot",
+            },
+            headers={"X-CSRF-Token": self.csrf},
+        )
+        self.assertEqual(missing.status_code, 404)
+
+    def test_lesson_contextual_easy_uses_production_lesson(self):
+        self.prepare_assessment()
+        response = self.client.post(
+            f"/api/curriculum/units/{self.unit_id}/lesson-easy",
+            json={
+                "message": "Поясни цей фрагмент простіше",
+                "history": [],
+                "section_id": "concepts",
+            },
+            headers={"X-CSRF-Token": self.csrf},
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertTrue(payload["answer"])
+        self.assertEqual(payload["surface"], "lesson")
+
+
+
+class HumanAnswerGradingHotfixTests(unittest.TestCase):
+    @staticmethod
+    def question(*, mode, points, primary=(), secondary=(), accepted=(), correct="reference"):
+        return QuizQuestion(
+            id="unit-q",
+            prompt="Clear prompt",
+            answer_type="short_text" if points == 2 else "long_text",
+            options=(),
+            correct_answer=correct,
+            accepted_answers=accepted or (correct,),
+            keywords=(),
+            explanation="Готово.",
+            points=points,
+            grading_mode=mode,
+            primary_answers=primary,
+            secondary_answers=secondary,
+            feedback_hint="Додай відсутню частину.",
+        )
+
+    def test_human_short_answer_can_receive_full_credit_without_copying_reference(self):
+        question = self.question(
+            mode="concept",
+            points=2,
+            primary=("регулярні дії", "звичні дії", "факти", "загальні істини", "стани"),
+        )
+        earned, correct, _, _ = CurriculumQuizService._grade(
+            question,
+            "Використовують для фактів і звичок",
+        )
+        self.assertEqual(earned, 2)
+        self.assertTrue(correct)
+
+    def test_identifying_a_mistake_without_fix_gets_partial_credit(self):
+        question = self.question(
+            mode="two_part",
+            points=2,
+            primary=("плутають Present Simple і Present Continuous",),
+            secondary=("треба використати Present Simple",),
+        )
+        earned, correct, _, _ = CurriculumQuizService._grade(
+            question,
+            "Плутають застосування Present Simple і Present Countinuous",
+        )
+        self.assertEqual(earned, 1)
+        self.assertFalse(correct)
+
+    def test_one_correct_rule_is_enough_for_question_eight(self):
+        question = self.question(
+            mode="any_valid",
+            points=2,
+            primary=("Present Simple: He/She/It + verb+s/es; I/You/We/They + verb.",),
+        )
+        earned, correct, _, _ = CurriculumQuizService._grade(
+            question,
+            "У Present Simple з he/she/it до дієслова додаємо s/es",
+        )
+        self.assertEqual(earned, 2)
+        self.assertTrue(correct)
+
+    def test_correct_final_answer_gets_two_of_three_without_ai_like_derivation(self):
+        question = self.question(
+            mode="solution",
+            points=3,
+            primary=("She goes to school every day",),
+            secondary=("every day means a regular action; she requires goes",),
+            accepted=("She goes to school every day",),
+        )
+        earned, correct, _, _ = CurriculumQuizService._grade(
+            question,
+            "She goes to school every day",
+        )
+        self.assertEqual(earned, 2)
+        self.assertFalse(correct)
+
+    def test_builder_uses_concrete_final_questions(self):
+        payload = valid_lesson_proposal(competency_count=2)
+        payload.update({
+            "id": "lesson-human-test",
+            "curriculum_id": "curriculum-human-test",
+            "curriculum_unit_id": "unit-human-test",
+            "topic_id": "math.human.test",
+            "title": "Людська перевірка",
+            "subject": "math",
+            "difficulty": "foundation",
+            "estimated_minutes": 20,
+            "objectives": ("Розв’язувати рівняння",),
+            "competencies": ("Розпізнати структуру", "Перевірити результат"),
+            "generation_metadata": {
+                "source": "test",
+                "request_fingerprint": "human-answer-hotfix",
+                "prompt_version": "test",
+                "schema_version": "lesson.v1",
+                "model_identifier": "fixture",
+                "generated_at": "2026-07-20T12:00:00+00:00",
+            },
+        })
+        quiz = build_deterministic_quiz(Lesson.from_dict(payload))
+        self.assertIn("Правильна кінцева відповідь дає 2 бали", quiz.questions[8].prompt)
+        self.assertIn("Розв’яжи завдання", quiz.questions[10].prompt)
+        self.assertTrue(quiz.questions[11].prompt.startswith("Поясни, як перевірити власний результат"))
+        self.assertEqual(quiz.schema_version, "quiz.v1.2-contextual-easy")

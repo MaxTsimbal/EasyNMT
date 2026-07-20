@@ -18,7 +18,7 @@
   <div class="quiz-levels-legend">
     <span><b>1–4</b> Вибір відповіді · 1 бал</span>
     <span><b>5–8</b> Коротка відповідь · 2 бали</span>
-    <span><b>9–12</b> Повне пояснення · 3 бали</span>
+    <span><b>9–12</b> Відповідь + коротка логіка · 3 бали</span>
   </div>
 
   <form method="post" class="quiz-form" data-draft-url="{{ url_for('curriculum_quiz_draft_api', curriculum_unit_id=production_quiz.curriculum_unit_id) }}" data-csrf="{{ csrf_token() }}">
@@ -26,12 +26,18 @@
     <input type="hidden" name="attempt_token" value="{{ quiz_attempt_token }}">
 
     {% for question in production_quiz.questions %}
-    <section class="goal-card quiz-question {% if question.points == 1 %}quiz-basic{% elif question.points == 2 %}quiz-middle{% else %}quiz-advanced{% endif %}">
+    <section class="goal-card quiz-question {% if question.points == 1 %}quiz-basic{% elif question.points == 2 %}quiz-middle{% else %}quiz-advanced{% endif %}"
+      data-easy-question-id="{{ question.id }}"
+      data-easy-question-number="{{ loop.index }}"
+      data-easy-question-prompt="{{ question.prompt|striptags|e }}">
       <div class="quiz-question-head">
         <span class="quiz-badge">{{ loop.index }} / 12</span>
         <span class="quiz-points">{{ question.points }} {% if question.points == 1 %}бал{% else %}бали{% endif %}</span>
       </div>
       <span class="score">{{ question.prompt }}</span>
+      <button type="button" class="contextual-easy-question-button" data-easy-open-question="{{ question.id }}">
+        <span aria-hidden="true">✦</span> Пояснити з Easy
+      </button>
 
       {% if question.answer_type == 'choice' %}
       <div class="quiz-options">
@@ -45,15 +51,15 @@
       {% elif question.answer_type == 'short_text' %}
       <div class="written-answer-wrap">
         <textarea name="answer_{{ question.id }}" class="written-answer" rows="3" maxlength="4000" placeholder="Напиши коротко, але змістовно" required>{{ quiz_draft_answers.get(question.id, '') }}</textarea>
-        <p class="answer-hint">Сервер перевіряє зміст, а не довжину тексту.</p>
+        <p class="answer-hint">Пиши своїми словами. Одне правильне речення може дати повний бал.</p>
       </div>
       {% else %}
       <div class="written-answer-wrap">
         <div class="paper-task-box">
           <div class="paper-task-icon">🧩</div>
-          <div><b>Покажи логіку</b><p>Запиши правило, основні кроки та остаточний висновок. Фото буде додано на наступному підетапі 3C.</p></div>
+          <div><b>Без твору на пів сторінки</b><p>Правильна кінцева відповідь уже дає частину балів. Для повного бала додай 1–2 речення пояснення.</p></div>
         </div>
-        <textarea name="answer_{{ question.id }}" class="written-answer" rows="6" maxlength="8000" placeholder="Правило → кроки → відповідь" required>{{ quiz_draft_answers.get(question.id, '') }}</textarea>
+        <textarea name="answer_{{ question.id }}" class="written-answer" rows="6" maxlength="8000" placeholder="Відповідь + коротко чому" required>{{ quiz_draft_answers.get(question.id, '') }}</textarea>
       </div>
       {% endif %}
     </section>
@@ -115,4 +121,5 @@
   });
 })();
 </script>
+{% include "components/contextual_easy.html" %}
 {% endblock %}

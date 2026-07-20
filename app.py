@@ -27,6 +27,7 @@ from lesson_board_engine import build_lesson_board
 from solution_annotation_engine import create_annotated_solution
 from vision_grading_engine import VisionGradingEngine
 from easynmt_ai import (
+    AIContext,
     AIOrchestrator,
     AIRepository,
     AIRequest,
@@ -41,6 +42,18 @@ from easynmt_ai import (
 )
 from easynmt_ai.attachments import AttachmentError, normalize_attachment_ids, save_image_upload
 from easynmt_ai.curriculum import LEGACY_MATH_LESSON_TOPIC_MAP, load_taxonomy
+from easynmt_core.contextual_easy import (
+    answer_leaks_quiz_key,
+    asks_for_answer,
+    bounded_history,
+    build_contextual_easy_prompt,
+    lesson_fallback,
+    lesson_prompt_context,
+    parse_contextual_easy_reply,
+    quiz_boundary_fallback,
+    quiz_fallback,
+    quiz_prompt_context,
+)
 from easynmt_core.progress import (
     CurriculumProgressError,
     CurriculumProgressNotFound,
@@ -3267,6 +3280,11 @@ def curriculum_lesson_page(curriculum_unit_id):
         "curriculum_lesson.html",
         **get_user_data(),
         **curriculum_lesson_renderer.template_context(delivery),
+        easy_surface="lesson",
+        easy_endpoint=url_for(
+            "curriculum_lesson_easy_api",
+            curriculum_unit_id=curriculum_unit_id,
+        ),
     )
 
 
@@ -3455,7 +3473,186 @@ def curriculum_quiz_page(curriculum_unit_id):
         quiz_draft_answers=delivery.draft_answers,
         quiz_attempt_count=delivery.attempt_count,
         quiz_expires_at=delivery.expires_at,
+        easy_surface="quiz",
+        easy_endpoint=url_for(
+            "curriculum_quiz_easy_api",
+            curriculum_unit_id=curriculum_unit_id,
+        ),
     )
+
+
+
+def _contextual_easy_payload(*, allowed_keys):
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict) or set(payload) - set(allowed_keys):
+        return None, (jsonify({"ok": False, "error": "invalid_request"}), 400)
+    message = str(payload.get("message", "")).strip()
+    if not message:
+        return None, (jsonify({"ok": False, "error": "empty_message", "message": "Напиши, що саме незрозуміло."}), 400)
+    if len(message) > 1200:
+        return None, (jsonify({"ok": False, "error": "message_too_long", "message": "Скороти запитання до 1200 символів."}), 400)
+    payload["message"] = message
+    payload["history"] = bounded_history(payload.get("history"))
+    return payload, None
+
+
+def _run_contextual_easy(*, engine_name, user_id, subject, prompt, fallback):
+    daily_limit = app.config["OPENAI_DAILY_LIMIT"]
+    used_today = get_ai_usage_today(user_id)
+    if not ai_orchestrator.enabled:
+        return fallback, "offline", used_today, daily_limit
+    claimed = claim_ai_usage(user_id, daily_limit)
+    if claimed is None:
+        return (
+            fallback + " AI-ліміт на сьогодні вичерпано, але ця підказка з матеріалу уроку залишається доступною.",
+            "limit",
+            used_today,
+            daily_limit,
+        )
+    used_today = claimed
+    context = AIContext(
+        user_id=int(user_id),
+        subject=subject,
+        language="uk",
+        available_tokens=700,
+    )
+    result = ai_orchestrator.execute_structured(
+        engine_name=engine_name,
+        context=context,
+        prompt=prompt,
+        parser=parse_contextual_easy_reply,
+        max_output_tokens=700,
+    )
+    if not result.success:
+        return fallback, "offline", used_today, daily_limit
+    return result.value["answer"], "openai", used_today, daily_limit
+
+
+@app.post("/api/curriculum/units/<string:curriculum_unit_id>/lesson-easy")
+@require_login
+def curriculum_lesson_easy_api(curriculum_unit_id):
+    """Contextual Easy for a server-delivered production lesson."""
+
+    if not onboarding_complete():
+        return jsonify({"ok": False, "error": "onboarding_required"}), 403
+    payload, error = _contextual_easy_payload(
+        allowed_keys={"message", "history", "section_id"},
+    )
+    if error:
+        return error
+    try:
+        delivery = curriculum_lesson_service.deliver_lesson(
+            user_id=int(session["user_id"]),
+            curriculum_unit_id=curriculum_unit_id,
+            subject=get_subject_key(),
+        )
+    except CurriculumLessonError as exc:
+        return curriculum_lesson_error_response(exc)
+    except CurriculumProgressError as exc:
+        return curriculum_progress_error_response(exc)
+
+    lesson = delivery.lesson
+    section_id = str(payload.get("section_id", "")).strip()[:32]
+    fallback = lesson_fallback(lesson, message=payload["message"], section_id=section_id)
+    prompt = build_contextual_easy_prompt(
+        surface="lesson",
+        message=payload["message"],
+        history=payload["history"],
+        context=lesson_prompt_context(lesson, section_id=section_id),
+    )
+    answer, mode, used, limit = _run_contextual_easy(
+        engine_name="contextual_easy.lesson",
+        user_id=int(session["user_id"]),
+        subject=get_subject_key(),
+        prompt=prompt,
+        fallback=fallback,
+    )
+    return jsonify({
+        "ok": True,
+        "answer": answer,
+        "mode": mode,
+        "used": used,
+        "limit": limit,
+        "surface": "lesson",
+    })
+
+
+@app.post("/api/curriculum/units/<string:curriculum_unit_id>/quiz-easy")
+@require_login
+def curriculum_quiz_easy_api(curriculum_unit_id):
+    """Restricted contextual Easy that cannot disclose an active quiz key."""
+
+    if not onboarding_complete():
+        return jsonify({"ok": False, "error": "onboarding_required"}), 403
+    payload, error = _contextual_easy_payload(
+        allowed_keys={"message", "history", "attempt_token", "question_id"},
+    )
+    if error:
+        return error
+    try:
+        question_context = curriculum_quiz_service.get_active_question_context(
+            user_id=int(session["user_id"]),
+            subject=get_subject_key(),
+            curriculum_unit_id=curriculum_unit_id,
+            attempt_token=str(payload.get("attempt_token", "")),
+            question_id=str(payload.get("question_id", "")),
+        )
+        lesson_delivery = curriculum_lesson_service.deliver_lesson(
+            user_id=int(session["user_id"]),
+            curriculum_unit_id=curriculum_unit_id,
+            subject=get_subject_key(),
+        )
+    except CurriculumQuizError as exc:
+        return curriculum_quiz_error_response(exc)
+    except CurriculumLessonError as exc:
+        return curriculum_lesson_error_response(exc)
+    except CurriculumProgressError as exc:
+        return curriculum_progress_error_response(exc)
+
+    lesson = lesson_delivery.lesson
+    question = question_context.question
+    fallback = quiz_fallback(lesson, question, message=payload["message"])
+    if asks_for_answer(payload["message"]):
+        return jsonify({
+            "ok": True,
+            "answer": quiz_boundary_fallback(lesson, question),
+            "mode": "guarded",
+            "surface": "quiz",
+            "policy": "no_answers",
+        })
+
+    prompt = build_contextual_easy_prompt(
+        surface="quiz",
+        message=payload["message"],
+        history=payload["history"],
+        context=quiz_prompt_context(
+            lesson,
+            question,
+            question_number=question_context.question_number,
+        ),
+    )
+    answer, mode, used, limit = _run_contextual_easy(
+        engine_name="contextual_easy.quiz",
+        user_id=int(session["user_id"]),
+        subject=get_subject_key(),
+        prompt=prompt,
+        fallback=fallback,
+    )
+    guarded = answer_leaks_quiz_key(answer, question)
+    if guarded:
+        answer = fallback
+        mode = "guarded"
+    return jsonify({
+        "ok": True,
+        "answer": answer,
+        "mode": mode,
+        "used": used,
+        "limit": limit,
+        "surface": "quiz",
+        "policy": "no_answers",
+        "guarded": guarded,
+        "question_number": question_context.question_number,
+    })
 
 
 @app.route("/api/curriculum/units/<string:curriculum_unit_id>/quiz-draft", methods=["POST", "DELETE"])

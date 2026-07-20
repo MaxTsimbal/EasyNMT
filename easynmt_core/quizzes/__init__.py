@@ -10,7 +10,7 @@ from .errors import (
     CurriculumQuizPersistenceError,
     CurriculumQuizSessionInvalid,
 )
-from .models import ProductionQuiz, QuizAttemptDelivery, QuizAttemptResult, QuizQuestion
+from .models import ProductionQuiz, QuizAttemptDelivery, QuizAttemptResult, QuizQuestion, QuizQuestionContext
 from .repository import CurriculumQuizRepository
 from .service import CurriculumQuizService
 
@@ -28,5 +28,6 @@ __all__ = [
     "QuizAttemptDelivery",
     "QuizAttemptResult",
     "QuizQuestion",
+    "QuizQuestionContext",
     "build_deterministic_quiz",
 ]

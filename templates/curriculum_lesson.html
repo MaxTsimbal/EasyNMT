@@ -27,7 +27,7 @@
     <a href="#assessment">9. Перевірка</a>
   </nav>
 
-  <section id="objective" class="lesson-teacher-block glass-card">
+  <section id="objective" class="lesson-teacher-block glass-card" data-easy-section="objective">
     <span class="section-kicker">1. Навчальна мета</span>
     <h2>Що ти опануєш</h2>
     <p>{{ production_lesson.objective_overview }}</p>
@@ -36,7 +36,7 @@
     </ul>
   </section>
 
-  <section id="nmt" class="lesson-teacher-block glass-card">
+  <section id="nmt" class="lesson-teacher-block glass-card" data-easy-section="nmt">
     <span class="section-kicker">2. Зв’язок із НМТ</span>
     <h2>Навіщо ця тема на іспиті</h2>
     <p>{{ production_lesson.nmt_relevance }}</p>
@@ -46,7 +46,7 @@
     </div>
   </section>
 
-  <section id="prerequisites" class="lesson-teacher-block glass-card">
+  <section id="prerequisites" class="lesson-teacher-block glass-card" data-easy-section="prerequisites">
     <span class="section-kicker">3. Коротке нагадування</span>
     <h2>Що варто пригадати</h2>
     {% if production_lesson.prerequisite_reminder.needed %}
@@ -59,7 +59,7 @@
     {% endif %}
   </section>
 
-  <section id="concepts" class="lesson-teacher-block glass-card">
+  <section id="concepts" class="lesson-teacher-block glass-card" data-easy-section="concepts">
     <span class="section-kicker">4. Основне пояснення</span>
     <h2>Розберімо тему по частинах</h2>
     {% for concept in production_lesson.concepts %}
@@ -75,7 +75,7 @@
     {% endfor %}
   </section>
 
-  <section id="examples" class="lesson-teacher-block glass-card">
+  <section id="examples" class="lesson-teacher-block glass-card" data-easy-section="examples">
     <span class="section-kicker">5. Розв’язані приклади</span>
     <h2>Від базового кроку до формату НМТ</h2>
     {% for example in production_lesson.worked_examples %}
@@ -95,7 +95,7 @@
     {% endfor %}
   </section>
 
-  <section id="mistakes" class="lesson-teacher-block glass-card">
+  <section id="mistakes" class="lesson-teacher-block glass-card" data-easy-section="mistakes">
     <span class="section-kicker">6. Типові помилки</span>
     <h2>Де найчастіше втрачають бали</h2>
     <div class="mistake-grid">
@@ -112,7 +112,7 @@
     </div>
   </section>
 
-  <section id="tips" class="lesson-teacher-block glass-card">
+  <section id="tips" class="lesson-teacher-block glass-card" data-easy-section="tips">
     <span class="section-kicker">7. Практичні поради</span>
     <h2>Як працювати швидше й надійніше</h2>
     <ol class="teacher-steps">
@@ -122,7 +122,7 @@
     </ol>
   </section>
 
-  <section id="recap" class="lesson-teacher-block glass-card">
+  <section id="recap" class="lesson-teacher-block glass-card" data-easy-section="recap">
     <span class="section-kicker">8. Мініпідсумок</span>
     <h2>Що забрати з собою</h2>
     <h3>Головні ідеї</h3>
@@ -137,7 +137,7 @@
     <ul class="self-check-list">{% for item in production_lesson.recap.can_solve %}<li>□ {{ item }}</li>{% endfor %}</ul>
   </section>
 
-  <section id="assessment" class="lesson-teacher-block glass-card">
+  <section id="assessment" class="lesson-teacher-block glass-card" data-easy-section="assessment">
     <span class="section-kicker">9. Перехід до перевірки</span>
     <h2>Готовність до наступного кроку</h2>
     <p>{{ production_lesson.assessment_transition.message }}</p>
@@ -156,4 +156,5 @@
     {% endif %}
   </section>
 </div>
+{% include "components/contextual_easy.html" %}
 {% endblock %}

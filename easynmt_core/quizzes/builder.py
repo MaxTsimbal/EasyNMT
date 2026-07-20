@@ -1,4 +1,4 @@
-"""Deterministic Task 3C.1 quiz builder grounded only in delivered lesson content."""
+"""Human-friendly deterministic quiz builder grounded in delivered lesson content."""
 from __future__ import annotations
 
 import hashlib
@@ -16,8 +16,8 @@ STOPWORDS = frozenset({
 })
 
 
-def _tokens(text: str, *, limit: int = 8) -> tuple[str, ...]:
-    words = re.findall(r"[\w’'-]+", str(text).lower(), flags=re.UNICODE)
+def _tokens(text: str, *, limit: int = 10) -> tuple[str, ...]:
+    words = re.findall(r"[\w’'+=°%./-]+", str(text).lower(), flags=re.UNICODE)
     result: list[str] = []
     for word in words:
         if len(word) < 3 or word in STOPWORDS or word.isdigit() or word in result:
@@ -25,6 +25,23 @@ def _tokens(text: str, *, limit: int = 8) -> tuple[str, ...]:
         result.append(word)
         if len(result) >= limit:
             break
+    return tuple(result)
+
+
+def _idea_chunks(*texts: str, limit: int = 10) -> tuple[str, ...]:
+    """Split reference prose into short ideas that a learner can express naturally."""
+
+    result: list[str] = []
+    for text in texts:
+        clean = re.sub(r"^[^:—-]+[:—-]\s*", "", str(text or "").strip())
+        parts = re.split(r"[;,.]|\b(?:і|та|або|and|or)\b", clean, flags=re.IGNORECASE)
+        for part in parts:
+            part = " ".join(part.strip(" :—-()[]").split())
+            if len(part) < 3 or part.lower() in STOPWORDS or part in result:
+                continue
+            result.append(part)
+            if len(result) >= limit:
+                return tuple(result)
     return tuple(result)
 
 
@@ -37,10 +54,10 @@ def _unique_options(correct: str, candidates: Iterable[str]) -> tuple[str, ...]:
         if len(values) == 4:
             break
     fallbacks = (
-        "Застосувати правило без перевірки умови",
-        "Ігнорувати ключову ознаку завдання",
-        "Вибрати відповідь лише за зовнішнім виглядом",
-        "Пропустити пояснення й одразу вгадувати",
+        "Застосувати інше правило, не перевіряючи умову",
+        "Пропустити ключову ознаку в завданні",
+        "Обрати форму навмання",
+        "Не перевіряти отриману відповідь",
     )
     for candidate in fallbacks:
         if candidate not in values:
@@ -54,159 +71,219 @@ def _question_id(lesson: Lesson, index: int) -> str:
     return f"{lesson.curriculum_unit_id}-q{index:02d}"
 
 
+def _question(
+    lesson: Lesson,
+    index: int,
+    *,
+    prompt: str,
+    answer_type: str,
+    correct_answer: str,
+    points: int,
+    options: tuple[str, ...] = (),
+    accepted_answers: tuple[str, ...] = (),
+    keywords: tuple[str, ...] = (),
+    explanation: str,
+    grading_mode: str = "concept",
+    primary_answers: tuple[str, ...] = (),
+    secondary_answers: tuple[str, ...] = (),
+    feedback_hint: str = "Звір відповідь із правилом уроці й спробуй ще раз.",
+) -> QuizQuestion:
+    return QuizQuestion(
+        id=_question_id(lesson, index),
+        prompt=prompt,
+        answer_type=answer_type,
+        options=options,
+        correct_answer=correct_answer,
+        accepted_answers=accepted_answers or (correct_answer,),
+        keywords=keywords or _tokens(correct_answer),
+        explanation=explanation,
+        points=points,
+        grading_mode=grading_mode,
+        primary_answers=primary_answers,
+        secondary_answers=secondary_answers,
+        feedback_hint=feedback_hint,
+    )
+
+
 def build_deterministic_quiz(lesson: Lesson) -> ProductionQuiz:
-    """Build an immutable 12-question, 24-point assessment from one lesson."""
+    """Build a clear 12-question, 24-point assessment from one lesson."""
 
     concepts = list(lesson.concepts)
     examples = list(lesson.worked_examples)
     mistakes = list(lesson.common_mistakes)
     tips = list(lesson.practical_tips)
-    concepts_cycle = concepts or []
-    if not concepts_cycle or not examples or not mistakes:
+    if not concepts or not examples or not mistakes:
         raise ValueError("lesson does not contain enough structured content for a production quiz")
 
-    c1 = concepts_cycle[0]
-    c2 = concepts_cycle[1 % len(concepts_cycle)]
+    c1 = concepts[0]
+    c2 = concepts[1 % len(concepts)]
     m1 = mistakes[0]
     m2 = mistakes[1 % len(mistakes)]
     e1 = examples[0]
     e2 = examples[1 % len(examples)]
+    e3 = examples[2 % len(examples)]
     tip1 = tips[0] if tips else None
-    recap_ideas = list(lesson.recap.main_ideas)
-    formulas = list(lesson.recap.formulas)
-    can_solve = list(lesson.recap.can_solve)
-    patterns = list(lesson.assessment_blueprint.question_patterns)
-    reasoning = list(lesson.assessment_blueprint.required_reasoning)
+    recap_ideas = tuple(lesson.recap.main_ideas)
+    formulas = tuple(lesson.recap.formulas)
 
-    questions: list[QuizQuestion] = []
-
-    questions.append(QuizQuestion(
-        id=_question_id(lesson, 1),
-        prompt=f"Яке твердження найточніше пояснює поняття «{c1.title}»?",
-        answer_type="choice",
-        options=_unique_options(c1.what, [c1.common_confusion, c2.what, m1.incorrect_reasoning]),
-        correct_answer=c1.what,
-        accepted_answers=(c1.what,),
-        keywords=_tokens(c1.what),
-        explanation=f"Правильне пояснення: {c1.what}",
-        points=1,
-    ))
-    questions.append(QuizQuestion(
-        id=_question_id(lesson, 2),
-        prompt=f"Який крок правильно застосовує правило «{c2.title}»?",
-        answer_type="choice",
-        options=_unique_options(c2.how, [c2.common_confusion, m2.incorrect_reasoning, c1.common_confusion]),
-        correct_answer=c2.how,
-        accepted_answers=(c2.how,),
-        keywords=_tokens(c2.how),
-        explanation=f"Алгоритм із уроку: {c2.how}",
-        points=1,
-    ))
-    correct_prevention = tip1.advice if tip1 else m1.prevention
-    questions.append(QuizQuestion(
-        id=_question_id(lesson, 3),
-        prompt="Що найкраще допомагає уникнути типової помилки з цього уроку?",
-        answer_type="choice",
-        options=_unique_options(correct_prevention, [m1.incorrect_reasoning, m2.incorrect_reasoning, c1.common_confusion]),
-        correct_answer=correct_prevention,
-        accepted_answers=(correct_prevention,),
-        keywords=_tokens(correct_prevention),
-        explanation=f"Надійна звичка: {correct_prevention}",
-        points=1,
-    ))
-    nmt_correct = lesson.nmt_task_types[0] if lesson.nmt_task_types else lesson.nmt_relevance
-    questions.append(QuizQuestion(
-        id=_question_id(lesson, 4),
-        prompt="Який формат завдання найбільше відповідає матеріалу цього уроку?",
-        answer_type="choice",
-        options=_unique_options(nmt_correct, [m1.incorrect_reasoning, c1.common_confusion, "Завдання з теми, якої в уроці не було"]),
-        correct_answer=nmt_correct,
-        accepted_answers=(nmt_correct,),
-        keywords=_tokens(nmt_correct),
-        explanation=f"Урок готує до такого формату: {nmt_correct}",
-        points=1,
-    ))
-
-    short_specs = [
-        (
-            f"Коротко поясни своїми словами, що означає «{c1.title}».",
-            c1.what,
-            tuple(dict.fromkeys((*_tokens(c1.what), *_tokens(c1.why))))[:8],
-            f"У відповіді має бути зміст поняття: {c1.what}",
+    questions: list[QuizQuestion] = [
+        _question(
+            lesson,
+            1,
+            prompt=f"Що означає «{c1.title}»?",
+            answer_type="choice",
+            options=_unique_options(c1.what, (c1.common_confusion, c2.what, m1.incorrect_reasoning)),
+            correct_answer=c1.what,
+            explanation=f"Правильна відповідь: {c1.what}",
+            points=1,
+            grading_mode="choice",
         ),
-        (
-            f"Запиши правильний спосіб застосування правила «{c2.title}».",
-            c2.how,
-            tuple(dict.fromkeys((*_tokens(c2.how), *_tokens(c2.when_used))))[:8],
-            f"Орієнтир: {c2.how}",
+        _question(
+            lesson,
+            2,
+            prompt=f"Яке правило правильно описує «{c2.title}»?",
+            answer_type="choice",
+            options=_unique_options(c2.how, (c2.common_confusion, m2.incorrect_reasoning, c1.common_confusion)),
+            correct_answer=c2.how,
+            explanation=f"Правило: {c2.how}",
+            points=1,
+            grading_mode="choice",
         ),
-        (
-            "Назви одну типову помилку з уроку та коротко напиши, як її виправити.",
-            f"{m1.incorrect_reasoning} Виправлення: {m1.correction}",
-            tuple(dict.fromkeys((*_tokens(m1.incorrect_reasoning), *_tokens(m1.correction))))[:8],
-            f"Типова помилка: {m1.incorrect_reasoning} Правильне виправлення: {m1.correction}",
+        _question(
+            lesson,
+            3,
+            prompt=f"Яке виправлення правильне для цієї помилки: «{m1.incorrect_reasoning}»?",
+            answer_type="choice",
+            options=_unique_options(m1.correction, (m2.correction, m1.why_incorrect, c1.common_confusion)),
+            correct_answer=m1.correction,
+            explanation=f"Правильне виправлення: {m1.correction}",
+            points=1,
+            grading_mode="choice",
         ),
-        (
-            "Сформулюй одну головну ідею або формулу, яку потрібно запам’ятати після уроку.",
-            formulas[0] if formulas else recap_ideas[0],
-            _tokens((formulas[0] if formulas else recap_ideas[0]), limit=8),
-            f"Один із правильних орієнтирів: {formulas[0] if formulas else recap_ideas[0]}",
+        _question(
+            lesson,
+            4,
+            prompt=f"Обери правильну відповідь до завдання: {e1.problem}",
+            answer_type="choice",
+            options=_unique_options(e1.final_answer, (e2.final_answer, m1.correction, c1.common_confusion)),
+            correct_answer=e1.final_answer,
+            explanation=f"Правильна відповідь: {e1.final_answer}",
+            points=1,
+            grading_mode="choice",
         ),
     ]
-    for offset, (prompt, answer, keywords, explanation) in enumerate(short_specs, start=5):
-        questions.append(QuizQuestion(
-            id=_question_id(lesson, offset),
-            prompt=prompt,
+
+    c1_ideas = _idea_chunks(c1.what, c1.when_used, c1.why)
+    c2_use_ideas = _idea_chunks(c2.when_used, c2.what)
+    c2_form_ideas = _idea_chunks(c2.how)
+    mistake_ideas = _idea_chunks(m1.incorrect_reasoning, m1.recognition)
+    correction_ideas = _idea_chunks(m1.correction, m1.prevention)
+    one_rule_answers = tuple(dict.fromkeys((*formulas, *recap_ideas, c1.how, c2.how)))
+
+    questions.extend([
+        _question(
+            lesson,
+            5,
+            prompt=f"Одним-двома реченнями поясни, коли або для чого використовують «{c1.title}».",
             answer_type="short_text",
-            options=(),
-            correct_answer=answer,
-            accepted_answers=(answer,),
-            keywords=keywords,
-            explanation=explanation,
+            correct_answer=c1.what,
+            accepted_answers=(c1.what, c1.when_used),
+            primary_answers=c1_ideas or (c1.what,),
+            explanation=f"Приклад повної відповіді: {c1.what}",
+            feedback_hint="Назви хоча б один правильний випадок використання. Довгий текст не потрібен.",
             points=2,
-        ))
+            grading_mode="concept",
+        ),
+        _question(
+            lesson,
+            6,
+            prompt=f"Коли використовують «{c2.title}» і як утворюють цю форму? Напиши коротко.",
+            answer_type="short_text",
+            correct_answer=f"Коли: {c2.when_used} Форма: {c2.how}",
+            accepted_answers=(c2.how, c2.when_used, f"{c2.when_used} {c2.how}"),
+            primary_answers=c2_use_ideas or (c2.when_used,),
+            secondary_answers=c2_form_ideas or (c2.how,),
+            explanation=f"Приклад: {c2.when_used} Форма: {c2.how}",
+            feedback_hint="За один правильний елемент дається 1 бал. Для 2 балів напиши і коли вживаємо, і як утворюємо.",
+            points=2,
+            grading_mode="two_part",
+        ),
+        _question(
+            lesson,
+            7,
+            prompt="Назви одну типову помилку з уроку та покажи, як її виправити.",
+            answer_type="short_text",
+            correct_answer=f"Помилка: {m1.incorrect_reasoning} Виправлення: {m1.correction}",
+            accepted_answers=(f"{m1.incorrect_reasoning} {m1.correction}",),
+            primary_answers=mistake_ideas or (m1.incorrect_reasoning,),
+            secondary_answers=correction_ideas or (m1.correction,),
+            explanation=f"Приклад: {m1.incorrect_reasoning} Виправлення: {m1.correction}",
+            feedback_hint="За названу помилку дається 1 бал, за правильне виправлення ще 1.",
+            points=2,
+            grading_mode="two_part",
+        ),
+        _question(
+            lesson,
+            8,
+            prompt="Запиши одне правильне правило, формулу або головну ідею з уроку. Достатньо одного.",
+            answer_type="short_text",
+            correct_answer=one_rule_answers[0],
+            accepted_answers=one_rule_answers,
+            primary_answers=one_rule_answers,
+            explanation=f"Один із можливих варіантів: {one_rule_answers[0]}",
+            feedback_hint="Тут не треба переписувати весь урок. Одного правильного правила достатньо.",
+            points=2,
+            grading_mode="any_valid",
+        ),
+    ])
 
-    long_specs = [
-        (
-            f"Розв’яжи або відтвори повний хід для завдання: {e1.problem}",
-            f"{e1.reasoning} {' '.join(step.work for step in e1.steps)} Відповідь: {e1.final_answer}",
-            tuple(dict.fromkeys((*_tokens(e1.reasoning), *(_tokens(' '.join(step.work for step in e1.steps))), *_tokens(e1.final_answer))))[:12],
-            f"Еталонний хід: {e1.reasoning} {' '.join(step.work for step in e1.steps)} Відповідь: {e1.final_answer}",
-        ),
-        (
-            f"Покажи основні кроки для завдання: {e2.problem}",
-            f"{e2.reasoning} {' '.join(step.work for step in e2.steps)} Відповідь: {e2.final_answer}",
-            tuple(dict.fromkeys((*_tokens(e2.reasoning), *(_tokens(' '.join(step.work for step in e2.steps))), *_tokens(e2.final_answer))))[:12],
-            f"Еталонний хід: {e2.reasoning} {' '.join(step.work for step in e2.steps)} Відповідь: {e2.final_answer}",
-        ),
-        (
-            patterns[0] if patterns else f"Склади покрокове пояснення застосування правила «{c1.title}».",
-            reasoning[0] if reasoning else f"Потрібно пояснити правило, застосувати його та перевірити результат: {c1.how}",
-            tuple(dict.fromkeys((*_tokens(reasoning[0] if reasoning else c1.how), *_tokens(c1.title))))[:12],
-            f"Очікуваний тип міркування: {reasoning[0] if reasoning else c1.how}",
-        ),
-        (
-            can_solve[0] if can_solve else "Поясни, як перевірити відповідь і знайти можливу помилку.",
-            f"{lesson.recap.main_ideas[0]} Перевірка: {e1.verification}",
-            tuple(dict.fromkeys((*_tokens(lesson.recap.main_ideas[0]), *_tokens(e1.verification))))[:12],
-            f"У відповіді мають бути правило та перевірка: {lesson.recap.main_ideas[0]} {e1.verification}",
-        ),
-    ]
-    for offset, (prompt, answer, keywords, explanation) in enumerate(long_specs, start=9):
-        questions.append(QuizQuestion(
-            id=_question_id(lesson, offset),
-            prompt=prompt,
+    def solution_question(index: int, example) -> QuizQuestion:
+        steps = " ".join(step.work for step in example.steps)
+        full = f"{example.reasoning} {steps} Відповідь: {example.final_answer}"
+        return _question(
+            lesson,
+            index,
+            prompt=(
+                f"Розв’яжи завдання: {example.problem} "
+                "Правильна кінцева відповідь дає 2 бали, коротке пояснення вибору правила або кроків дає ще 1 бал."
+            ),
             answer_type="long_text",
-            options=(),
-            correct_answer=answer,
-            accepted_answers=(answer,),
-            keywords=keywords,
-            explanation=explanation,
+            correct_answer=full,
+            accepted_answers=(full, example.final_answer),
+            primary_answers=(example.final_answer,),
+            secondary_answers=(example.reasoning, steps, *(step.explanation for step in example.steps)),
+            explanation=f"Приклад повного розв’язання: {full}",
+            feedback_hint="Спочатку запиши кінцеву відповідь. Для повних 3 балів додай коротке пояснення.",
             points=3,
-        ))
+            grading_mode="solution",
+        )
+
+    questions.extend((
+        solution_question(9, e1),
+        solution_question(10, e2),
+        solution_question(11, e3),
+    ))
+
+    questions.append(_question(
+        lesson,
+        12,
+        prompt=(
+            f"Поясни, як перевірити власний результат у завданні: {e3.problem} "
+            "Не повторюй весь розв’язок: назви правило або ознаку та один надійний спосіб перевірки."
+        ),
+        answer_type="long_text",
+        correct_answer=f"Перевірка: {e3.verification} Правило: {c2.how}",
+        accepted_answers=(e3.verification, f"{e3.verification} {c2.how}", c2.how),
+        primary_answers=(e3.verification,),
+        secondary_answers=(c2.how, c2.when_used, e3.reasoning),
+        explanation=f"Приклад перевірки: {e3.verification}",
+        feedback_hint="Назви хоча б один реальний спосіб перевірки. Ще 1 бал дається за пов’язане правило або ознаку.",
+        points=3,
+        grading_mode="verification",
+    ))
 
     fingerprint = hashlib.sha256(
-        f"quiz.v1|{lesson.id}|{lesson.generation_metadata.request_fingerprint}".encode("utf-8")
+        f"quiz.v1.2|{lesson.id}|{lesson.generation_metadata.request_fingerprint}".encode("utf-8")
     ).hexdigest()[:28]
     return ProductionQuiz(
         id=f"quiz-{fingerprint}",
@@ -217,4 +294,5 @@ def build_deterministic_quiz(lesson: Lesson) -> ProductionQuiz:
         subject=lesson.subject,
         title=f"Перевірка: {lesson.title}",
         questions=tuple(questions),
+        schema_version="quiz.v1.2-contextual-easy",
     )

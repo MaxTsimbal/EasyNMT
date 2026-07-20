@@ -17,7 +17,7 @@
   <section class="review-panel goal-card">
     <div class="review-heading">
       <span class="score">Розбір відповідей</span>
-      <span class="desc">Оцінка створена зі збереженого серверного знімка тесту. Поля браузера не можуть змінити бали.</span>
+      <span class="desc">Бали рахує сервер. Короткі правильні відповіді теж зараховуються, а за неповну відповідь можна отримати частину балів.</span>
     </div>
     <div class="review-list">
       {% for item in attempt.review %}
@@ -25,8 +25,13 @@
         <div class="review-question"><span>{{ item.number }}.</span> {{ item.question }}</div>
         <div class="review-score">{{ item.earned }} / {{ item.points }} балів</div>
         <div class="review-answer">Твоя відповідь: <b>{{ item.user_answer }}</b></div>
-        {% if item.earned < item.points %}<div class="review-answer">Орієнтир: <b>{{ item.correct_answer }}</b></div>{% endif %}
         <div class="review-explanation">{{ item.explanation }}</div>
+        {% if item.earned < item.points %}
+        <details class="review-reference">
+          <summary>Показати приклад повної відповіді</summary>
+          <div class="review-answer"><b>{{ item.correct_answer }}</b></div>
+        </details>
+        {% endif %}
       </article>
       {% endfor %}
     </div>

@@ -1,0 +1,82 @@
+<button
+  class="contextual-easy-launcher"
+  id="contextualEasyLauncher"
+  type="button"
+  aria-controls="contextualEasyPanel"
+  aria-expanded="false"
+>
+  <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
+  <span class="contextual-easy-launcher-copy">
+    <b>Easy</b>
+    <small>{% if easy_surface == 'quiz' %}пояснить завдання{% else %}пояснить урок{% endif %}</small>
+  </span>
+  <i aria-hidden="true"></i>
+</button>
+
+<div class="contextual-easy-backdrop" id="contextualEasyBackdrop" aria-hidden="true"></div>
+
+<aside
+  class="contextual-easy-panel"
+  id="contextualEasyPanel"
+  role="dialog"
+  aria-modal="false"
+  aria-labelledby="contextualEasyTitle"
+  aria-hidden="true"
+  data-surface="{{ easy_surface }}"
+  data-endpoint="{{ easy_endpoint }}"
+  data-csrf="{{ csrf_token() }}"
+  data-unit-id="{{ production_lesson.curriculum_unit_id if easy_surface == 'lesson' else production_quiz.curriculum_unit_id }}"
+  {% if easy_surface == 'quiz' %}data-attempt-token="{{ quiz_attempt_token }}"{% endif %}
+>
+  <header class="contextual-easy-header">
+    <div class="contextual-easy-identity">
+      <span class="contextual-easy-avatar"><img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt=""></span>
+      <span>
+        <span class="contextual-easy-title-row">
+          <strong id="contextualEasyTitle">Easy</strong>
+          <em>{% if easy_surface == 'quiz' %}Без готових відповідей{% else %}Допомога з уроком{% endif %}</em>
+        </span>
+        <small id="contextualEasyContextLabel">
+          {% if easy_surface == 'quiz' %}Обери питання, яке треба пояснити{% else %}{{ production_lesson.title }}{% endif %}
+        </small>
+      </span>
+    </div>
+    <button class="contextual-easy-close" id="contextualEasyClose" type="button" aria-label="Згорнути Easy">×</button>
+  </header>
+
+  {% if easy_surface == 'quiz' %}
+  <div class="contextual-easy-boundary" role="note">
+    <span>Що я можу</span>
+    <p>Спростити умову, пояснити термін, нагадати правило або показати інший схожий приклад. Відповідь за тебе не оберу.</p>
+  </div>
+  {% endif %}
+
+  <div class="contextual-easy-messages" id="contextualEasyMessages" aria-live="polite" aria-relevant="additions text"></div>
+
+  <div class="contextual-easy-quick-actions" id="contextualEasyQuickActions" aria-label="Швидкі підказки">
+    {% if easy_surface == 'quiz' %}
+      <button type="button" data-easy-message="Поясни це завдання простішими словами.">Поясни простіше</button>
+      <button type="button" data-easy-message="Яке загальне правило з уроку тут потрібно пригадати? Не давай відповідь.">Нагадати правило</button>
+      <button type="button" data-easy-message="Покажи схожий приклад з іншими даними, не розв’язуючи моє питання.">Схожий приклад</button>
+    {% else %}
+      <button type="button" data-easy-message="Поясни цей фрагмент простішими словами.">Поясни простіше</button>
+      <button type="button" data-easy-message="Покажи ще один зрозумілий приклад до цього фрагмента.">Інший приклад</button>
+      <button type="button" data-easy-message="Що тут найважливіше запам’ятати для НМТ?">Головна ідея</button>
+    {% endif %}
+  </div>
+
+  <form class="contextual-easy-composer" id="contextualEasyComposer">
+    <label class="sr-only" for="contextualEasyInput">Запитання до Easy</label>
+    <textarea
+      id="contextualEasyInput"
+      rows="1"
+      maxlength="1200"
+      placeholder="{% if easy_surface == 'quiz' %}Що саме незрозуміло в умові?{% else %}Запитай про цей урок{% endif %}"
+      required
+    ></textarea>
+    <button type="submit" id="contextualEasySend" aria-label="Надіслати запитання">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 12 15-7-4 14-3-5-8-2Z"></path><path d="m12 14 7-9"></path></svg>
+    </button>
+  </form>
+</aside>
+<script src="{{ url_for('static', filename='js/contextual_easy.js') }}" defer></script>

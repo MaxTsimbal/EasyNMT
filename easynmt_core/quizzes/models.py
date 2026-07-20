@@ -7,6 +7,7 @@ from typing import Any, Mapping
 
 
 QUESTION_TYPES = frozenset({"choice", "short_text", "long_text"})
+GRADING_MODES = frozenset({"legacy", "choice", "concept", "two_part", "any_valid", "solution", "correction", "verification"})
 
 
 def _text(value: object, field: str, *, maximum: int = 8000) -> str:
@@ -38,6 +39,10 @@ class QuizQuestion:
     keywords: tuple[str, ...]
     explanation: str
     points: int
+    grading_mode: str = "legacy"
+    primary_answers: tuple[str, ...] = ()
+    secondary_answers: tuple[str, ...] = ()
+    feedback_hint: str = "Звір відповідь із правилом уроку й спробуй ще раз."
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "id", _text(self.id, "question.id", maximum=160))
@@ -49,6 +54,11 @@ class QuizQuestion:
         object.__setattr__(self, "accepted_answers", _string_tuple(self.accepted_answers, "question.accepted_answers", allow_empty=True))
         object.__setattr__(self, "keywords", _string_tuple(self.keywords, "question.keywords", allow_empty=True))
         object.__setattr__(self, "explanation", _text(self.explanation, "question.explanation", maximum=8000))
+        if self.grading_mode not in GRADING_MODES:
+            raise ValueError("question.grading_mode is invalid")
+        object.__setattr__(self, "primary_answers", _string_tuple(self.primary_answers, "question.primary_answers", allow_empty=True))
+        object.__setattr__(self, "secondary_answers", _string_tuple(self.secondary_answers, "question.secondary_answers", allow_empty=True))
+        object.__setattr__(self, "feedback_hint", _text(self.feedback_hint, "question.feedback_hint", maximum=2000))
         if isinstance(self.points, bool) or not isinstance(self.points, int) or self.points not in {1, 2, 3}:
             raise ValueError("question.points must be 1, 2, or 3")
         if self.answer_type == "choice":
@@ -75,6 +85,10 @@ class QuizQuestion:
             keywords=tuple(value.get("keywords") or ()),
             explanation=value.get("explanation"),
             points=value.get("points"),
+            grading_mode=value.get("grading_mode", "legacy"),
+            primary_answers=tuple(value.get("primary_answers") or ()),
+            secondary_answers=tuple(value.get("secondary_answers") or ()),
+            feedback_hint=value.get("feedback_hint", "Звір відповідь із правилом уроку й спробуй ще раз."),
         )
 
     def to_dict(self, *, include_answer_key: bool = True) -> dict[str, Any]:
@@ -82,10 +96,16 @@ class QuizQuestion:
         result["options"] = list(self.options)
         result["accepted_answers"] = list(self.accepted_answers)
         result["keywords"] = list(self.keywords)
+        result["primary_answers"] = list(self.primary_answers)
+        result["secondary_answers"] = list(self.secondary_answers)
         if not include_answer_key:
             result.pop("correct_answer")
             result.pop("accepted_answers")
             result.pop("keywords")
+            result.pop("primary_answers")
+            result.pop("secondary_answers")
+            result.pop("feedback_hint")
+            result.pop("grading_mode")
             result.pop("explanation")
         return result
 
@@ -176,6 +196,33 @@ class QuizAttemptDelivery:
             "draft_answers": dict(self.draft_answers),
             "expires_at": self.expires_at,
             "attempt_count": self.attempt_count,
+        }
+
+
+@dataclass(frozen=True)
+class QuizQuestionContext:
+    """Server-validated active question context for restricted Easy help."""
+
+    attempt_token: str
+    quiz: ProductionQuiz
+    question: QuizQuestion
+    question_number: int
+    expires_at: str
+
+    def __post_init__(self) -> None:
+        if not self.attempt_token:
+            raise ValueError("attempt token is required")
+        if not 1 <= int(self.question_number) <= 12:
+            raise ValueError("question number is invalid")
+
+    def to_public_dict(self) -> dict[str, Any]:
+        return {
+            "attempt_token": self.attempt_token,
+            "quiz_id": self.quiz.id,
+            "curriculum_unit_id": self.quiz.curriculum_unit_id,
+            "question_number": self.question_number,
+            "question": self.question.to_dict(include_answer_key=False),
+            "expires_at": self.expires_at,
         }
 
 
