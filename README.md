@@ -21,6 +21,10 @@ and uses only curated lesson material.
 - `tests/` — security, quiz consistency, persistence, API, and route regression
   coverage.
 
+`easynmt_core/progress/` owns server-authoritative curriculum-unit state,
+deterministic prerequisite/checkpoint unlocking, mastery, XP compatibility,
+audit events, and future-UI read models.
+
 SQLite is authoritative for progress, quiz attempts, unlock state, AI history,
 and quotas. Flask's signed session stores identity and lightweight navigation
 state; it is not trusted as the source of XP or completion data.
@@ -78,5 +82,8 @@ The AI engine boundary and extension guide are documented in
 The production mathematics taxonomy, curriculum lifecycle, and Task 3 handoff
 are documented in
 [easynmt_ai/curriculum/README.md](easynmt_ai/curriculum/README.md).
+Curriculum-unit state, unlocking, XP, replacement, authorization, and legacy
+compatibility are documented in
+[easynmt_core/progress/README.md](easynmt_core/progress/README.md).
 The production audit and remaining Beta work are in
 [PRODUCTION_AUDIT_REPORT.md](PRODUCTION_AUDIT_REPORT.md).

@@ -1,9 +1,9 @@
 # Production curriculum engine
 
-This package owns EasyNMT's versioned mathematics-roadmap domain. It is
-deliberately separate from the legacy three-lesson UI catalog: Task 2 creates
-the production curriculum foundation without changing current routes,
-unlocking, progress, quizzes, or XP.
+This package owns EasyNMT's versioned mathematics-roadmap domain. It remains
+separate from the legacy three-lesson UI catalog, while Task 3A now connects a
+published version to dedicated curriculum-unit progress without changing the
+current lesson pages or dashboard.
 
 OpenAI proposes pacing and priority within application-owned constraints. It
 cannot define topics, prerequisites, curriculum identifiers, versions,
@@ -146,8 +146,9 @@ publish another user's curriculum by knowing its ID. Expected provider,
 validation, transition, and database failures use `EngineResult`/`AIError`
 instead of escaping into a Flask request.
 
-The service is initialized in `app.py` but intentionally has no route or UI in
-Task 2.
+The service is initialized in `app.py`. Task 3A adds read/start routes through
+the separate progress service; curriculum generation/publication still has no
+public browser mutation route.
 
 ## Regeneration
 
@@ -167,16 +168,19 @@ triggers use a 24-hour cooldown by default. Context and request fingerprints,
 which include taxonomy, prompt, schema, model, and reason versions, provide
 additional deduplication.
 
-## Future LessonEngine integration
+## Curriculum progress and future LessonEngine integration
 
-Task 3 should consume only units from the owner's `published` curriculum. A
+Task 3A consumes only units from the owner's `published` curriculum. A
 published unit supplies the stable taxonomy topic ID, difficulty, objectives,
 prerequisites, priority, and mastery target needed to construct a lesson
 request. Lesson generation must not mark the unit complete, unlock another
 unit, award XP, or alter curriculum state; those remain transactional Flask and
 SQLite responsibilities.
 
-Before connecting routes, add an explicit mapping from production curriculum
-units to the existing unlocking/progress model or introduce a versioned unit
-progress table. Do not infer completion from AI output or from the legacy
-numeric lesson bridge.
+Publication now initializes the versioned progress tables in the same
+transaction that supersedes the old curriculum. Canonical prerequisite topics
+and checkpoints control unlocks; numeric legacy lesson order does not. The full
+state, migration, XP, concurrency, and authorization policy is documented in
+[`../../easynmt_core/progress/README.md`](../../easynmt_core/progress/README.md).
+Task 3B should issue typed lesson evidence through that service and must not
+infer completion from AI output.

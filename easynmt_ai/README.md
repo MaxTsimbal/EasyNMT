@@ -4,9 +4,10 @@ This package is the intelligence boundary for EasyNMT v1.0 Beta. It provides
 the contracts that future AI-first learning modules use while preserving the
 current Flask, SQLite, and server-rendered application.
 
-Task 1 established the shared infrastructure. Task 2 adds the production
-mathematics curriculum domain and service without connecting it to product
-routes. Lesson, quiz, and grading generation remain architectural contracts.
+Task 1 established the shared infrastructure. Task 2 added the production
+mathematics curriculum domain. Task 3A connects published units to persistent,
+server-authoritative progress and deterministic unlocking. Lesson, quiz, and
+grading generation remain architectural contracts.
 Existing tutor, lesson-chat, and photo-grading behavior continues through the
 same orchestrator.
 
@@ -35,8 +36,11 @@ may import or call it. The boundary is enforced by
 `tests/test_ai_architecture.py`.
 
 Flask and SQLite remain authoritative for authentication, permissions, lesson
-unlocking, quiz finalization, progress, XP, quotas, and persistence. AI output
-is untrusted proposed content until the application validates and accepts it.
+unlocking, quiz finalization, progress, XP, quotas, and persistence. Curriculum
+engines cannot mutate the progress subsystem documented in
+[`../easynmt_core/progress/README.md`](../easynmt_core/progress/README.md). AI
+output is untrusted proposed content until the application validates and accepts
+it.
 
 ## Components
 
