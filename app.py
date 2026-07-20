@@ -1189,6 +1189,24 @@ def restore_attempt_to_session(attempt):
 def get_next_unfinished_lesson_id():
     return get_resume_lesson_id(session.get("subject", "none"))
 
+
+def get_active_curriculum_navigation(subject_key=None):
+    """Return authoritative curriculum navigation for a signed-in subject."""
+
+    user_id = session.get("user_id")
+    selected_subject = subject_key or session.get("subject", "none")
+    if not user_id or selected_subject == "none":
+        return None
+    try:
+        snapshot = curriculum_progress_service.get_active_curriculum_progress(
+            user_id=int(user_id),
+            subject=selected_subject,
+        )
+    except CurriculumProgressNotFound:
+        return None
+    return curriculum_lesson_renderer.navigation_context(snapshot)
+
+
 def get_diagnostic_result(subject_key=None):
     user_id = session.get("user_id")
     subject_key = subject_key or session.get("subject")
@@ -1318,24 +1336,13 @@ def get_user_data():
     attempt_summary = get_quiz_attempt_summary(subject_key)
     journey_complete = completed_count >= lessons_total and lessons_total > 0
 
-    curriculum_navigation = None
-    if session.get("user_id") and subject_key != "none":
-        try:
-            curriculum_snapshot = curriculum_progress_service.get_active_curriculum_progress(
-                user_id=int(session["user_id"]),
-                subject=subject_key,
-            )
-        except CurriculumProgressNotFound:
-            pass
-        else:
-            curriculum_navigation = curriculum_lesson_renderer.navigation_context(
-                curriculum_snapshot
-            )
-            completed_count = curriculum_navigation["completed_count"]
-            lessons_total = curriculum_navigation["total_count"]
-            progress = curriculum_navigation["progress_percent"]
-            journey_complete = curriculum_navigation["journey_complete"]
-            session["progress"] = progress
+    curriculum_navigation = get_active_curriculum_navigation(subject_key)
+    if curriculum_navigation:
+        completed_count = curriculum_navigation["completed_count"]
+        lessons_total = curriculum_navigation["total_count"]
+        progress = curriculum_navigation["progress_percent"]
+        journey_complete = curriculum_navigation["journey_complete"]
+        session["progress"] = progress
 
     return {
         "goal": goal,
@@ -2251,9 +2258,16 @@ def change_subject():
 def switch_subject(subject):
     if subject not in VALID_SUBJECTS:
         abort(404)
+    if set(request.form) - {"_csrf_token", "lesson", "curriculum_unit_id"}:
+        abort(400, description="Некоректний запит на зміну предмета.")
+    requested_lesson = request.form.get("lesson", type=int)
+    requested_curriculum_unit = (
+        request.form.get("curriculum_unit_id", type=str) or ""
+    ).strip() or None
+    if requested_lesson and requested_curriculum_unit:
+        abort(400, description="Обери лише один урок.")
     save_plan_to_db()
     session["subject"] = subject
-    requested_lesson = request.form.get("lesson", type=int)
     session["current_lesson_id"] = requested_lesson or 1
     load_subject_progress_to_session(session["user_id"], subject)
     if requested_lesson:
@@ -2262,6 +2276,46 @@ def switch_subject(subject):
     session.pop("last_total", None)
     save_plan_to_db()
     flash("Предмет змінено. EasyNMT перебудував стартові уроки.", "success")
+
+    curriculum_navigation = get_active_curriculum_navigation(subject)
+    if requested_curriculum_unit and not curriculum_navigation:
+        abort(404)
+    if curriculum_navigation and (requested_curriculum_unit or requested_lesson):
+        target_unit_id = (
+            requested_curriculum_unit
+            or curriculum_navigation["current_unit"]["unit_id"]
+        )
+        target_unit = next(
+            (
+                unit
+                for unit in curriculum_navigation["units"]
+                if unit["unit_id"] == target_unit_id
+            ),
+            None,
+        )
+        if target_unit is None:
+            abort(404)
+        if target_unit["can_start"]:
+            try:
+                curriculum_progress_service.start_curriculum_unit(
+                    user_id=int(session["user_id"]),
+                    curriculum_unit_id=target_unit_id,
+                    subject=subject,
+                )
+            except CurriculumProgressError as error:
+                return curriculum_lesson_error_response(error)
+        elif not target_unit["can_open"]:
+            flash(
+                "Цей урок ще закритий умовами навчального маршруту.",
+                "error",
+            )
+            return redirect(url_for("dashboard"))
+        return redirect(
+            url_for(
+                "curriculum_lesson_page",
+                curriculum_unit_id=target_unit_id,
+            )
+        )
     if requested_lesson and is_lesson_unlocked(session["current_lesson_id"], subject):
         return redirect(url_for("lesson", lesson_id=session["current_lesson_id"]))
     return redirect(url_for("dashboard"))
@@ -2359,6 +2413,21 @@ def mark_lesson_ready(lesson_id):
         return redirect(url_for("goal"))
     if not is_valid_lesson_id(lesson_id):
         abort(404)
+    curriculum_navigation = get_active_curriculum_navigation()
+    if curriculum_navigation:
+        current_unit = curriculum_navigation["current_unit"]
+        if current_unit["can_open"]:
+            return redirect(
+                url_for(
+                    "curriculum_lesson_page",
+                    curriculum_unit_id=current_unit["unit_id"],
+                )
+            )
+        flash(
+            "Цей старий URL замінено персональним навчальним маршрутом. Відкрий доступний урок із кабінету.",
+            "info",
+        )
+        return redirect(url_for("dashboard"))
     lesson_id = normalize_lesson_id(lesson_id)
     if not is_lesson_unlocked(lesson_id):
         abort(403)
@@ -2480,6 +2549,21 @@ def lesson(lesson_id=1):
 
     if not is_valid_lesson_id(lesson_id):
         abort(404)
+    curriculum_navigation = get_active_curriculum_navigation()
+    if curriculum_navigation:
+        current_unit = curriculum_navigation["current_unit"]
+        if current_unit["can_open"]:
+            return redirect(
+                url_for(
+                    "curriculum_lesson_page",
+                    curriculum_unit_id=current_unit["unit_id"],
+                )
+            )
+        flash(
+            "Цей старий URL замінено персональним навчальним маршрутом. Відкрий доступний урок із кабінету.",
+            "info",
+        )
+        return redirect(url_for("dashboard"))
     lesson_id = normalize_lesson_id(lesson_id)
     if not is_lesson_unlocked(lesson_id):
         flash("Спочатку заверши попередній урок. Так нова тема не буде висіти в повітрі.", "error")
@@ -3780,7 +3864,20 @@ def library():
     for key, lessons in LESSON_CATALOG.items():
         if key == "none":
             continue
-        if key == get_subject_key() and user_data.get("curriculum_navigation"):
+        curriculum_navigation = (
+            user_data.get("curriculum_navigation")
+            if key == get_subject_key()
+            else get_active_curriculum_navigation(key)
+        )
+        if key == get_subject_key() and curriculum_navigation:
+            continue
+        if curriculum_navigation:
+            catalog_view.append({
+                "key": key,
+                "name": subject_names.get(key, key),
+                "progress": curriculum_navigation["progress_percent"],
+                "curriculum_navigation": curriculum_navigation,
+            })
             continue
         completed = get_completed_lessons(key)
         catalog_view.append({
@@ -3789,6 +3886,7 @@ def library():
             "lessons": lessons,
             "completed": completed,
             "progress": round((len(completed) / max(1, len(lessons))) * 100),
+            "curriculum_navigation": None,
         })
 
     return render_template("library.html", **user_data, catalog_view=catalog_view)

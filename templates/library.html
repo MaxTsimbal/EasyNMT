@@ -34,6 +34,23 @@
         <span class="score">{{ block.name }}</span>
         <span class="desc">Прогрес: {{ block.progress }}%</span>
         <div class="progress-bar" style="margin:16px 0;"><div class="progress-fill" style="width:{{ block.progress }}%;"></div></div>
+        {% if block.curriculum_navigation %}
+        {% for unit in block.curriculum_navigation.units %}
+            {% if unit.can_open or unit.can_start %}
+            <form method="post" action="{{ url_for('switch_subject', subject=block.key) }}" class="library-lesson-form">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="curriculum_unit_id" value="{{ unit.unit_id }}">
+                <button type="submit" class="mini-lesson-row {% if unit.is_completed %}completed-row{% endif %}">
+                    <span><span class="mini-lesson-title">{% if unit.is_completed %}✅{% else %}○{% endif %} Тема {{ unit.order }}: {{ unit.title }}</span><span class="mini-lesson-meta">{{ unit.status_label }} · структурований AI-урок</span></span><span>→</span>
+                </button>
+            </form>
+            {% else %}
+            <div class="mini-lesson-row is-locked" aria-disabled="true">
+                <span><span class="mini-lesson-title">🔒 Тема {{ unit.order }}: {{ unit.title }}</span><span class="mini-lesson-meta">{{ unit.description }}</span></span>
+            </div>
+            {% endif %}
+        {% endfor %}
+        {% else %}
         {% for lesson in block.lessons %}
         <form method="post" action="{{ url_for('switch_subject', subject=block.key) }}" class="library-lesson-form">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
@@ -43,6 +60,7 @@
             </button>
         </form>
         {% endfor %}
+        {% endif %}
     </div><br>
     {% endfor %}
     <a href="/dashboard"><button>Назад у кабінет</button></a>

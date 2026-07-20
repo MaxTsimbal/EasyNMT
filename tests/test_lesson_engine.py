@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import sqlite3
 import tempfile
 import threading
@@ -620,7 +621,13 @@ class CurriculumLessonApiTests(unittest.TestCase):
         self.assertIn("1. Навчальна мета", html)
         self.assertIn("9. Перехід до перевірки", html)
         self.assertIn("delivery_token", html)
-        self.assertEqual(self.client.get("/lesson/1").status_code, 200)
+        legacy_url = self.client.get("/lesson/1")
+        self.assertEqual(legacy_url.status_code, 302)
+        self.assertTrue(
+            legacy_url.headers["Location"].endswith(
+                f"/curriculum/units/{self.unit_id}/lesson"
+            )
+        )
 
     def test_dashboard_starts_available_unit_then_opens_production_lesson(self):
         dashboard = self.client.get("/dashboard")
@@ -628,7 +635,8 @@ class CurriculumLessonApiTests(unittest.TestCase):
         html = dashboard.get_data(as_text=True)
         start_path = f"/curriculum/units/{self.unit_id}/start"
         self.assertIn(f'action="{start_path}"', html)
-        self.assertNotIn('href="/lesson/1"', html)
+        self.assertNotIn('href="/lesson/', html)
+        self.assertNotIn('action="/lesson/', html)
 
         self.assertEqual(self.client.post(start_path).status_code, 400)
         started = self.client.post(
@@ -658,7 +666,54 @@ class CurriculumLessonApiTests(unittest.TestCase):
                 self.assertEqual(response.status_code, 200)
                 html = response.get_data(as_text=True)
                 self.assertIn(production_path, html)
-                self.assertNotIn('href="/lesson/1"', html)
+                self.assertNotIn('href="/lesson/', html)
+                self.assertNotIn('action="/lesson/', html)
+
+    def test_legacy_library_subject_switch_resolves_to_active_curriculum(self):
+        switched = self.client.post(
+            "/switch-subject/math",
+            data={"_csrf_token": self.csrf_token, "lesson": "1"},
+        )
+        self.assertEqual(switched.status_code, 302)
+        self.assertTrue(
+            switched.headers["Location"].endswith(
+                f"/curriculum/units/{self.unit_id}/lesson"
+            )
+        )
+        self.assertNotIn("/lesson/1", switched.headers["Location"])
+        snapshot = self.app_module.curriculum_progress_service.get_active_curriculum_progress(
+            user_id=self.user_id,
+            subject="math",
+        )
+        self.assertEqual(snapshot.units[0].state, CurriculumUnitState.IN_PROGRESS)
+
+    def test_clicking_active_dashboard_lesson_link_resolves_to_production_route(self):
+        self.start_unit()
+        dashboard = self.client.get("/dashboard")
+        self.assertEqual(dashboard.status_code, 200)
+        match = re.search(
+            r'<a class="dashboard-level-card[^"]*\bcurrent\b[^"]*" href="([^"]+)"',
+            dashboard.get_data(as_text=True),
+        )
+        self.assertIsNotNone(match)
+        clicked_url = match.group(1)
+        self.assertEqual(
+            clicked_url,
+            f"/curriculum/units/{self.unit_id}/lesson",
+        )
+        self.assertFalse(clicked_url.startswith("/lesson/"))
+
+        gateway = FakeGateway(ai_response(valid_lesson_proposal(competency_count=2)))
+        original_gateway = self.app_module.ai_orchestrator._gateway
+        self.app_module.ai_orchestrator._gateway = gateway
+        try:
+            clicked = self.client.get(clicked_url, follow_redirects=True)
+        finally:
+            self.app_module.ai_orchestrator._gateway = original_gateway
+        self.assertEqual(clicked.status_code, 200)
+        self.assertEqual(clicked.request.path, clicked_url)
+        self.assertEqual(clicked.history, ())
+        self.assertIn("9. Перехід до перевірки", clicked.get_data(as_text=True))
 
     def test_production_navigation_calls_delivery_service_and_passes_typed_lesson(self):
         self.start_unit()
