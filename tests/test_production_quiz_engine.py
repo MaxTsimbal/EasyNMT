@@ -648,6 +648,74 @@ class HumanAnswerGradingHotfixTests(unittest.TestCase):
         self.assertEqual(earned, 2)
         self.assertFalse(correct)
 
+    def test_rubric_question_accepts_numbered_parts_on_one_line(self):
+        question = self.question(
+            mode="rubric",
+            points=3,
+            correct="studies\nwas taking\nvisited",
+            scoring_parts=(("studies",), ("was taking",), ("visited",)),
+        )
+        earned, correct, feedback, _ = CurriculumQuizService._grade(
+            question,
+            "1) studies 2) was taking 3) visited",
+        )
+        self.assertEqual(earned, 3)
+        self.assertTrue(correct)
+        self.assertIn("Усі 3 частини правильні", feedback)
+
+    def test_rubric_question_accepts_comma_separated_parts(self):
+        question = self.question(
+            mode="rubric",
+            points=3,
+            correct="studies\nwas taking\nvisited",
+            scoring_parts=(("studies",), ("was taking",), ("visited",)),
+        )
+        earned, correct, _, _ = CurriculumQuizService._grade(
+            question,
+            "studies, was taking, visited",
+        )
+        self.assertEqual(earned, 3)
+        self.assertTrue(correct)
+
+    def test_rubric_feedback_explains_each_wrong_part(self):
+        question = self.question(
+            mode="rubric",
+            points=3,
+            correct="is studying\nDoes he usually study\nworks",
+            scoring_parts=(("is studying",), ("Does he usually study",), ("works",)),
+        )
+        earned, correct, feedback, _ = CurriculumQuizService._grade(
+            question,
+            "1)is studing 2)Does he usually study 3)school",
+        )
+        self.assertEqual(earned, 1)
+        self.assertFalse(correct)
+        self.assertIn("1. ❌ is studing", feedback)
+        self.assertIn("2. ✅ Does he usually study", feedback)
+        self.assertIn("Правильно: is studying", feedback)
+        self.assertIn("Правильно: works", feedback)
+
+    def test_rubric_regression_accepts_one_line_numbering_and_article_variant(self):
+        question = self.question(
+            mode="rubric",
+            points=3,
+            correct="They are not waiting for the bus now.\nAre they waiting for the bus now?\nHe goes to the gym twice a week.",
+            scoring_parts=(
+                ("They are not waiting for the bus now.",),
+                ("Are they waiting for the bus now?",),
+                ("He goes to the gym twice a week.",),
+            ),
+        )
+        earned, correct, feedback, _ = CurriculumQuizService._grade(
+            question,
+            "1)They are not waiting for a bus now 2)Are they waiting for the bus now? 3)He goes to school twice a week",
+        )
+        self.assertEqual(earned, 2)
+        self.assertFalse(correct)
+        self.assertIn("1. ✅", feedback)
+        self.assertIn("2. ✅", feedback)
+        self.assertIn("Правильно: He goes to the gym twice a week.", feedback)
+
     def test_builder_uses_concrete_final_questions(self):
         payload = valid_lesson_proposal(competency_count=2)
         payload.update({

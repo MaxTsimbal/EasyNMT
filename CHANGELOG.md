@@ -1,5 +1,30 @@
 # EasyNMT Changelog
 
+## Task 3D.2 — Lesson Generation Loader (2026-07-21)
+
+- Added a dedicated full-screen loading scene when a curriculum lesson is opened or generated.
+- Shows the lesson topic and three truthful stages: route analysis, explanation/example preparation, and final validation.
+- Added a slow estimated progress indicator that stops below 100% instead of pretending to know server progress.
+- Added clear 20–30 second guidance and longer-wait messages so the site no longer looks frozen.
+- Prevents repeated clicks by keeping the loading overlay interactive-blocking until navigation finishes.
+- Supports direct lesson links, start-unit forms, subject-switch forms, Dashboard, Today, Library, Planner, and next-topic actions.
+- Added responsive mobile styling and reduced-motion support.
+- Added four regression tests for loader markup, route detection, truthful progress, and accessibility behavior.
+- Verified the integrated project with 149 automated tests.
+
+## Task 3D.1 — Grading Clarity & Compact Quiz UI (2026-07-21)
+
+- Fixed false 0/3 and 1/3 results when three answers were written on one line with `1)`, `2)`, `3)`.
+- Added safe parsing for new lines, semicolons, pipes, commas, and numbered one-line answers.
+- Kept rubric grading positional so one repeated answer cannot earn points for multiple parts.
+- Made rubric form checking strict enough to catch spelling and verb-form mistakes while ignoring harmless `a/an/the` differences.
+- Replaced vague partial-credit messages with a per-part breakdown showing what was accepted, what was wrong, and the correct form.
+- Updated the quiz instructions so learners are not forced to use three separate lines.
+- Reduced the height of the sticky progress panel, question navigation, level legend, and final submit panel.
+- Kept the final submit panel attached to the bottom while making it less obstructive on desktop and mobile.
+- Added regression coverage for the exact failures shown in production screenshots.
+- Verified the integrated project with 145 automated tests.
+
 ## Task 3D — Production Exam Engine (2026-07-21)
 
 - Rebuilt all 12 English curriculum assessments around practical exam exercises.

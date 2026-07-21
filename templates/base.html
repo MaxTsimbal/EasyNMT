@@ -22,7 +22,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='0999-keyboard-dock-final') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='task3d2-lesson-loader') }}">
     <script>
     (() => {
         const token = document.querySelector('meta[name="csrf-token"]')?.content || '';
@@ -65,10 +65,19 @@
             <img class="page-loader-mascot" src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
         </div>
         <div class="page-loader-copy">
-            <strong>Завантажуємо Easy<span>NMT</span></strong>
-            <p>Готуємо для тебе найкращий досвід…</p>
+            <strong id="pageLoaderTitle">Завантажуємо Easy<span>NMT</span></strong>
+            <p id="pageLoaderMessage">Готуємо для тебе найкращий досвід…</p>
         </div>
-        <div class="page-loader-progress" aria-hidden="true"><span></span></div>
+        <div class="lesson-generation-status" id="lessonGenerationStatus" hidden>
+            <div class="lesson-generation-topic" id="lessonGenerationTopic"></div>
+            <ol class="lesson-generation-steps" aria-label="Етапи створення уроку">
+                <li data-loader-step="0"><span></span><b>Аналізуємо тему та твій маршрут</b></li>
+                <li data-loader-step="1"><span></span><b>Готуємо пояснення й приклади</b></li>
+                <li data-loader-step="2"><span></span><b>Перевіряємо урок перед показом</b></li>
+            </ol>
+            <small id="lessonGenerationHint">Зазвичай це займає 20–30 секунд.</small>
+        </div>
+        <div class="page-loader-progress" aria-hidden="true"><span id="pageLoaderProgressFill"></span></div>
     </div>
 </div>
 <header class="site-header" id="siteHeader">
@@ -184,7 +193,7 @@
 {% endif %}
 <script src="{{ url_for('static', filename='js/main.js', v='0999-keyboard-dock-final') }}"></script>
 <script src="{{ url_for('static', filename='js/animations.js', v='0999-chat-mobile-stream-final') }}" defer></script>
-<script src="{{ url_for('static', filename='js/page_transitions.js', v='0999-chat-mobile-stream-final') }}" defer></script>
+<script src="{{ url_for('static', filename='js/page_transitions.js', v='task3d2-lesson-loader') }}" defer></script>
 {% block extra_js %}{% endblock %}
 </body>
 </html>

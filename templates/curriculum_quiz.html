@@ -93,7 +93,7 @@
       <div class="written-answer-wrap exam-written-wrap">
         <div class="paper-task-box exam-parts-box">
           <div class="paper-task-icon">3×</div>
-          <div><b>Три маленькі завдання</b><p>Пиши кожну відповідь з нового рядка. Кожен правильний рядок дає 1 бал.</p></div>
+          <div><b>Три маленькі завдання</b><p>Можна писати з нового рядка або так: 1) … 2) … 3) …. Кожна правильна частина дає 1 бал.</p></div>
         </div>
         <textarea name="answer_{{ question.id }}" class="written-answer written-answer-large exam-written-answer" rows="6" maxlength="8000" placeholder="{{ question.input_placeholder or '1) ...\n2) ...\n3) ...' }}" required>{{ quiz_draft_answers.get(question.id, '') }}</textarea>
       </div>
@@ -104,7 +104,7 @@
     <div class="quiz-submit-panel goal-card premium exam-submit-panel">
       <div>
         <b>Фінішна перевірка</b>
-        <p><span data-answered-count>0</span>/12 заповнено. Переконайся, що в завданнях на 3 бали є три окремі рядки.</p>
+        <p><span data-answered-count>0</span>/12 заповнено. У завданнях на 3 бали перевір усі три частини.</p>
       </div>
       <button class="primary-action" type="submit">Завершити тест</button>
     </div>

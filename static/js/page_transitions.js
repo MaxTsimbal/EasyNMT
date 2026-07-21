@@ -61,6 +61,136 @@
     };
 
     let loaderTimer = 0;
+    let lessonProgressTimer = 0;
+    let lessonStartedAt = 0;
+
+    const loaderParts = () => ({
+        loader: document.getElementById("pageLoader"),
+        title: document.getElementById("pageLoaderTitle"),
+        message: document.getElementById("pageLoaderMessage"),
+        status: document.getElementById("lessonGenerationStatus"),
+        topic: document.getElementById("lessonGenerationTopic"),
+        hint: document.getElementById("lessonGenerationHint"),
+        fill: document.getElementById("pageLoaderProgressFill")
+    });
+
+    const lessonRoutePattern = /^\/curriculum\/units\/[^/]+\/(?:start|lesson)$/;
+
+    const elementLessonTitle = (element) => {
+        const explicit = element?.dataset?.lessonTitle || element?.closest?.("[data-lesson-title]")?.dataset?.lessonTitle;
+        if (explicit?.trim()) return explicit.trim();
+
+        const directTitleNode = element?.querySelector?.("h2, .mini-lesson-title, .level-copy h2, strong, .score");
+        if (directTitleNode?.textContent?.trim()) {
+            return directTitleNode.textContent.replace(/^○\s*/, "").trim();
+        }
+
+        const container = element?.closest?.(
+            ".dashboard-clean-next, .level-card, .mini-lesson-row, .planner-row, .dashboard-level-card, .goal-card"
+        );
+        const titleNode = container?.querySelector?.("h2, .mini-lesson-title, strong, .score");
+        return titleNode?.textContent?.replace(/^○\s*/, "").trim() || "";
+    };
+
+    const isLessonNavigation = (destination, element) => {
+        if (element?.dataset?.lessonLoading !== undefined || element?.closest?.("[data-lesson-loading]")) {
+            return true;
+        }
+
+        const path = normalizePath(destination);
+        if (lessonRoutePattern.test(path)) return true;
+
+        if (element instanceof HTMLFormElement) {
+            return Boolean(element.querySelector("input[name='curriculum_unit_id']"));
+        }
+
+        return false;
+    };
+
+    const resetLessonLoader = () => {
+        window.clearInterval(lessonProgressTimer);
+        lessonProgressTimer = 0;
+        lessonStartedAt = 0;
+
+        const { loader, title, message, status, topic, hint, fill } = loaderParts();
+        loader?.classList.remove("lesson-generation-mode");
+        if (title) title.innerHTML = "Завантажуємо Easy<span>NMT</span>";
+        if (message) message.textContent = "Готуємо для тебе найкращий досвід…";
+        if (status) status.hidden = true;
+        if (topic) topic.textContent = "";
+        if (hint) hint.textContent = "Зазвичай це займає 20–30 секунд.";
+        if (fill) {
+            fill.style.width = "";
+            fill.style.transform = "";
+        }
+        loader?.querySelectorAll("[data-loader-step]").forEach((step) => {
+            step.classList.remove("is-active", "is-complete");
+        });
+    };
+
+    const updateLessonLoader = () => {
+        const { loader, message, hint, fill } = loaderParts();
+        if (!loader?.classList.contains("lesson-generation-mode") || !lessonStartedAt) return;
+
+        const elapsedSeconds = Math.max(0, (Date.now() - lessonStartedAt) / 1000);
+        const stepIndex = elapsedSeconds < 7 ? 0 : elapsedSeconds < 20 ? 1 : 2;
+        const messages = [
+            "Easy аналізує тему та підлаштовує урок під твій маршрут.",
+            "Збираємо зрозуміле пояснення, приклади й типові помилки.",
+            "Фінально перевіряємо структуру уроку перед показом."
+        ];
+
+        if (message) message.textContent = messages[stepIndex];
+
+        loader.querySelectorAll("[data-loader-step]").forEach((step, index) => {
+            step.classList.toggle("is-complete", index < stepIndex);
+            step.classList.toggle("is-active", index === stepIndex);
+        });
+
+        // This is intentionally an estimated visual indicator, not a fake exact percentage.
+        const estimatedProgress = Math.min(92, 12 + elapsedSeconds * 2.65);
+        if (fill) fill.style.width = `${estimatedProgress}%`;
+
+        if (hint) {
+            if (elapsedSeconds < 30) {
+                hint.textContent = "Зазвичай це займає 20–30 секунд. Сторінка працює, не закривай її.";
+            } else if (elapsedSeconds < 50) {
+                hint.textContent = "Урок майже готовий. Іноді генерація займає трохи довше.";
+            } else {
+                hint.textContent = "Easy ще працює над уроком. Дочекайся завершення й не натискай кнопку повторно.";
+            }
+        }
+    };
+
+    const prepareLessonLoader = (element) => {
+        const { loader, title, message, status, topic, fill } = loaderParts();
+        if (!loader) return;
+
+        loader.classList.add("lesson-generation-mode");
+        if (title) title.textContent = "Створюємо твій урок";
+        if (message) message.textContent = "Easy аналізує тему та підлаштовує урок під твій маршрут.";
+        if (status) status.hidden = false;
+
+        const lessonTitle = elementLessonTitle(element);
+        if (topic) {
+            topic.textContent = lessonTitle ? `Тема: ${lessonTitle}` : "Персональний AI-урок";
+        }
+
+        loader.querySelectorAll("[data-loader-step]").forEach((step, index) => {
+            step.classList.toggle("is-active", index === 0);
+            step.classList.remove("is-complete");
+        });
+
+        if (fill) {
+            fill.style.transform = "none";
+            fill.style.width = "12%";
+        }
+
+        lessonStartedAt = Date.now();
+        window.clearInterval(lessonProgressTimer);
+        lessonProgressTimer = window.setInterval(updateLessonLoader, 900);
+        updateLessonLoader();
+    };
 
     const showLoader = () => {
         const loader = document.getElementById("pageLoader");
@@ -82,6 +212,7 @@
         loader?.classList.add("hidden");
         loader?.setAttribute("aria-hidden", "true");
         body.classList.remove("easy-transition-loading");
+        resetLessonLoader();
     };
 
     const closeTransientUi = () => {
@@ -120,9 +251,11 @@
         event.preventDefault();
         closeTransientUi();
         saveTransition(inferTransition(destination.href, link));
+        resetLessonLoader();
+        if (isLessonNavigation(destination.href, link)) prepareLessonLoader(link);
         scheduleLoader();
 
-        // Navigation starts immediately. There is no artificial blue-screen delay.
+        // Navigation starts immediately. There is no artificial delay.
         window.location.assign(destination.href);
     });
 
@@ -134,6 +267,8 @@
         const submitter = event.submitter;
         const type = submitter?.dataset?.transition || form.dataset.transition || "enter";
         saveTransition(allowedTypes.has(type) ? type : "enter");
+        resetLessonLoader();
+        if (isLessonNavigation(form.action || window.location.href, form)) prepareLessonLoader(form);
         scheduleLoader();
         // Native validation and submission remain untouched.
     }, true);
@@ -143,5 +278,8 @@
         cancelLoader();
     });
 
-    window.addEventListener("pagehide", () => window.clearTimeout(loaderTimer));
+    window.addEventListener("pagehide", () => {
+        window.clearTimeout(loaderTimer);
+        window.clearInterval(lessonProgressTimer);
+    });
 })();

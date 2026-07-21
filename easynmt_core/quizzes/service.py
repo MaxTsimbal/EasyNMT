@@ -250,6 +250,106 @@ class CurriculumQuizService:
     def _hit_count(cls, answer: str, references, *, threshold: float = 0.58) -> int:
         return sum(1 for item in references if cls._similarity(answer, item) >= threshold)
 
+    @staticmethod
+    def _clean_rubric_segment(value: object) -> str:
+        return re.sub(r"^\s*(?:[-•]|\(?\d{1,2}\)?\s*[).:\-])\s*", "", str(value or "")).strip(" \t,;|")
+
+    @classmethod
+    def _split_rubric_answer(cls, answer: str, expected_count: int) -> list[str]:
+        """Split multi-part answers without punishing harmless formatting choices.
+
+        Learners may use new lines, semicolons, commas, pipes, or write all
+        numbered parts in one line, for example: ``1) goes 2) studied 3) was``.
+        The order is still preserved because each rubric part is positional.
+        """
+        clean = str(answer or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+        if not clean:
+            return []
+
+        numbered_pattern = re.compile(r"(?<!\w)\(?([1-9]|1[0-2])\)?\s*[).:\-]\s*")
+        markers = list(numbered_pattern.finditer(clean))
+        if len(markers) >= 2:
+            numbered: list[str] = []
+            for index, marker in enumerate(markers):
+                end = markers[index + 1].start() if index + 1 < len(markers) else len(clean)
+                segment = cls._clean_rubric_segment(clean[marker.end():end])
+                if segment:
+                    numbered.append(segment)
+            if numbered:
+                return numbered[:expected_count]
+
+        separated = [
+            cls._clean_rubric_segment(item)
+            for item in re.split(r"\n+|[;|]+", clean)
+            if cls._clean_rubric_segment(item)
+        ]
+        if len(separated) >= 2:
+            return separated[:expected_count]
+
+        comma_separated = [
+            cls._clean_rubric_segment(item)
+            for item in clean.split(",")
+            if cls._clean_rubric_segment(item)
+        ]
+        if len(comma_separated) == expected_count:
+            return comma_separated
+
+        return [cls._clean_rubric_segment(clean)]
+
+    @staticmethod
+    def _rubric_form(value: object) -> str:
+        # Ignore only harmless article differences. Keep auxiliaries and verb
+        # spelling strict because each rubric part is worth a full point.
+        return " ".join(
+            token for token in _normalize(value).split()
+            if token not in {"a", "an", "the"}
+        )
+
+    @classmethod
+    def _best_reference(cls, candidate: str, alternatives) -> tuple[str, float]:
+        candidate_form = cls._rubric_form(candidate)
+        scored = []
+        for reference in alternatives:
+            reference_text = str(reference).strip()
+            if not reference_text:
+                continue
+            reference_form = cls._rubric_form(reference_text)
+            score = 1.0 if candidate_form == reference_form and candidate_form else SequenceMatcher(
+                None, candidate_form, reference_form
+            ).ratio()
+            scored.append((reference_text, score))
+        return max(scored, key=lambda item: item[1], default=("", 0.0))
+
+    @classmethod
+    def _rubric_feedback(cls, segments: list[str], scoring_parts) -> tuple[int, str]:
+        earned = 0
+        lines: list[str] = []
+        for index, alternatives in enumerate(scoring_parts, start=1):
+            candidate = segments[index - 1] if index <= len(segments) else ""
+            reference, similarity = cls._best_reference(candidate, alternatives)
+            if similarity >= 0.98:
+                earned += 1
+                lines.append(f"{index}. ✅ {candidate}")
+                continue
+
+            shown = candidate or "відповіді немає"
+            if not candidate:
+                reason = "Цю частину пропущено."
+            elif SequenceMatcher(None, _normalize(candidate), _normalize(reference)).ratio() >= 0.58:
+                reason = "Майже правильно, але перевір написання, форму слова або порядок слів."
+            else:
+                reason = "Відповідь не відповідає цій частині завдання."
+            lines.append(f"{index}. ❌ {shown}\n   {reason}\n   Правильно: {reference}")
+
+        total = len(scoring_parts)
+        if earned == total:
+            heading = f"Усі {total} частини правильні."
+        elif earned:
+            heading = f"Зараховано {earned} з {total} частин."
+        else:
+            heading = f"Поки не зараховано жодної з {total} частин."
+        return earned, heading + "\n" + "\n".join(lines)
+
     @classmethod
     def _grade(cls, question: QuizQuestion, raw_answer: object) -> tuple[int, bool, str, str]:
         answer = str(raw_answer or "").strip()[:8000]
@@ -270,6 +370,7 @@ class CurriculumQuizService:
         primary_hits = cls._hit_count(answer, primary)
         secondary_hits = cls._hit_count(answer, secondary)
         mode = question.grading_mode
+        custom_feedback = ""
 
         if mode == "legacy":
             required = {_normalize(item) for item in question.keywords if _normalize(item)}
@@ -309,19 +410,10 @@ class CurriculumQuizService:
             else:
                 earned = 0
         elif mode == "rubric":
-            # Multi-part exam tasks award one point per independently visible
-            # line. Positional matching prevents one repeated word from being
-            # counted for two different blanks.
-            segments = [
-                re.sub(r"^\s*(?:[-•]|\d+[).:-]?)\s*", "", item).strip()
-                for item in re.split(r"[\n;]+", answer)
-                if item.strip()
-            ]
-            earned = 0
-            for index, alternatives in enumerate(question.scoring_parts):
-                candidate = segments[index] if index < len(segments) else ""
-                if cls._best_similarity(candidate, alternatives) >= 0.72:
-                    earned += 1
+            # Each part is graded independently, but formatting is flexible:
+            # new lines, semicolons, commas and one-line numbering are accepted.
+            segments = cls._split_rubric_answer(answer, len(question.scoring_parts))
+            earned, custom_feedback = cls._rubric_feedback(segments, question.scoring_parts)
         elif mode == "solution":
             final_is_present = primary_score >= 0.72 or accepted_score >= 0.9
             answer_token_set = set(cls._semantic_tokens(answer))
@@ -350,7 +442,9 @@ class CurriculumQuizService:
             earned = 0
 
         earned = max(0, min(question.points, int(earned)))
-        if earned == question.points:
+        if custom_feedback:
+            feedback = custom_feedback
+        elif earned == question.points:
             feedback = "Правильно. " + question.explanation
         elif earned > 0:
             feedback = f"Є правильна частина, за неї нараховано {earned} з {question.points}. {question.feedback_hint}"
