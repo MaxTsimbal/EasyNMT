@@ -7,6 +7,7 @@
     <span class="eyebrow">Помилка {{ status }}</span>
     <h1>{{ title }}</h1>
     <p>{{ message }}</p>
+    {% if request_id %}<p class="muted" style="font-size:.82rem">Код запиту: <code>{{ request_id }}</code></p>{% endif %}
     <a class="button button-primary" href="{{ url_for('dashboard') if is_logged_in and has_plan else url_for('home') }}">Повернутися</a>
   </article>
 </section>

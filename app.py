@@ -6,12 +6,13 @@ import re
 import secrets
 import sqlite3
 import time
+import tempfile
 import uuid
 from datetime import date as dt_date, datetime, timedelta, timezone
 from functools import wraps
 
 import click
-from flask import Flask, Response, abort, flash, jsonify, redirect, render_template, request, send_file, session, stream_with_context, url_for
+from flask import Flask, Response, abort, flash, g, jsonify, redirect, render_template, request, send_file, session, stream_with_context, url_for
 from flask.cli import AppGroup
 from dotenv import load_dotenv
 
@@ -39,8 +40,18 @@ from easynmt_ai import (
     CurriculumService,
     LessonEngine,
     LearningContext,
+    WrittenAnswerGradingEngine,
+    FinalSolutionGradingEngine,
+    build_execution_plan,
+    build_learner_memory,
 )
-from easynmt_ai.attachments import AttachmentError, normalize_attachment_ids, save_image_upload
+from easynmt_ai.attachments import (
+    AttachmentError,
+    delete_attachment,
+    normalize_attachment_ids,
+    save_image_upload,
+    save_quiz_solution_upload,
+)
 from easynmt_ai.curriculum import LEGACY_MATH_LESSON_TOPIC_MAP, load_taxonomy
 from easynmt_core.contextual_easy import (
     answer_leaks_quiz_key,
@@ -62,12 +73,16 @@ from easynmt_core.progress import (
     CurriculumUnitState,
 )
 from easynmt_core.quizzes import (
+    CurriculumQuizAnswersIncomplete,
     CurriculumQuizConflict,
     CurriculumQuizError,
     CurriculumQuizNotAvailable,
     CurriculumQuizNotFound,
     CurriculumQuizOwnershipError,
     CurriculumQuizPersistenceError,
+    CurriculumQuizPhotoError,
+    CurriculumQuizPhotoUnreadable,
+    CurriculumQuizPhotoUnavailable,
     CurriculumQuizRepository,
     CurriculumQuizService,
     CurriculumQuizSessionInvalid,
@@ -85,6 +100,12 @@ from easynmt_core.curriculum_bootstrap import (
 
 from google_oauth import build_authorization_url, credentials_status, exchange_callback
 from easynmt_core.health import health_bp
+from easynmt_core.beta_readiness import (
+    BetaReadinessService,
+    RELEASE_VERSION,
+    SQLiteBackupError,
+    SQLiteBackupManager,
+)
 
 
 app = Flask(__name__)
@@ -104,7 +125,19 @@ DB_PATH = os.environ.get("EASYNMT_DB_PATH", os.path.join(PERSISTENT_DIR, "users.
 os.makedirs(os.path.dirname(DB_PATH) or BASE_DIR, exist_ok=True)
 UPLOAD_DIR = os.path.join(PERSISTENT_DIR, "solution_uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
-app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024
+QUIZ_SOLUTION_UPLOAD_DIR = os.path.join(tempfile.gettempdir(), "easynmt_quiz_solution_uploads")
+os.makedirs(QUIZ_SOLUTION_UPLOAD_DIR, exist_ok=True)
+BACKUP_DIR = os.environ.get("EASYNMT_BACKUP_DIR", os.path.join(PERSISTENT_DIR, "backups"))
+os.makedirs(BACKUP_DIR, exist_ok=True)
+app.config.update(
+    DATABASE_PATH=DB_PATH,
+    PERSISTENT_DIR=PERSISTENT_DIR,
+    BACKUP_DIR=BACKUP_DIR,
+)
+app.config["MAX_CONTENT_LENGTH"] = max(
+    8 * 1024 * 1024,
+    int(app.config.get("QUIZ_SOLUTION_PHOTO_MAX_BYTES", 6 * 1024 * 1024)) + 512 * 1024,
+)
 VALID_GOALS = frozenset({"150", "170", "190", "200"})
 VALID_SUBJECTS = frozenset(ACTIVE_SUBJECT_KEYS)
 VALID_TIME_LEFT = frozenset({"1-month", "2-months", "3-plus", "6-plus"})
@@ -407,9 +440,23 @@ curriculum_lesson_service = CurriculumLessonService(
 curriculum_lesson_renderer = CurriculumLessonRenderer()
 curriculum_quiz_repository = CurriculumQuizRepository(DB_PATH)
 curriculum_quiz_repository.ensure_schema()
+written_answer_grader = WrittenAnswerGradingEngine(
+    ai_orchestrator,
+    model=app.config["OPENAI_GRADING_MODEL"],
+    max_output_tokens=app.config["OPENAI_WRITTEN_GRADING_MAX_OUTPUT_TOKENS"],
+    enabled=app.config["OPENAI_WRITTEN_GRADING_ENABLED"],
+)
+final_solution_grader = FinalSolutionGradingEngine(
+    ai_orchestrator,
+    model=app.config["OPENAI_FINAL_SOLUTION_MODEL"],
+    max_output_tokens=app.config["OPENAI_FINAL_SOLUTION_MAX_OUTPUT_TOKENS"],
+    enabled=app.config["OPENAI_FINAL_SOLUTION_ENABLED"],
+)
 curriculum_quiz_service = CurriculumQuizService(
     curriculum_quiz_repository,
     curriculum_progress_service,
+    written_grader=written_answer_grader,
+    final_solution_grader=final_solution_grader,
     logger=app.logger,
 )
 curriculum_engines = {
@@ -441,7 +488,29 @@ curriculum_bootstrap_service = DevelopmentCurriculumBootstrapService(
 vision_grader = VisionGradingEngine(ai_orchestrator)
 AI_UPLOAD_DIR = os.path.join(PERSISTENT_DIR, "ai_uploads")
 os.makedirs(AI_UPLOAD_DIR, exist_ok=True)
-app.config["DATABASE_PATH"] = DB_PATH
+
+beta_backup_manager = SQLiteBackupManager(
+    DB_PATH,
+    BACKUP_DIR,
+    retention_count=app.config["BACKUP_RETENTION_COUNT"],
+    release_version=app.config["APP_VERSION"],
+)
+beta_readiness_service = BetaReadinessService(app.config)
+app.extensions["easynmt_backup_manager"] = beta_backup_manager
+app.extensions["easynmt_beta_readiness"] = beta_readiness_service
+if app.config["AUTO_BACKUP_ENABLED"]:
+    try:
+        created_backup = beta_backup_manager.ensure_recent_backup(
+            max_age_hours=app.config["BACKUP_INTERVAL_HOURS"],
+            reason="startup",
+        )
+        if created_backup:
+            app.logger.info(
+                "Created verified startup backup: file=%s",
+                created_backup["backup_filename"],
+            )
+    except SQLiteBackupError:
+        app.logger.exception("Automatic startup backup failed")
 
 
 curriculum_cli = AppGroup("curriculum", help="Inspect or provision curricula.")
@@ -528,6 +597,82 @@ def curriculum_bootstrap_command(user_ids, subjects, all_subjects, allow_product
 app.cli.add_command(curriculum_cli)
 
 
+beta_cli = AppGroup("beta", help="Verify and protect the EasyNMT v1.0 Beta deployment.")
+
+
+@beta_cli.command("check")
+@click.option("--strict", is_flag=True, help="Treat warnings as release blockers.")
+def beta_check_command(strict):
+    """Run deterministic production-readiness checks without external API calls."""
+
+    report = beta_readiness_service.run()
+    click.echo(f"release={report.release_version} channel={report.release_channel}")
+    for check in report.checks:
+        click.echo(f"{check.status.upper():4} {check.key}: {check.message}")
+    click.echo(
+        f"status={'ready' if report.ready else 'not_ready'} "
+        f"warnings={report.warnings} failures={report.failures}"
+    )
+    if not report.ready or (strict and not report.strict_ready):
+        raise click.ClickException("EasyNMT beta readiness check failed")
+
+
+@beta_cli.command("backup")
+@click.option("--reason", default="manual", show_default=True, help="Short backup reason.")
+def beta_backup_command(reason):
+    """Create and verify a consistent SQLite backup on the persistent volume."""
+
+    try:
+        result = beta_backup_manager.create_backup(reason=reason)
+    except SQLiteBackupError as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(f"backup={result['backup_filename']}")
+    click.echo(f"size_bytes={result['size_bytes']}")
+    click.echo(f"sha256={result['sha256']}")
+    click.echo("verified=true")
+
+
+@beta_cli.command("verify-backup")
+@click.argument("backup_path", type=click.Path(exists=True, dir_okay=False, path_type=str))
+def beta_verify_backup_command(backup_path):
+    """Verify a backup before any manual restore operation."""
+
+    try:
+        result = beta_backup_manager.verify_backup(backup_path)
+    except SQLiteBackupError as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(f"backup={result['path']}")
+    click.echo(f"size_bytes={result['size_bytes']}")
+    click.echo(f"sha256={result['sha256']}")
+    click.echo("verified=true")
+
+
+@beta_cli.command("smoke")
+def beta_smoke_command():
+    """Exercise public routes through Flask without creating learner data."""
+
+    expected = {
+        "/health": 200,
+        "/ready": 200,
+        "/": 200,
+        "/register": 200,
+        "/auth/google/status": 200,
+    }
+    failures = []
+    with app.test_client() as client:
+        for path, expected_status in expected.items():
+            response = client.get(path)
+            click.echo(f"{response.status_code} {path}")
+            if response.status_code != expected_status:
+                failures.append(f"{path} returned {response.status_code}")
+    if failures:
+        raise click.ClickException("; ".join(failures))
+    click.echo("smoke=passed")
+
+
+app.cli.add_command(beta_cli)
+
+
 def current_user_name():
     return session.get("user_name")
 
@@ -542,6 +687,15 @@ def csrf_token():
         token = secrets.token_urlsafe(32)
         session["_csrf_token"] = token
     return token
+
+
+@app.before_request
+def assign_request_id():
+    supplied = request.headers.get("X-Request-ID", "").strip()
+    if supplied and re.fullmatch(r"[A-Za-z0-9._:-]{8,64}", supplied):
+        g.request_id = supplied
+    else:
+        g.request_id = uuid.uuid4().hex
 
 
 @app.before_request
@@ -563,6 +717,8 @@ def add_security_headers(response):
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     response.headers.setdefault("Permissions-Policy", "camera=(self), microphone=(), geolocation=()")
+    response.headers.setdefault("X-Request-ID", getattr(g, "request_id", uuid.uuid4().hex))
+    response.headers.setdefault("X-EasyNMT-Version", app.config.get("APP_VERSION", RELEASE_VERSION))
     if request.is_secure:
         response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
     if is_logged_in() and request.endpoint != "static":
@@ -572,6 +728,11 @@ def add_security_headers(response):
 
 def wants_json_error():
     return request.path.startswith("/api/") or request.accept_mimetypes.best == "application/json"
+
+
+@app.context_processor
+def inject_release_context():
+    return {"app_version": app.config.get("APP_VERSION", RELEASE_VERSION)}
 
 
 @app.errorhandler(400)
@@ -614,14 +775,15 @@ def too_many_requests_error(error):
 
 @app.errorhandler(500)
 def internal_server_error(_error):
-    app.logger.exception("Unhandled application error")
+    app.logger.exception("Unhandled application error request_id=%s", getattr(g, "request_id", "unknown"))
     if wants_json_error():
-        return jsonify({"ok": False, "error": "internal_error"}), 500
+        return jsonify({"ok": False, "error": "internal_error", "request_id": getattr(g, "request_id", "unknown")}), 500
     return render_template(
         "error.html",
         status=500,
         title="Не вдалося виконати запит",
         message="Сервіс тимчасово недоступний. Спробуй ще раз трохи пізніше.",
+        request_id=getattr(g, "request_id", "unknown"),
     ), 500
 
 
@@ -3355,7 +3517,17 @@ def curriculum_quiz_error_response(error):
         session.get("user_id"),
         str(error),
     )
-    if isinstance(error, CurriculumQuizOwnershipError):
+    extra = {}
+    if isinstance(error, CurriculumQuizAnswersIncomplete):
+        status, code, message = 422, "quiz_answers_incomplete", "Заповни всі 12 відповідей перед завершенням тесту."
+        extra["missing_questions"] = list(error.missing_questions)
+    elif isinstance(error, CurriculumQuizPhotoUnreadable):
+        status, code, message = 422, "quiz_photo_unreadable", "Фото завдання №12 нечітке. Перефотографуй аркуш або додай текстове розв’язання."
+    elif isinstance(error, CurriculumQuizPhotoUnavailable):
+        status, code, message = 503, "quiz_photo_grading_unavailable", "Фото зараз не вдалося перевірити. Спробуй ще раз або напиши розв’язання текстом."
+    elif isinstance(error, CurriculumQuizPhotoError):
+        status, code, message = 422, "quiz_photo_invalid", "Не вдалося обробити фото завдання №12."
+    elif isinstance(error, CurriculumQuizOwnershipError):
         status, code, message = 403, "quiz_forbidden", "Цей тест належить іншому користувачу."
     elif isinstance(error, CurriculumQuizNotFound):
         status, code, message = 404, "quiz_not_found", "Тест або спробу не знайдено."
@@ -3370,7 +3542,7 @@ def curriculum_quiz_error_response(error):
     else:
         status, code, message = 500, "quiz_internal_error", "Під час підготовки тесту сталася помилка. Спробуй ще раз."
     if request.path.startswith("/api/"):
-        return jsonify({"ok": False, "error": code, "message": message}), status
+        return jsonify({"ok": False, "error": code, "message": message, **extra}), status
     return render_template(
         "error.html",
         status=status,
@@ -3444,18 +3616,60 @@ def curriculum_quiz_page(curriculum_unit_id):
             for key, value in request.form.items()
             if key.startswith("answer_")
         }
+        final_attachment = None
         try:
+            photo = request.files.get("solution_photo")
+            if photo is not None and str(photo.filename or "").strip():
+                final_attachment = save_quiz_solution_upload(
+                    photo,
+                    QUIZ_SOLUTION_UPLOAD_DIR,
+                    max_bytes=app.config["QUIZ_SOLUTION_PHOTO_MAX_BYTES"],
+                    max_dimension=app.config["QUIZ_SOLUTION_PHOTO_MAX_DIMENSION"],
+                )
             result = curriculum_quiz_service.submit_attempt(
                 user_id=int(session["user_id"]),
                 subject=get_subject_key(),
                 curriculum_unit_id=curriculum_unit_id,
                 attempt_token=attempt_token,
                 answers=answers,
+                final_attachment=final_attachment,
             )
+        except AttachmentError as error:
+            flash(str(error), "info")
+            return redirect(url_for(
+                "curriculum_quiz_page",
+                curriculum_unit_id=curriculum_unit_id,
+                _anchor="question-12",
+            ))
+        except CurriculumQuizAnswersIncomplete as error:
+            missing = ", ".join(str(number) for number in error.missing_questions)
+            flash(f"Заповни всі відповіді. Пропущені питання: {missing}.", "info")
+            anchor = f"question-{error.missing_questions[0]}" if error.missing_questions else None
+            return redirect(url_for(
+                "curriculum_quiz_page",
+                curriculum_unit_id=curriculum_unit_id,
+                _anchor=anchor,
+            ))
+        except CurriculumQuizPhotoUnreadable as error:
+            flash(str(error) or "Фото нечітке. Перефотографуй аркуш або додай текст.", "info")
+            return redirect(url_for(
+                "curriculum_quiz_page",
+                curriculum_unit_id=curriculum_unit_id,
+                _anchor="question-12",
+            ))
+        except CurriculumQuizPhotoUnavailable as error:
+            flash(str(error) or "Фото зараз не вдалося перевірити. Додай текст або спробуй пізніше.", "info")
+            return redirect(url_for(
+                "curriculum_quiz_page",
+                curriculum_unit_id=curriculum_unit_id,
+                _anchor="question-12",
+            ))
         except CurriculumQuizError as error:
             return curriculum_quiz_error_response(error)
         except CurriculumProgressError as error:
             return curriculum_progress_error_response(error)
+        finally:
+            delete_attachment(final_attachment)
         session["last_curriculum_quiz_attempt_id"] = result.attempt_id
         if result.idempotent:
             flash("Цю спробу вже зараховано. Повторне відправлення нічого не змінило.", "info")
@@ -3481,6 +3695,8 @@ def curriculum_quiz_page(curriculum_unit_id):
         quiz_draft_answers=delivery.draft_answers,
         quiz_attempt_count=delivery.attempt_count,
         quiz_expires_at=delivery.expires_at,
+        quiz_photo_max_bytes=app.config["QUIZ_SOLUTION_PHOTO_MAX_BYTES"],
+        quiz_photo_max_mb=max(1, app.config["QUIZ_SOLUTION_PHOTO_MAX_BYTES"] // (1024 * 1024)),
         easy_surface="quiz",
         easy_endpoint=url_for(
             "curriculum_quiz_easy_api",
@@ -3919,26 +4135,74 @@ def build_tutor_learning_context(*, lesson_context, lesson, response_mode):
     user_id = int(session.get("user_id"))
     subject_key = str(session.get("subject") or "none")
     weak_topic = str(data.get("weak_topic") or "")
+    diagnostic = get_diagnostic_result(subject_key) or {}
+
+    completed_topic_ids = ()
+    mastery_by_topic = {}
+    active_curriculum_id = None
+    current_curriculum_title = ""
+    try:
+        snapshot = curriculum_progress_service.get_active_curriculum_progress(
+            user_id=user_id,
+            subject=subject_key,
+        )
+    except CurriculumProgressNotFound:
+        snapshot = None
+    if snapshot is not None:
+        active_curriculum_id = snapshot.curriculum_id
+        completed_topic_ids = tuple(
+            item.topic_id
+            for item in snapshot.units
+            if item.state is CurriculumUnitState.COMPLETED
+        )
+        mastery_by_topic = {
+            item.topic_id: float(item.mastery_score)
+            for item in snapshot.units
+            if item.mastery_score is not None
+        }
+        current = next(
+            (item for item in snapshot.units if item.unit_id in snapshot.current_unit_ids),
+            None,
+        )
+        current_curriculum_title = current.title if current else ""
+
+    goal_text = str(data.get("goal") or "")
+    goal_match = re.search(r"\d+", goal_text)
     return LearningContext(
         user_id=user_id,
         subject=subject_key,
+        goal_score=int(goal_match.group()) if goal_match else None,
         completed_lessons=tuple(sorted(data.get("completed_lessons") or ())),
         known_weaknesses=(weak_topic,) if weak_topic else (),
         recent_mistakes=get_recent_ai_mistakes(user_id, subject_key),
         language="uk",
-        difficulty=str(data.get("diagnostic_level") or "adaptive"),
+        difficulty=str(diagnostic.get("level") or data.get("diagnostic_level") or "adaptive"),
         available_tokens=int(app.config["OPENAI_MAX_OUTPUT_TOKENS"]),
+        completed_topic_ids=completed_topic_ids,
+        mastery_by_topic=mastery_by_topic,
+        diagnostic_score=diagnostic.get("score"),
+        diagnostic_total=diagnostic.get("total"),
+        active_curriculum_id=active_curriculum_id,
+        metadata={"current_curriculum_title": current_curriculum_title},
         user_name=str(session.get("user_name") or "Учень"),
         subject_key=subject_key,
         subject_name=str(data.get("subject") or "Підготовка до НМТ"),
-        goal=str(data.get("goal") or ""),
+        goal=goal_text,
         time_left=str(data.get("time_left") or ""),
         progress=int(data.get("progress") or 0),
         xp=int(data.get("xp") or 0),
         streak=int(data.get("streak") or 1),
         lesson_id=int(lesson["id"]) if lesson_context and lesson else None,
-        lesson_title=str(lesson.get("title", "")) if lesson_context and lesson else "",
-        lesson_goal=str(lesson.get("goal", "зрозуміти тему")) if lesson_context and lesson else "",
+        lesson_title=(
+            str(lesson.get("title", ""))
+            if lesson_context and lesson
+            else current_curriculum_title
+        ),
+        lesson_goal=(
+            str(lesson.get("goal", "зрозуміти тему"))
+            if lesson_context and lesson
+            else ""
+        ),
         weak_topic=weak_topic,
         weak_count=int(data.get("weak_count") or 0),
         response_mode=response_mode,
@@ -3977,6 +4241,32 @@ def build_tutor_ai_request(payload, *, question, lesson_context, lesson, respons
         lesson=lesson,
         response_mode=response_mode,
     )
+    persisted_memory = ai_repository.get_learner_memory(
+        user_id=user_id,
+        subject=context.subject,
+    )
+    learner_memory = build_learner_memory(
+        context,
+        history,
+        question=question,
+        persisted=persisted_memory,
+    )
+    execution_plan = build_execution_plan(
+        question=question,
+        history=history,
+        context=context,
+        has_images=bool(attachments),
+    )
+    try:
+        ai_repository.observe_learner_signal(
+            user_id=user_id,
+            subject=context.subject,
+            message=question,
+            response_mode=response_mode,
+            lesson_title=context.lesson_title,
+        )
+    except Exception:
+        app.logger.exception("Could not update deterministic learner memory")
     return AIRequest(
         question=question,
         context=context,
@@ -3986,6 +4276,8 @@ def build_tutor_ai_request(payload, *, question, lesson_context, lesson, respons
         conversation_id=conversation_id,
         user_message_id=user_message_id,
         assistant_message_id=assistant_message_id,
+        learner_memory=learner_memory,
+        execution_plan=execution_plan,
     )
 
 
@@ -4035,7 +4327,9 @@ def ai_status_api():
         "ok": True,
         "enabled": ai_orchestrator.enabled,
         "mode": "openai" if ai_orchestrator.enabled else "offline",
-        "model": app.config["OPENAI_MODEL"],
+        "model": app.config["OPENAI_TUTOR_MODEL"],
+        "fast_model": app.config["OPENAI_TUTOR_FAST_MODEL"],
+        "reasoning_model": app.config["OPENAI_TUTOR_REASONING_MODEL"],
         "vision_model": app.config["OPENAI_VISION_MODEL"],
         "used": used,
         "limit": limit,
@@ -4247,6 +4541,8 @@ def tutor_chat_api():
         "assistant_message_id": ai_request.assistant_message_id,
         "response_id": response_id,
         "attachments": [item.id for item in ai_request.attachments],
+        "intelligence_profile": ai_request.execution_plan.profile,
+        "complexity_score": ai_request.execution_plan.complexity_score,
     }
     if app.debug and error:
         response["debug_error"] = error
@@ -4366,6 +4662,7 @@ def tutor_chat_stream_api():
             "used": used_today,
             "limit": daily_limit,
             "response_mode": response_mode,
+            "intelligence_profile": ai_request.execution_plan.profile,
         })
         done_payload = {
             "ok": True,
@@ -4379,6 +4676,8 @@ def tutor_chat_stream_api():
             "assistant_message_id": ai_request.assistant_message_id,
             "response_id": final.get("response_id"),
             "attachments": [item.id for item in ai_request.attachments],
+            "intelligence_profile": ai_request.execution_plan.profile,
+            "complexity_score": ai_request.execution_plan.complexity_score,
         }
         if app.debug and final.get("error"):
             done_payload["debug_error"] = final.get("error")

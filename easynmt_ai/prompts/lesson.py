@@ -10,8 +10,8 @@ from ..subjects import get_subject
 from .base import PromptSpec
 
 
-LESSON_PROMPT_VERSION = "lesson-production-1.0"
-LESSON_SCHEMA_VERSION = "lesson-structured-1.0"
+LESSON_PROMPT_VERSION = "lesson-production-1.1"
+LESSON_SCHEMA_VERSION = "lesson-structured-1.1"
 
 
 def _string(minimum: int = 1) -> dict[str, Any]:
@@ -132,6 +132,35 @@ PRACTICAL_TIP_SCHEMA = {
     },
 }
 
+GUIDED_PRACTICE_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        "id",
+        "difficulty",
+        "prompt",
+        "hint",
+        "solution_steps",
+        "expected_answer",
+        "explanation",
+        "concept_ids",
+    ],
+    "properties": {
+        "id": _string(),
+        "difficulty": {"type": "string", "enum": ["foundation", "guided", "exam"]},
+        "prompt": _string(20),
+        "hint": _string(15),
+        "solution_steps": {
+            "type": "array",
+            "minItems": 2,
+            "items": _string(10),
+        },
+        "expected_answer": _string(),
+        "explanation": _string(25),
+        "concept_ids": _string_array(),
+    },
+}
+
 LESSON_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
@@ -144,6 +173,7 @@ LESSON_SCHEMA = {
         "worked_examples",
         "common_mistakes",
         "practical_tips",
+        "guided_practice",
         "recap",
         "assessment_transition",
         "assessment_blueprint",
@@ -181,6 +211,12 @@ LESSON_SCHEMA = {
             "type": "array",
             "minItems": 3,
             "items": PRACTICAL_TIP_SCHEMA,
+        },
+        "guided_practice": {
+            "type": "array",
+            "minItems": 3,
+            "maxItems": 3,
+            "items": GUIDED_PRACTICE_SCHEMA,
         },
         "recap": {
             "type": "object",
@@ -276,6 +312,17 @@ def mistake_and_tip_instructions() -> str:
     )
 
 
+def guided_practice_instructions() -> str:
+    return (
+        "After the explanations, create exactly three learner practice tasks ordered "
+        "foundation, guided, exam. They must be new tasks, not copies of worked examples. "
+        "Each task must name the relevant concept IDs, include a useful hint that does not "
+        "reveal the answer, at least two concise solution steps, the expected answer, and a "
+        "short explanation. Together they must cover every taught concept and bridge directly "
+        "to the assessment without introducing new material."
+    )
+
+
 def recap_and_assessment_instructions() -> str:
     return (
         "Finish with a compact recap of ideas, formulas, warnings, recognition "
@@ -328,6 +375,7 @@ def build_lesson_prompt(
             explanation_instructions(),
             worked_example_instructions(),
             mistake_and_tip_instructions(),
+            guided_practice_instructions(),
             recap_and_assessment_instructions(),
             humanization_instructions(),
             subject_policy,
@@ -345,6 +393,7 @@ def build_lesson_prompt(
                     "worked examples",
                     "common mistakes",
                     "practical tips",
+                    "guided practice",
                     "mini recap",
                     "assessment transition",
                 ],

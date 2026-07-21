@@ -4,9 +4,11 @@ EasyNMT is a Flask and SQLite learning platform for structured NMT preparation.
 The active product path combines curated lessons, server-generated quizzes,
 per-subject progress, mistake review, and an optional OpenAI-powered tutor.
 
-This repository is a hardened v1.0 Beta candidate. The core learning flow works
-without an OpenAI key; in that case the tutor exposes an explicit offline mode
-and uses only curated lesson material.
+This repository is the cumulative `1.0.0-beta.1` candidate. Local development
+can still run without an OpenAI key and exposes a truthful offline mode. A
+Railway Beta deployment requires OpenAI by default because written grading,
+lesson generation, and the final photo solution are part of the accepted
+learning journey.
 
 ## Architecture
 
@@ -17,7 +19,9 @@ and uses only curated lesson material.
   versioned Mathematics, Ukrainian, History, and English taxonomies, shared
   context/models, independent engine contracts, prompt layer, cache boundary,
   conversation repository, attachment validation, and streaming support.
-- `easynmt_core/health.py` — separate liveness and database-readiness endpoints.
+- `easynmt_core/health.py` — separate liveness and release-readiness endpoints.
+- `easynmt_core/beta_readiness.py` — SQLite integrity, persistent-storage,
+  backup, provider, and single-worker release gates plus verified hot backups.
 - `easynmt_core/lessons/` — production curriculum lesson persistence, secure
   delivery evidence, rendering, and the Task 3A completion handoff.
 - `easynmt_core/quizzes/` — Task 3C.1 production quiz snapshots, sessions,
@@ -47,6 +51,24 @@ state; it is not trusted as the source of XP or completion data. Production
 quizzes contain 12 questions worth 24 points, require 18 points to pass, and
 commit the attempt, XP, completion, and next-unit unlock atomically.
 
+
+
+## Task 5 · v1.0 Beta readiness
+
+Task 5 adds a deterministic release gate, verified SQLite backups, request IDs,
+release headers, and CLI smoke commands. It does not call Google or OpenAI from
+`/ready`; it checks that required configuration is present and that the local
+runtime is safe.
+
+```powershell
+.\.venv\Scripts\python.exe -m flask --app app beta check
+.\.venv\Scripts\python.exe -m flask --app app beta backup --reason before-release
+.\.venv\Scripts\python.exe -m flask --app app beta smoke
+```
+
+See [INSTALL_TASK_5_V1_BETA_READINESS.md](INSTALL_TASK_5_V1_BETA_READINESS.md),
+[TASK_5_V1_BETA_READINESS_REPORT.md](TASK_5_V1_BETA_READINESS_REPORT.md), and
+[BETA_MANUAL_TEST_CHECKLIST.md](BETA_MANUAL_TEST_CHECKLIST.md).
 
 ## Task 3C final candidate
 
@@ -116,7 +138,7 @@ SESSION_COOKIE_SECURE=1
 Optional integrations:
 
 ```text
-OPENAI_API_KEY=
+OPENAI_API_KEY=<required for public Beta>
 OPENAI_MODEL=gpt-4o-mini
 OPENAI_VISION_MODEL=gpt-4o-mini
 OPENAI_LESSON_MAX_OUTPUT_TOKENS=6500
@@ -127,7 +149,8 @@ GOOGLE_REDIRECT_URI=
 ```
 
 - `/health` is a process liveness check.
-- `/ready` returns 200 only when the SQLite database exists and is initialized.
+- `/ready` returns 200 only when all release-blocking local checks pass.
+- Automatic SQLite backups are written to the persistent volume and verified.
 
 See [DEPLOY_RAILWAY.md](DEPLOY_RAILWAY.md), [OPENAI_SETUP.md](OPENAI_SETUP.md),
 and [GOOGLE_AUTH_SETUP.md](GOOGLE_AUTH_SETUP.md) for integration details.

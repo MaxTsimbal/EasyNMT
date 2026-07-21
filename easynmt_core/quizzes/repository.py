@@ -223,15 +223,84 @@ class CurriculumQuizRepository:
             review = tuple(json.loads(row["review_json"] or "[]"))
         except Exception as exc:
             raise CurriculumQuizPersistenceError("Stored attempt review is invalid.") from exc
+        if len(review) != 12:
+            raise CurriculumQuizPersistenceError("Stored attempt review must contain twelve questions.")
+
+        correct_count = sum(
+            1 for item in review
+            if int(item.get("earned", 0)) == int(item.get("points", 0))
+        )
+        partial_count = sum(
+            1 for item in review
+            if 0 < int(item.get("earned", 0)) < int(item.get("points", 0))
+        )
+        incorrect_count = len(review) - correct_count - partial_count
+        keys = set(row.keys())
+        attempt_number = int(row["attempt_number"]) if "attempt_number" in keys else 1
+        best_score = int(row["best_score"]) if "best_score" in keys else int(row["score"])
+        previous_best = int(row["previous_best"]) if "previous_best" in keys else -1
+        score = int(row["score"])
         return QuizAttemptResult(
             attempt_id=row["attempt_id"],
             attempt_token=row["attempt_token"],
             curriculum_unit_id=row["curriculum_unit_id"],
-            score=int(row["score"]),
+            score=score,
             total=int(row["total"]),
             passed=bool(row["passed"]),
             xp_awarded=int(row["xp_awarded"]),
             review=review,
             submitted_at=row["submitted_at"],
             idempotent=idempotent,
+            attempt_number=attempt_number,
+            best_score=best_score,
+            is_personal_best=score > previous_best,
+            correct_count=correct_count,
+            partial_count=partial_count,
+            incorrect_count=incorrect_count,
+            remaining_to_pass=max(0, 18 - score),
         )
+
+    @staticmethod
+    def attempt_row_with_summary(
+        connection: sqlite3.Connection,
+        *,
+        attempt_id: str | None = None,
+        attempt_token: str | None = None,
+    ) -> sqlite3.Row | None:
+        """Read one attempt with stable attempt-order and best-score metadata."""
+
+        if bool(attempt_id) == bool(attempt_token):
+            raise ValueError("Provide exactly one attempt lookup key.")
+        column = "attempt_id" if attempt_id else "attempt_token"
+        value = attempt_id or attempt_token
+        return connection.execute(
+            f"""
+            SELECT attempt.*,
+                   (
+                       SELECT COUNT(*)
+                       FROM curriculum_quiz_attempts AS numbered
+                       WHERE numbered.user_id = attempt.user_id
+                         AND numbered.curriculum_id = attempt.curriculum_id
+                         AND numbered.curriculum_unit_id = attempt.curriculum_unit_id
+                         AND numbered.rowid <= attempt.rowid
+                   ) AS attempt_number,
+                   (
+                       SELECT MAX(best.score)
+                       FROM curriculum_quiz_attempts AS best
+                       WHERE best.user_id = attempt.user_id
+                         AND best.curriculum_id = attempt.curriculum_id
+                         AND best.curriculum_unit_id = attempt.curriculum_unit_id
+                   ) AS best_score,
+                   COALESCE((
+                       SELECT MAX(previous.score)
+                       FROM curriculum_quiz_attempts AS previous
+                       WHERE previous.user_id = attempt.user_id
+                         AND previous.curriculum_id = attempt.curriculum_id
+                         AND previous.curriculum_unit_id = attempt.curriculum_unit_id
+                         AND previous.rowid < attempt.rowid
+                   ), -1) AS previous_best
+            FROM curriculum_quiz_attempts AS attempt
+            WHERE attempt.{column} = ?
+            """,
+            (value,),
+        ).fetchone()

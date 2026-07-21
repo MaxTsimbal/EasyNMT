@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+from pathlib import Path
 import sqlite3
 import tempfile
 import threading
@@ -237,6 +238,7 @@ class LessonEngineContractTests(unittest.TestCase):
             "Teach one concept at a time",
             "Write at least three distinct examples",
             "Diagnose at least three realistic mistakes",
+            "create exactly three learner practice tasks",
             "Finish with a compact recap",
             "Write like a patient experienced Ukrainian tutor",
         ):
@@ -250,6 +252,7 @@ class LessonEngineContractTests(unittest.TestCase):
             "worked examples",
             "common mistakes",
             "practical tips",
+            "guided practice",
             "mini recap",
             "assessment transition",
         ])
@@ -257,6 +260,46 @@ class LessonEngineContractTests(unittest.TestCase):
         self.assertNotIn('"user_id"', prompt.user_input)
         self.assertNotIn('"xp"', prompt.user_input)
         self.assertIn("правила знаків", prompt.user_input)
+
+    def test_guided_practice_is_progressive_hidden_and_quiz_ready(self):
+        gateway = FakeGateway(ai_response(valid_lesson_proposal(competency_count=2)))
+        result = LessonEngine(AIOrchestrator(_gateway=gateway)).generate(
+            self.context,
+            self.request,
+        )
+
+        self.assertTrue(result.success, result.error)
+        lesson = result.value
+        self.assertEqual(
+            [item.difficulty for item in lesson.guided_practice],
+            ["foundation", "guided", "exam"],
+        )
+        self.assertEqual(len(lesson.practice_tasks), 3)
+        self.assertIn("guided_practice", lesson.for_quiz())
+        covered = {
+            concept_id
+            for item in lesson.guided_practice
+            for concept_id in item.concept_ids
+        }
+        self.assertEqual(covered, {item.id for item in lesson.concepts})
+
+    def test_guided_practice_cannot_copy_a_worked_example(self):
+        payload = valid_lesson_proposal(competency_count=2)
+        payload["guided_practice"][0]["prompt"] = payload["worked_examples"][0]["problem"]
+        result = LessonEngine(
+            AIOrchestrator(_gateway=FakeGateway(ai_response(payload)))
+        ).generate(self.context, self.request)
+
+        self.assertFalse(result.success)
+        self.assertEqual(result.error.code, AIErrorCode.VALIDATION_ERROR)
+
+    def test_lesson_template_hides_hints_and_solutions_in_details(self):
+        template = Path("templates/curriculum_lesson.html").read_text(encoding="utf-8")
+        self.assertIn('id="practice"', template)
+        self.assertIn("production_lesson.guided_practice", template)
+        self.assertIn("<details", template)
+        self.assertIn("Показати підказку", template)
+        self.assertIn("Перевірити розв’язання", template)
 
     def test_prerequisite_policy_is_authoritative(self):
         prerequisite = LessonPrerequisite(
@@ -837,8 +880,9 @@ class CurriculumLessonApiTests(unittest.TestCase):
             "5. Розв’язані приклади",
             "6. Типові помилки",
             "7. Практичні поради",
-            "8. Мініпідсумок",
-            "9. Перехід до перевірки",
+            "8. Спробуй сам",
+            "9. Мініпідсумок",
+            "10. Перехід до перевірки",
         )
         section_positions = [html.index(label) for label in section_labels]
         self.assertEqual(section_positions, sorted(section_positions))
@@ -944,7 +988,7 @@ class CurriculumLessonApiTests(unittest.TestCase):
         finally:
             self.app_module.ai_orchestrator._gateway = original_gateway
         self.assertEqual(lesson.status_code, 200)
-        self.assertIn("9. Перехід до перевірки", lesson.get_data(as_text=True))
+        self.assertIn("10. Перехід до перевірки", lesson.get_data(as_text=True))
 
     def test_all_active_navigation_surfaces_use_curriculum_unit_urls(self):
         self.start_unit()
@@ -1002,7 +1046,7 @@ class CurriculumLessonApiTests(unittest.TestCase):
         self.assertEqual(clicked.status_code, 200)
         self.assertEqual(clicked.request.path, clicked_url)
         self.assertEqual(clicked.history, ())
-        self.assertIn("9. Перехід до перевірки", clicked.get_data(as_text=True))
+        self.assertIn("10. Перехід до перевірки", clicked.get_data(as_text=True))
 
     def test_production_navigation_calls_delivery_service_and_passes_typed_lesson(self):
         self.start_unit()

@@ -193,3 +193,32 @@ Run the complete regression suite from the repository root:
 
 The architecture tests use an injected fake gateway. They never require an API
 key and never make paid network calls.
+
+## Task 4B: Easy Intelligence Core
+
+Tutor turns now pass through a deterministic intelligence layer before the
+provider boundary. `intelligence.py` creates a bounded `LearnerMemory` and a
+`TutorExecutionPlan` without making another model call.
+
+The plan routes a request to one of four profiles:
+
+- `fast` for short, low-complexity questions;
+- `balanced` for normal tutoring;
+- `deep` for multi-step solving, review, and explanation retries;
+- `vision` for image-supported learning work.
+
+Provider settings may map each profile to a different model. All profile
+settings fall back to `OPENAI_MODEL`, so deployment behavior remains unchanged
+until an operator explicitly opts into tiered models. Reasoning effort and text
+verbosity are attached only to model families known to support those controls.
+
+`ai_learner_memory` stores only explicit subject-scoped teaching preferences,
+step-by-step needs, explanation retry count, and last lesson focus. It does not
+store authority over assessment state. Flask/SQLite still owns scores, XP,
+unlocks, quotas, and permissions.
+
+The tutor prompt receives server-authoritative curriculum completion, mastery,
+diagnostic, goal, lesson, weakness, and recent-mistake signals. Outputs are
+locally normalized to remove canned conversational shells before persistence.
+Routing metadata records only profile and complexity, never full prompts,
+credentials, or private history.

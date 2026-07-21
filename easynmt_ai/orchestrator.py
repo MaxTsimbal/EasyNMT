@@ -10,6 +10,7 @@ from typing import Any, Callable, Iterator, Mapping, Optional, TypeVar
 
 from .cache import AICache, NullAICache
 from .errors import AIError, AIErrorCode, EngineResult
+from .intelligence import polish_tutor_answer
 from .models import AIModelValidationError
 from .prompts import PromptSpec
 from .repository import AIRepository
@@ -197,7 +198,10 @@ class AIOrchestrator:
 
         self.prepare(request)
         result = self.complete_stateless(request, engine_name="tutor")
-        result.text = self.clean_text(result.text)
+        result.text = polish_tutor_answer(
+            self.clean_text(result.text),
+            response_mode=getattr(request.context, "response_mode", "explain"),
+        )
         if self.repository is not None:
             self.repository.add_message(
                 message_id=request.assistant_message_id,
@@ -211,6 +215,8 @@ class AIOrchestrator:
                     "usage": result.usage or {},
                     "error_code": result.error_code,
                     "retryable": result.retryable,
+                    "intelligence_profile": request.execution_plan.profile,
+                    "complexity_score": request.execution_plan.complexity_score,
                 },
             )
         return result
@@ -322,6 +328,7 @@ class AIOrchestrator:
         cache_key: str | None = None,
         cache_ttl_seconds: int | None = None,
         force_refresh: bool = False,
+        model: str | None = None,
         max_output_tokens: int | None = None,
     ) -> EngineResult[T]:
         """Execute, validate, and optionally cache a typed engine response."""
@@ -350,6 +357,7 @@ class AIOrchestrator:
                 instructions=prompt.instructions,
                 text=prompt.user_input,
                 attachments=attachments,
+                model=model,
                 max_output_tokens=max_output_tokens or context.available_tokens,
                 metadata={
                     "app": "EasyNMT",
@@ -498,7 +506,10 @@ class AIOrchestrator:
                 request.context.user_id,
             )
 
-        final_text = self.clean_text(final_text or request.fallback)
+        final_text = polish_tutor_answer(
+            self.clean_text(final_text or request.fallback),
+            response_mode=getattr(request.context, "response_mode", "explain"),
+        )
         if self.repository is not None:
             self.repository.add_message(
                 message_id=request.assistant_message_id,
@@ -513,6 +524,8 @@ class AIOrchestrator:
                     "fallback_error": fallback_error,
                     "error_code": error_code,
                     "retryable": retryable,
+                    "intelligence_profile": request.execution_plan.profile,
+                    "complexity_score": request.execution_plan.complexity_score,
                 },
             )
         self._log_request(
@@ -533,4 +546,6 @@ class AIOrchestrator:
             "error_code": error_code,
             "retryable": retryable,
             "message_id": request.assistant_message_id,
+            "intelligence_profile": request.execution_plan.profile,
+            "complexity_score": request.execution_plan.complexity_score,
         })

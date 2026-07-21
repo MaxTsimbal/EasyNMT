@@ -50,7 +50,7 @@ are rejected before an AI request.
 ## Educational contract
 
 `easynmt_ai.lessons` defines immutable nested models for concepts, examples,
-mistakes, tips, recap, readiness, and the Task 3C assessment blueprint. Every
+mistakes, tips, guided practice, recap, readiness, and the assessment blueprint. Every
 accepted lesson always has this order:
 
 1. learning objective;
@@ -60,13 +60,15 @@ accepted lesson always has this order:
 5. foundation, guided, and exam worked examples;
 6. diagnosed common mistakes;
 7. practical tips;
-8. mini recap;
-9. assessment transition.
+8. three independent practice tasks ordered foundation, guided, and exam;
+9. mini recap;
+10. assessment transition.
 
 The validator checks authoritative curriculum identity, objective and
 competency coverage, explanation depth, distinct example progression,
 step-by-step reasoning, independent verification, concept references, mistake
-diagnosis, recap completeness, and exact assessment-blueprint coverage.
+diagnosis, guided-practice uniqueness and concept coverage, recap completeness,
+and exact assessment-blueprint coverage.
 Structurally valid but educationally incomplete AI output is rejected and is
 never persisted. Local development has a reviewed Mathematics entry lesson and
 a subject-aware deterministic recovery path for every application-owned topic
@@ -83,7 +85,7 @@ It can also be disabled locally with
 
 `LessonEngine` calls only `AIOrchestrator`; routes and this service never call
 OpenAI. Prompt responsibilities are separate reusable functions for
-explanation, examples, mistakes/tips, recap/assessment, and tutor voice. They
+explanation, examples, mistakes/tips, guided practice, recap/assessment, and tutor voice. They
 are composed into one structured request so sections share context and no
 unnecessary provider calls occur.
 
@@ -164,7 +166,7 @@ so rollback is an explicit operator action, never application startup logic.
 ## Task 3C handoff
 
 Task 3C should consume `Lesson.for_quiz()`. It receives typed objectives,
-competencies, concepts, examples, mistakes, recap, and an assessment blueprint;
+competencies, concepts, examples, mistakes, guided practice, recap, and an assessment blueprint;
 it never parses rendered text or persistence metadata. The Quiz/Grading service
 must issue its own server-verified attempt result and pass that to
 `CurriculumProgressService`. It must not infer completion from the lesson token

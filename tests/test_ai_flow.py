@@ -1,3 +1,4 @@
+from contextlib import closing
 import io
 import os
 import re
@@ -96,7 +97,7 @@ class AIFlowTests(unittest.TestCase):
         self.assertEqual(payload["mode"], "offline")
         self.assertEqual(payload["used"], 0)
 
-        with sqlite3.connect(app_module.DB_PATH) as conn:
+        with closing(sqlite3.connect(app_module.DB_PATH)) as conn, conn:
             rows = conn.execute(
                 "SELECT role, provider_mode FROM ai_messages "
                 "WHERE user_id = ? AND conversation_id = ? ORDER BY rowid",
@@ -114,7 +115,7 @@ class AIFlowTests(unittest.TestCase):
             headers={"X-CSRF-Token": self.csrf_token},
         )
         self.assertEqual(deleted.status_code, 200)
-        with sqlite3.connect(app_module.DB_PATH) as conn:
+        with closing(sqlite3.connect(app_module.DB_PATH)) as conn, conn:
             self.assertEqual(
                 conn.execute(
                     "SELECT COUNT(*) FROM ai_messages WHERE user_id = ? AND conversation_id = ?",
@@ -159,7 +160,7 @@ class AIFlowTests(unittest.TestCase):
             content_type="multipart/form-data",
         )
         self.assertEqual(second.status_code, 429)
-        with sqlite3.connect(app_module.DB_PATH) as conn:
+        with closing(sqlite3.connect(app_module.DB_PATH)) as conn, conn:
             attachment_row = conn.execute(
                 "SELECT stored_path FROM ai_attachments WHERE user_id = ?",
                 (self.user_id,),
@@ -173,7 +174,7 @@ class AIFlowTests(unittest.TestCase):
         self.assertEqual(missing.status_code, 404)
         self.assertTrue(os.path.isfile(attachment_row[0]))
 
-        with sqlite3.connect(app_module.DB_PATH) as conn:
+        with closing(sqlite3.connect(app_module.DB_PATH)) as conn, conn:
             conn.execute(
                 "UPDATE ai_attachments SET created_at = '2000-01-01T00:00:00+00:00' "
                 "WHERE user_id = ?",
@@ -183,7 +184,7 @@ class AIFlowTests(unittest.TestCase):
         self.assertFalse(os.path.exists(attachment_row[0]))
 
     def test_usage_claim_is_atomic_under_concurrency(self):
-        with sqlite3.connect(app_module.DB_PATH) as conn:
+        with closing(sqlite3.connect(app_module.DB_PATH)) as conn, conn:
             conn.execute("DELETE FROM ai_usage WHERE user_id = ?", (self.user_id,))
 
         with ThreadPoolExecutor(max_workers=8) as executor:

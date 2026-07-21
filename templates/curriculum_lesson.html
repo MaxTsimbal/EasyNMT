@@ -23,8 +23,9 @@
     <a href="#examples">5. Приклади</a>
     <a href="#mistakes">6. Помилки</a>
     <a href="#tips">7. Поради</a>
-    <a href="#recap">8. Підсумок</a>
-    <a href="#assessment">9. Перевірка</a>
+    <a href="#practice">8. Практика</a>
+    <a href="#recap">9. Підсумок</a>
+    <a href="#assessment">10. Перевірка</a>
   </nav>
 
   <section id="objective" class="lesson-teacher-block glass-card" data-easy-section="objective">
@@ -122,8 +123,38 @@
     </ol>
   </section>
 
+
+  <section id="practice" class="lesson-teacher-block glass-card lesson-guided-practice" data-easy-section="practice">
+    <span class="section-kicker">8. Спробуй сам</span>
+    <h2>Три кроки від розуміння до самостійності</h2>
+    <p class="practice-intro">Спочатку виконай завдання на чернетці. Підказку відкривай лише тоді, коли справді застряг, а розв’язання використовуй для самоперевірки.</p>
+    <div class="guided-practice-grid">
+      {% for task in production_lesson.guided_practice %}
+      <article class="guided-practice-card" data-practice-level="{{ task.difficulty }}">
+        <div class="guided-practice-head">
+          <span>Завдання {{ loop.index }}</span>
+          <small>{{ task.difficulty }}</small>
+        </div>
+        <h3>{{ task.prompt }}</h3>
+        <details class="practice-reveal practice-hint">
+          <summary>Показати підказку</summary>
+          <p>{{ task.hint }}</p>
+        </details>
+        <details class="practice-reveal practice-solution">
+          <summary>Перевірити розв’язання</summary>
+          <ol>
+            {% for step in task.solution_steps %}<li>{{ step }}</li>{% endfor %}
+          </ol>
+          <p><strong>Відповідь:</strong> {{ task.expected_answer }}</p>
+          <p>{{ task.explanation }}</p>
+        </details>
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+
   <section id="recap" class="lesson-teacher-block glass-card" data-easy-section="recap">
-    <span class="section-kicker">8. Мініпідсумок</span>
+    <span class="section-kicker">9. Мініпідсумок</span>
     <h2>Що забрати з собою</h2>
     <h3>Головні ідеї</h3>
     <ul class="self-check-list">{% for item in production_lesson.recap.main_ideas %}<li>✓ {{ item }}</li>{% endfor %}</ul>
@@ -138,7 +169,7 @@
   </section>
 
   <section id="assessment" class="lesson-teacher-block glass-card" data-easy-section="assessment">
-    <span class="section-kicker">9. Перехід до перевірки</span>
+    <span class="section-kicker">10. Перехід до перевірки</span>
     <h2>Готовність до наступного кроку</h2>
     <p>{{ production_lesson.assessment_transition.message }}</p>
     <ul class="self-check-list">

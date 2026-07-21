@@ -1,90 +1,13 @@
-# EasyNMT Changelog
+# EasyNMT v1.0.0-beta.1 · Task 5 Beta Readiness
 
-## Task 3D.3 — Quiz 409 Stability Recovery (2026-07-21)
-
-- Fixed the production failure where opening a test could immediately return HTTP 409 before the quiz page appeared.
-- Replaced the brittle same-schema quiz-template conflict with a verified in-place refresh that preserves old session and attempt foreign keys.
-- Added automatic repair for damaged or legacy reusable quiz templates using the current server-authoritative lesson.
-- Reuses the same unfinished attempt on refresh and in parallel tabs instead of creating a trail of duplicate sessions.
-- Discards only a corrupt unfinished session and creates a clean replacement instead of blocking the learner.
-- Recovers orphaned `submitted_at` sessions when no scored attempt exists, while keeping normal duplicate submission idempotent.
-- Normalized legacy, naive, `Z`, and timezone-aware quiz timestamps before expiration checks.
-- Improved server logs and stopped reporting internal storage failures as misleading generic 409 conflicts.
-- Added five regression tests, including a full Flask route test for reopening a same-schema stale quiz template.
-- Verified the integrated project with 154 automated tests, Python compilation, AST parsing, and `pip check`.
-
-## Task 3D.2 — Lesson Generation Loader (2026-07-21)
-
-- Added a dedicated full-screen loading scene when a curriculum lesson is opened or generated.
-- Shows the lesson topic and three truthful stages: route analysis, explanation/example preparation, and final validation.
-- Added a slow estimated progress indicator that stops below 100% instead of pretending to know server progress.
-- Added clear 20–30 second guidance and longer-wait messages so the site no longer looks frozen.
-- Prevents repeated clicks by keeping the loading overlay interactive-blocking until navigation finishes.
-- Supports direct lesson links, start-unit forms, subject-switch forms, Dashboard, Today, Library, Planner, and next-topic actions.
-- Added responsive mobile styling and reduced-motion support.
-- Added four regression tests for loader markup, route detection, truthful progress, and accessibility behavior.
-- Verified the integrated project with 149 automated tests.
-
-## Task 3D.1 — Grading Clarity & Compact Quiz UI (2026-07-21)
-
-- Fixed false 0/3 and 1/3 results when three answers were written on one line with `1)`, `2)`, `3)`.
-- Added safe parsing for new lines, semicolons, pipes, commas, and numbered one-line answers.
-- Kept rubric grading positional so one repeated answer cannot earn points for multiple parts.
-- Made rubric form checking strict enough to catch spelling and verb-form mistakes while ignoring harmless `a/an/the` differences.
-- Replaced vague partial-credit messages with a per-part breakdown showing what was accepted, what was wrong, and the correct form.
-- Updated the quiz instructions so learners are not forced to use three separate lines.
-- Reduced the height of the sticky progress panel, question navigation, level legend, and final submit panel.
-- Kept the final submit panel attached to the bottom while making it less obstructive on desktop and mobile.
-- Added regression coverage for the exact failures shown in production screenshots.
-- Verified the integrated project with 145 automated tests.
-
-## Task 3D — Production Exam Engine (2026-07-21)
-
-- Rebuilt all 12 English curriculum assessments around practical exam exercises.
-- Added seeded variants for all 12 English topics without breaking drafts on refresh or parallel tabs.
-- Replaced rule-recall questions 5–8 with negation, questions, word order, correction, translation and reading tasks.
-- Rebuilt questions 9–12 as three independently scored parts.
-- Added `exact` and `rubric` grading modes with server-only answer keys.
-- Added skill, reading context, placeholders and safe review metadata to the quiz contract.
-- Upgraded Contextual Easy to exercise-aware help while guarding every rubric answer part.
-- Added answered-progress navigation, compact exam cards and a personalized result practice plan.
-- Removed the confusing dependency of question 12 on question 11.
-- Preserved legacy snapshot readability and upgraded new quizzes to `quiz.v1.4-production-exam`.
-- Verified the integrated project with 141 automated tests and 31 subtests.
-
-## Task 3C.2 — Student Clarity Final (2026-07-20)
-
-- Split every quiz item into a clear action, concrete task, and answer format.
-- Added 225 reviewed fallback tasks covering all 75 published curriculum topics.
-- Replaced abstract skill labels in questions 9–12 with actual exercises.
-- Preserved partial-credit grading for correct results and natural-language answers.
-- Passed the visible active question and answer format to Contextual Easy without exposing grading keys.
-- Preserved Easy Chat v3.0.1 typing, smooth scrolling, stop control, and local loading state.
-- Kept legacy quiz snapshots readable while upgrading new quiz content to `quiz.v1.3-student-clarity`.
-- Added full curriculum coverage, public-payload, compatibility, UI, and Easy-context regression tests.
-
-## Task 3C.1 — Production Quiz Foundation (2026-07-20)
-
-- Added a production quiz for every completed curriculum lesson.
-- Enforced the 12-question, 24-point, 18-point pass contract on the server.
-- Added immutable quiz snapshots, attempt tokens, draft autosave, and result pages.
-- Made grading, XP, completion, and next-unit unlocking atomic and idempotent.
-- Prevented forged client scores, XP, pass state, and unknown question IDs.
-- Added owner-scoped quiz APIs and hid internal answer keys from public payloads.
-- Added 9 dedicated production quiz tests; the complete suite now passes 113 tests.
-- Kept AI semantic grading and photo grading for later Task 3C stages.
-
-# Task 3B.3 — Multi-Subject Production Lesson Platform
-
-- Added one canonical subject registry for Mathematics, Ukrainian, History, and English.
-- Added versioned, validated NMT taxonomies for every active subject.
-- Generalized curriculum bootstrap and status reporting to all active subjects.
-- Added `--all-subjects` and repeatable `--subject` CLI options while preserving the Mathematics default.
-- Routed every published subject through the shared Production Lesson Engine and curriculum progress model.
-- Added subject-aware prompt policy, validation, and deterministic offline recovery grounded in taxonomy metadata.
-- Rejected invented topic IDs and stale/mismatched deterministic fallback requests.
-- Added multi-subject idempotency, publication, Dashboard navigation, lesson rendering, cache, completion, and isolation coverage.
-- Added `bootstrap_all_subjects.bat` for Windows systems where PowerShell script activation is blocked.
+- Додано release gate для SQLite, storage, backups, OpenAI, Google OAuth і single-worker runtime.
+- `/health` повертає release metadata; `/ready` перевіряє реальну локальну готовність без зовнішніх API-викликів.
+- Додано автоматичні verified SQLite hot backups із SHA-256 manifest і retention policy.
+- Додано CLI `beta check`, `beta backup`, `beta verify-backup` і `beta smoke`.
+- Кожна відповідь має `X-Request-ID` та `X-EasyNMT-Version`; 500-помилки можна зіставити з Railway logs.
+- Railway Beta за замовчуванням вимагає OpenAI, persistent volume та один web worker.
+- Production lesson fallback більше не маскує збій AI шаблонним уроком.
+- Додано cumulative installer і ручний acceptance checklist.
 
 ---
 
@@ -443,12 +366,3 @@
 - Improved natural Ukrainian tutor voice and removed canned chatbot openings/closings.
 - Added smarter clarification behavior for genuinely ambiguous short prompts.
 - Preserved lesson, progress, weak-topic and conversation context in every response.
-
-## Task 3C v3.0.1 — Contextual Easy runtime fix
-
-- Fixed the full-page transition loader being triggered by the contextual Easy composer.
-- Connected the compact lesson/quiz assistant to the Easy Chat v3 markdown renderer.
-- Added smooth auto-scroll, word-by-word typing, a stop action, and truthful online/offline status.
-- Added a plain-text OpenAI retry when strict structured output is rejected, preventing silent template-only behavior.
-- Made the deterministic quiz fallback use the active question and the most relevant lesson concept.
-- Added UI and orchestration regression tests for the contextual assistant.

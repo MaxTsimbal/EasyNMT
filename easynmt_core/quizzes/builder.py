@@ -269,7 +269,7 @@ def build_deterministic_quiz(lesson: Lesson, *, variant_seed: str = "") -> Produ
                 subject=lesson.subject,
                 title=f"Екзаменаційна практика: {lesson.title}",
                 questions=questions,
-                schema_version="quiz.v1.4-production-exam",
+                schema_version="quiz.v1.5-photo-final",
             )
 
     concepts = list(lesson.concepts)
@@ -448,18 +448,22 @@ def build_deterministic_quiz(lesson: Lesson, *, variant_seed: str = "") -> Produ
     questions.append(_question(
         lesson,
         12,
-        instruction="Перевір наведену відповідь.",
-        task=f"Завдання: {t3.task} Наведена відповідь: «{t3.final_answer}». Запиши один конкретний спосіб перевірки й поясни, що він підтвердить.",
-        answer_format="Напиши спосіб перевірки та один короткий висновок. Не потрібно повторювати весь розв’язок.",
+        instruction="Розв’яжи фінальне завдання. Можеш завантажити фото аркуша або написати розв’язання текстом.",
+        task=t3.task,
+        answer_format="Покажи головну ідею, основні кроки та фінальну відповідь. Фото й текст оцінюються за однаковими трьома критеріями.",
         answer_type="long_text",
-        correct_answer=f"Перевірка: {t3.verification} Пов’язане міркування: {t3.reasoning}",
-        accepted_answers=(t3.verification, f"{t3.verification} {t3.reasoning}"),
-        primary_answers=(t3.verification,),
-        secondary_answers=(t3.reasoning, _clean(c2.how), _clean(c2.when_used)),
-        explanation=f"Приклад перевірки: {t3.verification}",
-        feedback_hint="Назви хоча б один конкретний спосіб перевірки. Ще 1 бал дається за пояснення того, що саме він підтверджує.",
+        correct_answer=f"{t3.reasoning} Відповідь: {t3.final_answer}. Перевірка: {t3.verification}",
+        accepted_answers=(
+            f"{t3.reasoning} Відповідь: {t3.final_answer}",
+            t3.final_answer,
+            f"{t3.verification} {t3.final_answer}",
+        ),
+        primary_answers=(t3.final_answer,),
+        secondary_answers=(t3.reasoning, t3.verification),
+        explanation=f"Повний розв’язок: {t3.reasoning} Відповідь: {t3.final_answer}. Перевірка: {t3.verification}",
+        feedback_hint="Для повних 3 балів покажи метод, ключові кроки й правильну фінальну відповідь.",
         points=3,
-        grading_mode="verification",
+        grading_mode="solution",
     ))
 
     # Keep the v1.2 identifier seed so an existing per-lesson quiz row can be
@@ -476,5 +480,5 @@ def build_deterministic_quiz(lesson: Lesson, *, variant_seed: str = "") -> Produ
         subject=lesson.subject,
         title=f"Перевірка: {lesson.title}",
         questions=tuple(questions),
-        schema_version="quiz.v1.4-production-exam",
+        schema_version="quiz.v1.5-photo-final",
     )

@@ -8,9 +8,11 @@ import random
 import re
 import secrets
 import sqlite3
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Mapping
 
+from easynmt_ai import AIContext, AttachmentRef, FinalSolutionGradingItem, WrittenGradingItem
 from easynmt_ai.lessons import Lesson
 from easynmt_core.progress import (
     AssessmentSource,
@@ -20,10 +22,14 @@ from easynmt_core.progress import (
 
 from .builder import build_deterministic_quiz
 from .errors import (
+    CurriculumQuizAnswersIncomplete,
     CurriculumQuizNotAvailable,
     CurriculumQuizNotFound,
     CurriculumQuizOwnershipError,
     CurriculumQuizPersistenceError,
+    CurriculumQuizPhotoError,
+    CurriculumQuizPhotoUnreadable,
+    CurriculumQuizPhotoUnavailable,
     CurriculumQuizSessionInvalid,
 )
 from .models import ProductionQuiz, QuizAttemptDelivery, QuizAttemptResult, QuizQuestion, QuizQuestionContext
@@ -47,12 +53,45 @@ def _tokens(value: object) -> set[str]:
     }
 
 
+@dataclass(frozen=True)
+class _PreparedQuizSubmission:
+    quiz: ProductionQuiz
+    safe_answers: dict[str, str]
+    snapshot_hash: str
+
+
+@dataclass(frozen=True)
+class _ResolvedQuestionGrade:
+    earned: int
+    correct: bool
+    feedback: str
+    answer: str
+    source: str = "server"
+    confidence: str = "deterministic"
+    first_error: str = ""
+    next_step: str = ""
+    criteria: tuple[dict[str, object], ...] = ()
+    submission_mode: str = "text"
+    image_quality: str = "not_provided"
+    transcription: str = ""
+
+
 class CurriculumQuizService:
     SESSION_HOURS = 24
 
-    def __init__(self, repository: CurriculumQuizRepository, progress_service, *, logger=None):
+    def __init__(
+        self,
+        repository: CurriculumQuizRepository,
+        progress_service,
+        *,
+        written_grader=None,
+        final_solution_grader=None,
+        logger=None,
+    ):
         self.repository = repository
         self.progress_service = progress_service
+        self.written_grader = written_grader
+        self.final_solution_grader = final_solution_grader
         self.logger = logger
 
     @staticmethod
@@ -551,7 +590,64 @@ class CurriculumQuizService:
             feedback = "Поки не зараховано. " + question.feedback_hint
         return earned, earned == question.points, feedback, answer
 
-    def submit_attempt(
+    @staticmethod
+    def _safe_submission_answers(quiz: ProductionQuiz, answers: Mapping[str, object]) -> dict[str, str]:
+        allowed = {question.id for question in quiz.questions}
+        safe = {
+            str(key): str(value)[:8000]
+            for key, value in dict(answers or {}).items()
+            if str(key) in allowed and isinstance(value, (str, int, float))
+        }
+        return {key: value for key, value in safe.items() if value.strip()}
+
+    def _validated_session_quiz(
+        self,
+        connection,
+        *,
+        user_id: int,
+        subject: str,
+        curriculum_unit_id: str,
+        attempt_token: str,
+        now: datetime,
+    ) -> tuple[object, ProductionQuiz]:
+        session_row = connection.execute(
+            "SELECT * FROM curriculum_quiz_sessions WHERE attempt_token = ?",
+            (attempt_token,),
+        ).fetchone()
+        if session_row is None:
+            raise CurriculumQuizSessionInvalid("Quiz attempt token is invalid.")
+        if int(session_row["user_id"]) != int(user_id):
+            raise CurriculumQuizOwnershipError("Quiz attempt belongs to another learner.")
+        if session_row["curriculum_unit_id"] != curriculum_unit_id or session_row["subject"] != subject:
+            raise CurriculumQuizSessionInvalid("Quiz attempt does not match this curriculum unit.")
+        if self._parse_utc(session_row["expires_at"]) <= now:
+            raise CurriculumQuizSessionInvalid("Quiz attempt has expired.")
+        try:
+            quiz = self._snapshot_from_session(session_row)
+        except CurriculumQuizPersistenceError:
+            raise
+        except Exception as exc:
+            raise CurriculumQuizPersistenceError("Stored quiz snapshot is invalid.") from exc
+        return session_row, quiz
+
+    @staticmethod
+    def _save_submission_draft(connection, *, user_id: int, quiz: ProductionQuiz, answers: Mapping[str, str]) -> None:
+        connection.execute(
+            """
+            INSERT INTO curriculum_quiz_drafts (
+                user_id, curriculum_id, curriculum_unit_id, answers_json, updated_at
+            ) VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, curriculum_id, curriculum_unit_id) DO UPDATE SET
+                answers_json = excluded.answers_json,
+                updated_at = excluded.updated_at
+            """,
+            (
+                int(user_id), quiz.curriculum_id, quiz.curriculum_unit_id,
+                canonical_json(dict(answers)), utc_now(),
+            ),
+        )
+
+    def _prepare_submission(
         self,
         *,
         user_id: int,
@@ -559,45 +655,443 @@ class CurriculumQuizService:
         curriculum_unit_id: str,
         attempt_token: str,
         answers: Mapping[str, object],
-    ) -> QuizAttemptResult:
+        final_attachment: AttachmentRef | None = None,
+    ) -> QuizAttemptResult | _PreparedQuizSubmission:
+        """Validate and preserve answers before any potentially slow AI call.
+
+        The transaction ends before written grading begins, so an OpenAI request
+        never holds SQLite's write lock. A completed draft remains recoverable if
+        the provider times out or the worker restarts before finalization.
+        """
+
         connection = self.repository.connect()
         try:
             connection.execute("BEGIN IMMEDIATE")
-            existing = connection.execute(
-                "SELECT * FROM curriculum_quiz_attempts WHERE attempt_token = ?",
-                (attempt_token,),
-            ).fetchone()
+            existing = self.repository.attempt_row_with_summary(
+                connection,
+                attempt_token=attempt_token,
+            )
             if existing is not None:
                 if int(existing["user_id"]) != int(user_id):
                     raise CurriculumQuizOwnershipError("Attempt belongs to another learner.")
                 connection.commit()
                 return self.repository.attempt_result_from_row(existing, idempotent=True)
 
-            session_row = connection.execute(
-                "SELECT * FROM curriculum_quiz_sessions WHERE attempt_token = ?",
-                (attempt_token,),
-            ).fetchone()
-            if session_row is None:
-                raise CurriculumQuizSessionInvalid("Quiz attempt token is invalid.")
-            if int(session_row["user_id"]) != int(user_id):
-                raise CurriculumQuizOwnershipError("Quiz attempt belongs to another learner.")
-            if session_row["curriculum_unit_id"] != curriculum_unit_id or session_row["subject"] != subject:
-                raise CurriculumQuizSessionInvalid("Quiz attempt does not match this curriculum unit.")
             now = datetime.now(timezone.utc)
-            expires = self._parse_utc(session_row["expires_at"])
-            if expires <= now:
-                raise CurriculumQuizSessionInvalid("Quiz attempt has expired.")
-            try:
-                quiz = self._snapshot_from_session(session_row)
-            except CurriculumQuizPersistenceError:
-                raise
-            except Exception as exc:
-                raise CurriculumQuizPersistenceError("Stored quiz snapshot is invalid.") from exc
+            session_row, quiz = self._validated_session_quiz(
+                connection,
+                user_id=user_id,
+                subject=subject,
+                curriculum_unit_id=curriculum_unit_id,
+                attempt_token=attempt_token,
+                now=now,
+            )
+            safe_answers = self._safe_submission_answers(quiz, answers)
+            if final_attachment is not None and getattr(final_attachment, "kind", "") != "image":
+                raise CurriculumQuizPhotoError("Завдання №12 підтримує лише зображення.")
+            missing_questions = tuple(
+                index
+                for index, question in enumerate(quiz.questions, start=1)
+                if not safe_answers.get(question.id, "").strip()
+                and not (index == 12 and final_attachment is not None)
+            )
+            self._save_submission_draft(
+                connection,
+                user_id=user_id,
+                quiz=quiz,
+                answers=safe_answers,
+            )
+            connection.commit()
+            if missing_questions:
+                raise CurriculumQuizAnswersIncomplete(missing_questions)
+            return _PreparedQuizSubmission(
+                quiz=quiz,
+                safe_answers=safe_answers,
+                snapshot_hash=str(session_row["quiz_snapshot_hash"]),
+            )
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
 
-            # A session marked submitted without its matching attempt can only
-            # come from legacy/manual data or an interrupted old deployment.
-            # There is no scored row to duplicate, so finalizing from the intact
-            # snapshot is safe and repairs the state instead of returning 409.
+    @staticmethod
+    def _looks_like_grading_injection(answer: str) -> bool:
+        lowered = str(answer or "").lower()
+        markers = (
+            "ignore previous", "ignore all", "system prompt", "award me", "give me points",
+            "give full credit", "score this", "оцінюй мене", "постав мені", "дай мені бали",
+            "нарахуй бали", "постав 3", "постав 2", "ігноруй поперед",
+        )
+        return any(marker in lowered for marker in markers)
+
+    @staticmethod
+    def _ai_feedback(grade, *, earned: int, points: int) -> str:
+        if earned == points:
+            heading = "Правильно."
+        elif earned:
+            heading = f"Зараховано {earned} з {points} балів."
+        else:
+            heading = "Поки не зараховано."
+        lines = [heading, grade.summary]
+        for criterion in grade.criteria:
+            icon = "✅" if criterion.passed else "❌"
+            lines.append(f"{icon} {criterion.label}: {criterion.evidence}")
+        if grade.first_error:
+            lines.append(f"Перша неточність: {grade.first_error}")
+        if grade.next_step:
+            lines.append(f"Що зробити далі: {grade.next_step}")
+        return "\n".join(line for line in lines if str(line).strip())
+
+    def _resolve_question_grades(
+        self,
+        *,
+        user_id: int,
+        subject: str,
+        quiz: ProductionQuiz,
+        answers: Mapping[str, str],
+        final_attachment: AttachmentRef | None = None,
+    ) -> dict[str, _ResolvedQuestionGrade]:
+        """Combine deterministic grading, written AI grading, and Q12 vision grading."""
+
+        resolved: dict[str, _ResolvedQuestionGrade] = {}
+        candidates: list[WrittenGradingItem] = []
+        for index, question in enumerate(quiz.questions, start=1):
+            earned, correct, feedback, answer = self._grade(question, answers.get(question.id))
+            source = "server"
+            if 5 <= index <= 11:
+                source = "server-confirmed" if earned == question.points else "server-fallback"
+            elif index == 12:
+                source = "server-final-task"
+            resolved[question.id] = _ResolvedQuestionGrade(
+                earned=earned,
+                correct=correct,
+                feedback=feedback,
+                answer=answer,
+                source=source,
+            )
+            if not 5 <= index <= 11 or earned == question.points:
+                continue
+            if self._looks_like_grading_injection(answer):
+                resolved[question.id] = _ResolvedQuestionGrade(
+                    earned=earned,
+                    correct=correct,
+                    feedback=feedback,
+                    answer=answer,
+                    source="server-guarded",
+                    confidence="guarded",
+                    first_error="Відповідь містить мета-інструкції замість виконання завдання.",
+                    next_step="Прибери прохання про оцінку й напиши саме розв’язання або відповідь.",
+                )
+                continue
+            candidates.append(WrittenGradingItem(
+                question_id=question.id,
+                number=index,
+                max_points=question.points,
+                grading_mode=question.grading_mode,
+                prompt=question.prompt,
+                instruction=question.instruction,
+                task=question.task,
+                answer_format=question.answer_format,
+                skill=question.skill,
+                source_text=question.source_text,
+                correct_answer=question.correct_answer,
+                accepted_answers=question.accepted_answers,
+                primary_answers=question.primary_answers,
+                secondary_answers=question.secondary_answers,
+                scoring_parts=question.scoring_parts,
+                student_answer=answer,
+            ))
+
+        grader = self.written_grader
+        if not candidates or grader is None or not bool(getattr(grader, "enabled", False)):
+            return self._resolve_final_solution_grade(
+                user_id=user_id, subject=subject, quiz=quiz, answers=answers,
+                resolved=resolved, final_attachment=final_attachment,
+            )
+
+        try:
+            ai_result = grader.grade(
+                context=AIContext(
+                    user_id=int(user_id),
+                    subject=subject,
+                    available_tokens=int(getattr(grader, "max_output_tokens", 2600)),
+                    metadata={
+                        "quiz_id": quiz.id,
+                        "curriculum_unit_id": quiz.curriculum_unit_id,
+                        "question_range": "5-11",
+                    },
+                ),
+                items=tuple(candidates),
+            )
+        except Exception:
+            if self.logger:
+                self.logger.exception(
+                    "Unexpected written grading failure quiz_id=%s user_id=%s",
+                    quiz.id,
+                    int(user_id),
+                )
+            return self._resolve_final_solution_grade(
+                user_id=user_id, subject=subject, quiz=quiz, answers=answers,
+                resolved=resolved, final_attachment=final_attachment,
+            )
+
+        if not getattr(ai_result, "success", False):
+            if self.logger:
+                error = getattr(ai_result, "error", None)
+                self.logger.warning(
+                    "Written grading fell back quiz_id=%s user_id=%s error=%s",
+                    quiz.id,
+                    int(user_id),
+                    getattr(getattr(error, "code", None), "value", "unknown"),
+                )
+            return self._resolve_final_solution_grade(
+                user_id=user_id, subject=subject, quiz=quiz, answers=answers,
+                resolved=resolved, final_attachment=final_attachment,
+            )
+
+        for grade in ai_result.value.grades:
+            deterministic = resolved[grade.question_id]
+            if grade.confidence == "low":
+                continue
+            if grade.confidence == "medium":
+                earned = max(deterministic.earned, grade.awarded_points)
+                source = "ai-assisted"
+            else:
+                earned = grade.awarded_points
+                source = "ai"
+            earned = max(0, min(grade.max_points, int(earned)))
+            resolved[grade.question_id] = _ResolvedQuestionGrade(
+                earned=earned,
+                correct=earned == grade.max_points,
+                feedback=self._ai_feedback(grade, earned=earned, points=grade.max_points),
+                answer=deterministic.answer,
+                source=source,
+                confidence=grade.confidence,
+                first_error=grade.first_error,
+                next_step=grade.next_step,
+                criteria=tuple(criterion.to_dict() for criterion in grade.criteria),
+            )
+
+        return self._resolve_final_solution_grade(
+            user_id=user_id,
+            subject=subject,
+            quiz=quiz,
+            answers=answers,
+            resolved=resolved,
+            final_attachment=final_attachment,
+        )
+
+    def _resolve_final_solution_grade(
+        self,
+        *,
+        user_id: int,
+        subject: str,
+        quiz: ProductionQuiz,
+        answers: Mapping[str, str],
+        resolved: dict[str, _ResolvedQuestionGrade],
+        final_attachment: AttachmentRef | None,
+    ) -> dict[str, _ResolvedQuestionGrade]:
+        question = quiz.questions[11]
+        deterministic = resolved[question.id]
+        student_text = str(answers.get(question.id) or "").strip()
+        has_photo = final_attachment is not None
+        grader = self.final_solution_grader
+
+        if not has_photo and self._looks_like_grading_injection(student_text):
+            resolved[question.id] = _ResolvedQuestionGrade(
+                earned=deterministic.earned,
+                correct=deterministic.correct,
+                feedback=deterministic.feedback,
+                answer=student_text,
+                source="server-guarded",
+                confidence="guarded",
+                first_error="Відповідь містить мета-інструкції замість виконання завдання.",
+                next_step="Прибери прохання про оцінку й напиши саме розв’язання.",
+            )
+            return resolved
+
+        if grader is None or not bool(getattr(grader, "enabled", False)):
+            if has_photo and not student_text:
+                raise CurriculumQuizPhotoUnavailable(
+                    "Easy не може перевірити фото прямо зараз. Додай текстове розв’язання або спробуй пізніше."
+                )
+            if has_photo:
+                resolved[question.id] = _ResolvedQuestionGrade(
+                    earned=deterministic.earned,
+                    correct=deterministic.correct,
+                    feedback=(
+                        deterministic.feedback
+                        + "\nФото було отримано, але оцінка виконана за текстовою відповіддю, бо vision-перевірка недоступна."
+                    ),
+                    answer=(student_text or "Фото розв’язання"),
+                    source="server-text-fallback",
+                    confidence="deterministic",
+                    submission_mode="photo_and_text",
+                    image_quality="unavailable",
+                )
+            return resolved
+
+        item = FinalSolutionGradingItem(
+            question_id=question.id,
+            number=12,
+            max_points=question.points,
+            grading_mode=question.grading_mode,
+            prompt=question.prompt,
+            instruction=question.instruction,
+            task=question.task,
+            answer_format=question.answer_format,
+            skill=question.skill,
+            source_text=question.source_text,
+            correct_answer=question.correct_answer,
+            accepted_answers=question.accepted_answers,
+            primary_answers=question.primary_answers,
+            secondary_answers=question.secondary_answers,
+            scoring_parts=question.scoring_parts,
+            student_text=student_text,
+        )
+        try:
+            ai_result = grader.grade(
+                context=AIContext(
+                    user_id=int(user_id),
+                    subject=subject,
+                    available_tokens=int(getattr(grader, "max_output_tokens", 1800)),
+                    metadata={
+                        "quiz_id": quiz.id,
+                        "curriculum_unit_id": quiz.curriculum_unit_id,
+                        "question_number": 12,
+                        "has_photo": has_photo,
+                    },
+                ),
+                item=item,
+                attachment=final_attachment,
+            )
+        except Exception:
+            if self.logger:
+                self.logger.exception(
+                    "Unexpected final solution grading failure quiz_id=%s user_id=%s",
+                    quiz.id, int(user_id),
+                )
+            if has_photo and not student_text:
+                raise CurriculumQuizPhotoUnavailable(
+                    "Фото не вдалося перевірити. Перефотографуй або додай текстове розв’язання."
+                )
+            return resolved
+
+        if not getattr(ai_result, "success", False):
+            if self.logger:
+                error = getattr(ai_result, "error", None)
+                self.logger.warning(
+                    "Final solution grading fell back quiz_id=%s user_id=%s error=%s",
+                    quiz.id, int(user_id),
+                    getattr(getattr(error, "code", None), "value", "unknown"),
+                )
+            if has_photo and not student_text:
+                raise CurriculumQuizPhotoUnavailable(
+                    "Фото зараз не вдалося перевірити. Додай текстове розв’язання або спробуй пізніше."
+                )
+            return resolved
+
+        grade = ai_result.value
+        if has_photo and grade.image_quality == "unreadable" and not student_text:
+            raise CurriculumQuizPhotoUnreadable(
+                "Фото завдання №12 нечітке. Зніми аркуш рівно, при доброму освітленні, або додай текст."
+            )
+        if grade.confidence == "low":
+            if has_photo and not student_text:
+                raise CurriculumQuizPhotoUnavailable(
+                    "Easy не зміг упевнено прочитати розв’язання. Перефотографуй або додай текст."
+                )
+            if student_text:
+                answer_parts = []
+                if has_photo:
+                    answer_parts.append("Фото розв’язання завантажено, але не використано через низьку впевненість")
+                answer_parts.append(f"Текст: {student_text}")
+                resolved[question.id] = _ResolvedQuestionGrade(
+                    earned=deterministic.earned,
+                    correct=deterministic.correct,
+                    feedback=(
+                        deterministic.feedback
+                        + ("\nEasy не зміг упевнено прочитати фото, тому бал визначено лише за текстом." if has_photo else "")
+                    ),
+                    answer="\n".join(answer_parts),
+                    source="server-text-fallback",
+                    confidence="deterministic",
+                    submission_mode="photo_and_text" if has_photo else "text",
+                    image_quality=grade.image_quality if has_photo else "not_provided",
+                    transcription=grade.transcription,
+                )
+                return resolved
+            earned = deterministic.earned
+            source = "server-text-fallback"
+        elif grade.confidence == "medium":
+            earned = max(deterministic.earned, grade.awarded_points)
+            source = "vision-assisted" if has_photo else "ai-assisted"
+        else:
+            earned = grade.awarded_points
+            source = "vision" if has_photo else "ai-final"
+        earned = max(0, min(3, int(earned)))
+
+        answer_parts: list[str] = []
+        if has_photo:
+            answer_parts.append("Фото розв’язання завантажено")
+        if student_text:
+            answer_parts.append(f"Текст: {student_text}")
+        if grade.transcription:
+            answer_parts.append(f"Easy прочитав: {grade.transcription}")
+        resolved[question.id] = _ResolvedQuestionGrade(
+            earned=earned,
+            correct=earned == 3,
+            feedback=self._ai_feedback(grade, earned=earned, points=3),
+            answer="\n".join(answer_parts) or deterministic.answer,
+            source=source,
+            confidence=grade.confidence,
+            first_error=grade.first_error,
+            next_step=grade.next_step,
+            criteria=tuple(criterion.to_dict() for criterion in grade.criteria),
+            submission_mode=grade.submission_mode,
+            image_quality=grade.image_quality,
+            transcription=grade.transcription,
+        )
+        return resolved
+
+    def _finalize_submission(
+        self,
+        *,
+        user_id: int,
+        subject: str,
+        curriculum_unit_id: str,
+        attempt_token: str,
+        prepared: _PreparedQuizSubmission,
+        grades: Mapping[str, _ResolvedQuestionGrade],
+    ) -> QuizAttemptResult:
+        connection = self.repository.connect()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            existing = self.repository.attempt_row_with_summary(
+                connection,
+                attempt_token=attempt_token,
+            )
+            if existing is not None:
+                if int(existing["user_id"]) != int(user_id):
+                    raise CurriculumQuizOwnershipError("Attempt belongs to another learner.")
+                connection.commit()
+                return self.repository.attempt_result_from_row(existing, idempotent=True)
+
+            now = datetime.now(timezone.utc)
+            session_row, quiz = self._validated_session_quiz(
+                connection,
+                user_id=user_id,
+                subject=subject,
+                curriculum_unit_id=curriculum_unit_id,
+                attempt_token=attempt_token,
+                now=now,
+            )
+            if str(session_row["quiz_snapshot_hash"]) != prepared.snapshot_hash:
+                raise CurriculumQuizPersistenceError("Quiz snapshot changed during grading.")
+            if quiz.to_dict(include_answer_key=True) != prepared.quiz.to_dict(include_answer_key=True):
+                raise CurriculumQuizPersistenceError("Quiz snapshot no longer matches the graded copy.")
+
             if session_row["submitted_at"] is not None and self.logger:
                 self.logger.warning(
                     "Recovering orphaned submitted quiz session token=%s user_id=%s",
@@ -605,17 +1099,11 @@ class CurriculumQuizService:
                     int(user_id),
                 )
 
-            allowed = {question.id for question in quiz.questions}
-            safe_answers = {
-                str(key): str(value)[:8000]
-                for key, value in dict(answers or {}).items()
-                if str(key) in allowed and isinstance(value, (str, int, float))
-            }
             score = 0
             review = []
             for index, question in enumerate(quiz.questions, start=1):
-                earned, correct, feedback, answer = self._grade(question, safe_answers.get(question.id))
-                score += earned
+                grade = grades[question.id]
+                score += grade.earned
                 review.append({
                     "question_id": question.id,
                     "number": index,
@@ -626,13 +1114,22 @@ class CurriculumQuizService:
                     "answer_type": question.answer_type,
                     "skill": question.skill,
                     "review_tip": question.review_tip or question.feedback_hint,
-                    "user_answer": answer,
+                    "user_answer": grade.answer,
                     "correct_answer": question.correct_answer,
-                    "earned": earned,
+                    "earned": grade.earned,
                     "points": question.points,
-                    "is_correct": correct,
-                    "explanation": feedback,
+                    "is_correct": grade.correct,
+                    "explanation": grade.feedback,
+                    "grading_source": grade.source,
+                    "grading_confidence": grade.confidence,
+                    "first_error": grade.first_error,
+                    "next_step": grade.next_step,
+                    "criteria": list(grade.criteria),
+                    "submission_mode": grade.submission_mode,
+                    "image_quality": grade.image_quality,
+                    "transcription": grade.transcription,
                 })
+
             passed = score >= quiz.pass_score
             attempt_id = f"attempt-{hashlib.sha256(attempt_token.encode('utf-8')).hexdigest()[:28]}"
             progress_before = self.progress_service.get_active_unit_progress_in_transaction(
@@ -674,7 +1171,11 @@ class CurriculumQuizService:
                 (
                     attempt_id, attempt_token, int(user_id), quiz.id, quiz.curriculum_id,
                     curriculum_unit_id, subject, score, quiz.max_score, int(passed), xp_delta,
-                    canonical_json(safe_answers), canonical_json(review), submitted_at,
+                    canonical_json({
+                        **prepared.safe_answers,
+                        **({quiz.questions[11].id: "[photo]"}
+                           if grades[quiz.questions[11].id].submission_mode == "photo" else {}),
+                    }), canonical_json(review), submitted_at,
                 ),
             )
             connection.execute(
@@ -686,10 +1187,7 @@ class CurriculumQuizService:
                    WHERE user_id = ? AND curriculum_id = ? AND curriculum_unit_id = ?""",
                 (int(user_id), quiz.curriculum_id, curriculum_unit_id),
             )
-            row = connection.execute(
-                "SELECT * FROM curriculum_quiz_attempts WHERE attempt_id = ?",
-                (attempt_id,),
-            ).fetchone()
+            row = self.repository.attempt_row_with_summary(connection, attempt_id=attempt_id)
             connection.commit()
             return self.repository.attempt_result_from_row(row, idempotent=False)
         except Exception:
@@ -697,6 +1195,42 @@ class CurriculumQuizService:
             raise
         finally:
             connection.close()
+
+    def submit_attempt(
+        self,
+        *,
+        user_id: int,
+        subject: str,
+        curriculum_unit_id: str,
+        attempt_token: str,
+        answers: Mapping[str, object],
+        final_attachment: AttachmentRef | None = None,
+    ) -> QuizAttemptResult:
+        prepared = self._prepare_submission(
+            user_id=user_id,
+            subject=subject,
+            curriculum_unit_id=curriculum_unit_id,
+            attempt_token=attempt_token,
+            answers=answers,
+            final_attachment=final_attachment,
+        )
+        if isinstance(prepared, QuizAttemptResult):
+            return prepared
+        grades = self._resolve_question_grades(
+            user_id=user_id,
+            subject=subject,
+            quiz=prepared.quiz,
+            answers=prepared.safe_answers,
+            final_attachment=final_attachment,
+        )
+        return self._finalize_submission(
+            user_id=user_id,
+            subject=subject,
+            curriculum_unit_id=curriculum_unit_id,
+            attempt_token=attempt_token,
+            prepared=prepared,
+            grades=grades,
+        )
 
 
     def get_active_question_context(
@@ -812,10 +1346,10 @@ class CurriculumQuizService:
     def get_result(self, *, user_id: int, attempt_id: str) -> QuizAttemptResult:
         connection = self.repository.connect()
         try:
-            row = connection.execute(
-                "SELECT * FROM curriculum_quiz_attempts WHERE attempt_id = ?",
-                (attempt_id,),
-            ).fetchone()
+            row = self.repository.attempt_row_with_summary(
+                connection,
+                attempt_id=attempt_id,
+            )
             if row is None:
                 raise CurriculumQuizNotFound("Quiz attempt was not found.")
             if int(row["user_id"]) != int(user_id):

@@ -206,6 +206,67 @@ class LearningContext(AIContext):
 
 
 @dataclass(frozen=True)
+class LearnerMemory:
+    """Small, non-sensitive learning memory used to personalize tutor replies."""
+
+    preferred_style: str = "adaptive"
+    needs_step_by_step: bool = False
+    explanation_failures: int = 0
+    focus_topics: tuple[str, ...] = field(default_factory=tuple)
+    recent_error_patterns: tuple[str, ...] = field(default_factory=tuple)
+    continuity_note: str = ""
+
+    def __post_init__(self) -> None:
+        allowed = {"adaptive", "concise", "simple", "guided", "detailed"}
+        style = str(self.preferred_style or "adaptive").strip().lower()
+        object.__setattr__(self, "preferred_style", style if style in allowed else "adaptive")
+        object.__setattr__(self, "needs_step_by_step", bool(self.needs_step_by_step))
+        object.__setattr__(self, "explanation_failures", max(0, min(99, int(self.explanation_failures or 0))))
+
+        def bounded(values: Sequence[object], count: int, length: int) -> tuple[str, ...]:
+            if isinstance(values, (str, bytes)):
+                values = (values,)
+            result: list[str] = []
+            for value in values:
+                text = str(value or "").strip()
+                if text and text not in result:
+                    result.append(text[:length])
+                if len(result) >= count:
+                    break
+            return tuple(result)
+
+        object.__setattr__(self, "focus_topics", bounded(self.focus_topics, 6, 160))
+        object.__setattr__(self, "recent_error_patterns", bounded(self.recent_error_patterns, 5, 320))
+        object.__setattr__(self, "continuity_note", str(self.continuity_note or "").strip()[:500])
+
+
+@dataclass(frozen=True)
+class TutorExecutionPlan:
+    """Provider-neutral routing and response-shape plan for one tutor turn."""
+
+    profile: str = "balanced"
+    reasoning_effort: str = "low"
+    verbosity: str = "medium"
+    max_output_tokens: int = 900
+    complexity_score: int = 1
+    intent: str = "explain"
+
+    def __post_init__(self) -> None:
+        profiles = {"fast", "balanced", "deep", "vision"}
+        efforts = {"none", "minimal", "low", "medium", "high", "xhigh"}
+        verbosities = {"low", "medium", "high"}
+        profile = str(self.profile or "balanced").strip().lower()
+        effort = str(self.reasoning_effort or "low").strip().lower()
+        verbosity = str(self.verbosity or "medium").strip().lower()
+        object.__setattr__(self, "profile", profile if profile in profiles else "balanced")
+        object.__setattr__(self, "reasoning_effort", effort if effort in efforts else "low")
+        object.__setattr__(self, "verbosity", verbosity if verbosity in verbosities else "medium")
+        object.__setattr__(self, "max_output_tokens", max(96, min(6000, int(self.max_output_tokens or 900))))
+        object.__setattr__(self, "complexity_score", max(0, min(10, int(self.complexity_score or 0))))
+        object.__setattr__(self, "intent", str(self.intent or "explain").strip()[:48] or "explain")
+
+
+@dataclass(frozen=True)
 class AttachmentRef:
     id: str
     original_name: str
@@ -225,6 +286,8 @@ class AIRequest:
     conversation_id: str = ""
     user_message_id: str = ""
     assistant_message_id: str = ""
+    learner_memory: LearnerMemory = field(default_factory=LearnerMemory)
+    execution_plan: TutorExecutionPlan = field(default_factory=TutorExecutionPlan)
 
 
 @dataclass

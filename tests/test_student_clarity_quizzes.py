@@ -61,7 +61,7 @@ class ProductionExamQuizTests(unittest.TestCase):
         self.assertTrue(all(q.grading_mode == "rubric" for q in quiz.questions[8:]))
         self.assertTrue(all(len(q.scoring_parts) == 3 for q in quiz.questions[8:]))
         self.assertFalse(any("поясни правило" in q.task.lower() for q in quiz.questions))
-        self.assertEqual(quiz.schema_version, "quiz.v1.4-production-exam")
+        self.assertEqual(quiz.schema_version, "quiz.v1.5-photo-final")
 
     def test_each_attempt_can_receive_a_different_server_gradeable_variant(self):
         lesson = self._english_lesson()

@@ -1,3 +1,4 @@
+from contextlib import closing
 import json
 import re
 import sqlite3
@@ -69,7 +70,7 @@ class QuizFlowTests(unittest.TestCase):
         token, response = self.csrf(f"/quiz/{lesson_id}")
         html = response.get_data(as_text=True)
         attempt_token = re.search(r'name="attempt_token" value="([^"]+)"', html).group(1)
-        with sqlite3.connect(app_module.DB_PATH) as conn:
+        with closing(sqlite3.connect(app_module.DB_PATH)) as conn, conn:
             row = conn.execute(
                 "SELECT quiz_json FROM quiz_sessions WHERE attempt_token = ?",
                 (attempt_token,),
@@ -98,7 +99,7 @@ class QuizFlowTests(unittest.TestCase):
             repeated_id=True,
         )
         self.assertEqual(response.status_code, 302)
-        with sqlite3.connect(app_module.DB_PATH) as conn:
+        with closing(sqlite3.connect(app_module.DB_PATH)) as conn, conn:
             attempt = conn.execute(
                 "SELECT score, total, passed, xp_awarded FROM quiz_attempts WHERE attempt_token = ?",
                 (attempt_token,),
@@ -115,7 +116,7 @@ class QuizFlowTests(unittest.TestCase):
         response = self.submit_answers(csrf_token, attempt_token, quiz_map)
         self.assertEqual(response.status_code, 302)
 
-        with sqlite3.connect(app_module.DB_PATH) as conn:
+        with closing(sqlite3.connect(app_module.DB_PATH)) as conn, conn:
             attempt = conn.execute(
                 "SELECT score, total, passed, xp_awarded, finalized_at FROM quiz_attempts WHERE attempt_token = ?",
                 (attempt_token,),
@@ -136,7 +137,7 @@ class QuizFlowTests(unittest.TestCase):
 
         duplicate = self.submit_answers(csrf_token, attempt_token, quiz_map)
         self.assertEqual(duplicate.status_code, 302)
-        with sqlite3.connect(app_module.DB_PATH) as conn:
+        with closing(sqlite3.connect(app_module.DB_PATH)) as conn, conn:
             self.assertEqual(
                 conn.execute("SELECT COUNT(*) FROM quiz_attempts WHERE attempt_token = ?", (attempt_token,)).fetchone()[0],
                 1,
@@ -151,7 +152,7 @@ class QuizFlowTests(unittest.TestCase):
             session["xp"] = 0
             session["progress"] = 0
         self.assertEqual(self.client.get("/lesson/1").status_code, 200)
-        with sqlite3.connect(app_module.DB_PATH) as conn:
+        with closing(sqlite3.connect(app_module.DB_PATH)) as conn, conn:
             self.assertEqual(
                 conn.execute("SELECT progress, xp FROM user_subject_progress WHERE user_id = ? AND subject = 'math'", (self.user_id,)).fetchone(),
                 (33, 60),
@@ -189,7 +190,7 @@ class QuizFlowTests(unittest.TestCase):
             self.submit_answers(csrf_token, second_token, quiz_map, correct=True).status_code,
             302,
         )
-        with sqlite3.connect(app_module.DB_PATH) as conn:
+        with closing(sqlite3.connect(app_module.DB_PATH)) as conn, conn:
             awards = conn.execute(
                 "SELECT xp_awarded FROM quiz_attempts WHERE user_id = ? AND lesson_id = 1 ORDER BY id",
                 (self.user_id,),
@@ -223,7 +224,7 @@ class QuizFlowTests(unittest.TestCase):
                         passed=False,
                         review=review,
                     )
-        with sqlite3.connect(app_module.DB_PATH) as conn:
+        with closing(sqlite3.connect(app_module.DB_PATH)) as conn, conn:
             self.assertEqual(
                 conn.execute("SELECT COUNT(*) FROM quiz_attempts WHERE attempt_token = 'rollback-attempt-token'").fetchone()[0],
                 0,
@@ -248,7 +249,7 @@ class QuizFlowTests(unittest.TestCase):
     def test_parallel_quiz_pages_keep_both_server_sessions(self):
         _csrf_one, token_one, _quiz_one = self.open_quiz()
         _csrf_two, token_two, _quiz_two = self.open_quiz()
-        with sqlite3.connect(app_module.DB_PATH) as conn:
+        with closing(sqlite3.connect(app_module.DB_PATH)) as conn, conn:
             count = conn.execute(
                 "SELECT COUNT(*) FROM quiz_sessions WHERE attempt_token IN (?, ?)",
                 (token_one, token_two),

@@ -6,9 +6,11 @@ this module. Application routes and engines depend on the orchestrator instead.
 from __future__ import annotations
 
 import os
+import re
 from typing import Any, Iterator, Mapping
 
 from .attachments import image_to_data_url
+from .intelligence import strip_generic_opening
 from .prompts import build_instructions, build_user_input
 from .schemas import AIRequest, AIResult, AIStreamEvent
 
@@ -30,7 +32,12 @@ class OpenAIResponsesProvider:
 
         self.api_key = str(read("OPENAI_API_KEY", "")).strip()
         self.model = str(read("OPENAI_MODEL", "gpt-4o-mini")).strip() or "gpt-4o-mini"
-        self.vision_model = str(read("OPENAI_VISION_MODEL", self.model)).strip() or self.model
+        self.fast_model = str(read("OPENAI_TUTOR_FAST_MODEL", self.model)).strip() or self.model
+        self.tutor_model = str(read("OPENAI_TUTOR_MODEL", self.model)).strip() or self.model
+        self.reasoning_model = str(
+            read("OPENAI_TUTOR_REASONING_MODEL", self.tutor_model)
+        ).strip() or self.tutor_model
+        self.vision_model = str(read("OPENAI_VISION_MODEL", self.tutor_model)).strip() or self.tutor_model
         self.max_output_tokens = int(read("OPENAI_MAX_OUTPUT_TOKENS", 900))
         self.timeout = float(read("OPENAI_TIMEOUT_SECONDS", 45))
         self.max_retries = int(read("OPENAI_MAX_RETRIES", 1))
@@ -50,6 +57,33 @@ class OpenAIResponsesProvider:
     def enabled(self) -> bool:
         return self.client is not None
 
+    @staticmethod
+    def _supports_reasoning_effort(model: str) -> bool:
+        normalized = str(model or "").strip().lower()
+        return normalized.startswith(("gpt-5", "o1", "o3", "o4"))
+
+    @staticmethod
+    def _supports_text_verbosity(model: str) -> bool:
+        normalized = str(model or "").strip().lower()
+        return normalized.startswith("gpt-5")
+
+    @staticmethod
+    def _reasoning_effort_for_model(model: str, requested: str) -> str:
+        normalized = str(model or "").strip().lower()
+        effort = str(requested or "low").strip().lower()
+        if normalized.startswith(("o1", "o3", "o4")) and effort in {"none", "minimal"}:
+            return "low"
+        return effort
+
+    def _model_for_request(self, request: AIRequest) -> str:
+        if request.attachments or request.execution_plan.profile == "vision":
+            return self.vision_model
+        if request.execution_plan.profile == "fast":
+            return self.fast_model
+        if request.execution_plan.profile == "deep":
+            return self.reasoning_model
+        return self.tutor_model
+
     def _request_kwargs(self, request: AIRequest, *, stream: bool = False) -> dict:
         input_items = build_user_input(request.question, request.history)
         if request.attachments:
@@ -64,16 +98,22 @@ class OpenAIResponsesProvider:
                     })
             current["content"] = content
 
-        return {
-            "model": self.vision_model if request.attachments else self.model,
+        model = self._model_for_request(request)
+        kwargs: dict[str, Any] = {
+            "model": model,
             "instructions": build_instructions(
                 request.context,
                 question=request.question,
                 history=request.history,
                 has_images=bool(request.attachments),
+                learner_memory=request.learner_memory,
+                execution_plan=request.execution_plan,
             ),
             "input": input_items,
-            "max_output_tokens": self.max_output_tokens,
+            "max_output_tokens": min(
+                self.max_output_tokens,
+                max(96, int(request.execution_plan.max_output_tokens or self.max_output_tokens)),
+            ),
             "store": self.store_responses,
             "stream": stream,
             "metadata": {
@@ -81,8 +121,20 @@ class OpenAIResponsesProvider:
                 "conversation_id": request.conversation_id[:64],
                 "subject": request.context.subject[:32],
                 "mode": getattr(request.context, "response_mode", "explain")[:16],
+                "profile": request.execution_plan.profile[:16],
+                "complexity": str(request.execution_plan.complexity_score),
             },
         }
+        if self._supports_reasoning_effort(model):
+            kwargs["reasoning"] = {
+                "effort": self._reasoning_effort_for_model(
+                    model,
+                    request.execution_plan.reasoning_effort,
+                )
+            }
+        if self._supports_text_verbosity(model):
+            kwargs["text"] = {"verbosity": request.execution_plan.verbosity}
+        return kwargs
 
     @staticmethod
     def _usage_dict(response: object) -> dict | None:
@@ -258,6 +310,8 @@ class OpenAIResponsesProvider:
         response_id = None
         usage = None
         collected: list[str] = []
+        pending_prefix = ""
+        prefix_released = False
         try:
             stream = self.client.responses.create(**self._request_kwargs(request, stream=True))
             for event in stream:
@@ -267,7 +321,24 @@ class OpenAIResponsesProvider:
                     response_id = str(getattr(response, "id", "") or "") or response_id
                 elif event_type == "response.output_text.delta":
                     delta = str(getattr(event, "delta", "") or "")
-                    if delta:
+                    if not delta:
+                        continue
+                    if not prefix_released:
+                        pending_prefix += delta
+                        ready = (
+                            len(pending_prefix) >= 120
+                            or "\n" in pending_prefix
+                            or bool(re.search(r"[.!?…]\s", pending_prefix))
+                        )
+                        if not ready:
+                            continue
+                        cleaned = strip_generic_opening(pending_prefix)
+                        prefix_released = True
+                        pending_prefix = ""
+                        if cleaned:
+                            collected.append(cleaned)
+                            yield AIStreamEvent("delta", {"text": cleaned})
+                    else:
                         collected.append(delta)
                         yield AIStreamEvent("delta", {"text": delta})
                 elif event_type == "response.completed":
@@ -279,6 +350,11 @@ class OpenAIResponsesProvider:
                     error = getattr(event, "error", None) or getattr(response, "error", None)
                     raise RuntimeError(str(getattr(error, "message", "") or "AI streaming error"))
 
+            if pending_prefix:
+                cleaned = strip_generic_opening(pending_prefix)
+                if cleaned:
+                    collected.append(cleaned)
+                    yield AIStreamEvent("delta", {"text": cleaned})
             text = "".join(collected).strip()
             if not text:
                 yield AIStreamEvent("fallback", {

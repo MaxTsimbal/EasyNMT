@@ -12,13 +12,13 @@
   <header class="lesson-header fade-up exam-hero">
     <span class="pill">Екзаменаційний тренажер</span>
     <h1>{{ production_quiz.title }}</h1>
-    <p>12 питань без переказу правил. Обирай, перетворюй, складай, виправляй і працюй із контекстом.</p>
+    <p>Виконай усі 12 завдань. Відповіді зберігаються автоматично, а фінальне завдання можна подати фото або текстом.</p>
   </header>
 
   <section class="exam-dashboard goal-card">
     <div class="exam-progress-copy">
       <b><span data-answered-count>0</span> із 12 відповідей готові</b>
-      <span>Чернетка зберігається автоматично</span>
+      <span data-draft-status>Текстова чернетка зберігається автоматично</span>
     </div>
     <div class="exam-progress-track" aria-hidden="true"><span data-answered-progress></span></div>
     <nav class="exam-question-nav" aria-label="Навігація питаннями">
@@ -29,17 +29,26 @@
   </section>
 
   <div class="quiz-levels-legend exam-levels-legend">
-    <span><b>1–4</b> вибір у контексті · 1 бал</span>
-    <span><b>5–8</b> практичне перетворення · 2 бали</span>
-    <span><b>9–12</b> три окремі частини · 3 бали</span>
+    <span><b>1–4</b> вибір відповіді · 1 бал</span>
+    <span><b>5–8</b> коротка письмова відповідь · 2 бали · Easy перевіряє зміст</span>
+    <span><b>9–11</b> повне розв’язання текстом · 3 бали · Easy аналізує кроки</span>
+    <span><b>12</b> фото аркуша або текст · 3 бали · Easy Vision</span>
   </div>
 
-  <form method="post" class="quiz-form production-exam-form" data-draft-url="{{ url_for('curriculum_quiz_draft_api', curriculum_unit_id=production_quiz.curriculum_unit_id) }}" data-csrf="{{ csrf_token() }}">
+  <form method="post" enctype="multipart/form-data" class="quiz-form production-exam-form"
+    data-total-questions="12"
+    data-draft-url="{{ url_for('curriculum_quiz_draft_api', curriculum_unit_id=production_quiz.curriculum_unit_id) }}"
+    data-csrf="{{ csrf_token() }}"
+    data-photo-max-bytes="{{ quiz_photo_max_bytes }}">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="attempt_token" value="{{ quiz_attempt_token }}">
 
     {% for question in production_quiz.questions %}
-    <section id="question-{{ loop.index }}" class="goal-card quiz-question exam-question-card {% if question.points == 1 %}quiz-basic{% elif question.points == 2 %}quiz-middle{% else %}quiz-advanced{% endif %}"
+    <section id="question-{{ loop.index }}"
+      class="goal-card quiz-question exam-question-card {% if question.points == 1 %}quiz-basic{% elif question.points == 2 %}quiz-middle{% else %}quiz-advanced{% endif %}"
+      data-question-card="{{ question.id }}"
+      data-question-number="{{ loop.index }}"
+      {% if loop.index == 12 %}data-final-solution="true"{% endif %}
       data-easy-question-id="{{ question.id }}"
       data-easy-question-number="{{ loop.index }}"
       data-easy-question-prompt="{{ (question.task or question.prompt)|striptags|e }}">
@@ -47,6 +56,7 @@
         <div class="exam-question-meta">
           <span class="quiz-badge">{{ loop.index }} / 12</span>
           {% if question.skill %}<span class="exam-skill-chip">{{ question.skill }}</span>{% endif %}
+          {% if loop.index == 12 %}<span class="exam-skill-chip final-photo-chip">Фото або текст</span>{% endif %}
         </div>
         <span class="quiz-points">{{ question.points }} {% if question.points == 1 %}бал{% else %}бали{% endif %}</span>
       </div>
@@ -86,89 +96,289 @@
       </div>
       {% elif question.answer_type == 'short_text' %}
       <div class="written-answer-wrap exam-written-wrap">
-        <textarea name="answer_{{ question.id }}" class="written-answer exam-written-answer" rows="3" maxlength="4000" placeholder="{{ question.input_placeholder or 'Напиши готову відповідь англійською' }}" required>{{ quiz_draft_answers.get(question.id, '') }}</textarea>
-        <p class="answer-hint">Одне готове речення. Пунктуація та великі літери не забирають бал.</p>
+        <textarea name="answer_{{ question.id }}" class="written-answer exam-written-answer" rows="3" maxlength="4000" placeholder="{{ question.input_placeholder or 'Напиши готову відповідь' }}" required>{{ quiz_draft_answers.get(question.id, '') }}</textarea>
+        <p class="answer-hint">Пиши відповідь своїми словами. Форматування не повинно заважати правильному змісту.</p>
+      </div>
+      {% elif loop.index == 12 %}
+      <div class="final-solution-entry">
+        <div class="solution-photo-upload">
+          <div class="solution-photo-copy">
+            <span class="solution-photo-icon" aria-hidden="true">📷</span>
+            <div>
+              <b>Завантаж фото розв’язання</b>
+              <p>PNG, JPG або WEBP до {{ quiz_photo_max_mb }} МБ. Фото обробляється тимчасово й видаляється після перевірки.</p>
+            </div>
+          </div>
+          <label class="solution-photo-button">
+            <span>Обрати фото</span>
+            <input type="file" name="solution_photo" accept="image/png,image/jpeg,image/webp" data-solution-photo>
+          </label>
+          <div class="solution-photo-preview-wrap" data-photo-preview-wrap hidden>
+            <img class="solution-photo-preview" data-photo-preview alt="Попередній перегляд фото розв’язання">
+            <div>
+              <b data-photo-name></b>
+              <small data-photo-status>Фото готове до перевірки</small>
+              <button type="button" class="solution-photo-remove" data-photo-remove>Прибрати фото</button>
+            </div>
+          </div>
+          <p class="solution-photo-error" data-photo-error role="alert" hidden></p>
+        </div>
+
+        <div class="solution-mode-divider"><span>або напиши розв’язання текстом</span></div>
+
+        <div class="written-answer-wrap exam-written-wrap">
+          <div class="paper-task-box exam-parts-box">
+            <div class="paper-task-icon">3×</div>
+            <div><b>Три критерії</b><p>Метод, ключові кроки та правильна фінальна відповідь. Фото й текст оцінюються однаково.</p></div>
+          </div>
+          <textarea name="answer_{{ question.id }}" class="written-answer written-answer-large exam-written-answer" rows="7" maxlength="8000" data-final-solution-text placeholder="Напиши розв’язання тут, якщо не завантажуєш фото">{{ quiz_draft_answers.get(question.id, '') }}</textarea>
+          <p class="answer-hint">Достатньо одного способу: фото або текст. Можна додати обидва, щоб Easy краще прочитав записи.</p>
+        </div>
       </div>
       {% else %}
       <div class="written-answer-wrap exam-written-wrap">
         <div class="paper-task-box exam-parts-box">
           <div class="paper-task-icon">3×</div>
-          <div><b>Три маленькі завдання</b><p>Можна писати з нового рядка або так: 1) … 2) … 3) …. Кожна правильна частина дає 1 бал.</p></div>
+          {% if question.grading_mode == 'rubric' %}
+          <div><b>Три частини оцінюються окремо</b><p>Можна писати з нового рядка або так: 1) … 2) … 3) …. Кожна правильна частина дає 1 бал.</p></div>
+          {% else %}
+          <div><b>Покажи хід розв’язання</b><p>Метод, правильні кроки та фінальна відповідь разом дають 3 бали.</p></div>
+          {% endif %}
         </div>
-        <textarea name="answer_{{ question.id }}" class="written-answer written-answer-large exam-written-answer" rows="6" maxlength="8000" placeholder="{{ question.input_placeholder or '1) ...\n2) ...\n3) ...' }}" required>{{ quiz_draft_answers.get(question.id, '') }}</textarea>
+        <textarea name="answer_{{ question.id }}" class="written-answer written-answer-large exam-written-answer" rows="6" maxlength="8000" placeholder="{{ question.input_placeholder or 'Запиши відповідь і ключові кроки' }}" required>{{ quiz_draft_answers.get(question.id, '') }}</textarea>
       </div>
       {% endif %}
+      <p class="exam-missing-note" data-missing-note hidden>{% if loop.index == 12 %}Додай фото або текстове розв’язання.{% else %}Заповни це питання перед завершенням тесту.{% endif %}</p>
     </section>
     {% endfor %}
 
     <div class="quiz-submit-panel goal-card premium exam-submit-panel">
       <div>
         <b>Фінішна перевірка</b>
-        <p><span data-answered-count>0</span>/12 заповнено. У завданнях на 3 бали перевір усі три частини.</p>
+        <p data-submit-status aria-live="polite"><span data-answered-count>0</span>/12 заповнено. Завершення стане доступним після всіх відповідей.</p>
       </div>
-      <button class="primary-action" type="submit">Завершити тест</button>
+      <button class="primary-action" type="submit" data-submit-button disabled>Завершити тест</button>
     </div>
   </form>
 </div>
 <script>
 (() => {
-  const form = document.querySelector('.quiz-form');
+  const form = document.querySelector('.production-exam-form');
   if (!form) return;
+
+  const total = Number(form.dataset.totalQuestions || 12);
   const draftUrl = form.dataset.draftUrl;
   const csrf = form.dataset.csrf;
+  const photoMaxBytes = Number(form.dataset.photoMaxBytes || 6291456);
+  const allowedPhotoTypes = new Set(['image/png', 'image/jpeg', 'image/webp']);
   const progress = document.querySelector('[data-answered-progress]');
   const counters = document.querySelectorAll('[data-answered-count]');
+  const submitButton = form.querySelector('[data-submit-button]');
+  const submitStatus = form.querySelector('[data-submit-status]');
+  const draftStatus = document.querySelector('[data-draft-status]');
+  const photoInput = form.querySelector('[data-solution-photo]');
+  const photoPreviewWrap = form.querySelector('[data-photo-preview-wrap]');
+  const photoPreview = form.querySelector('[data-photo-preview]');
+  const photoName = form.querySelector('[data-photo-name]');
+  const photoError = form.querySelector('[data-photo-error]');
+  const photoRemove = form.querySelector('[data-photo-remove]');
+  let photoPreviewUrl = '';
   let timer = null;
   let submitting = false;
 
+  const fieldsFor = (questionId) => Array.from(form.querySelectorAll(`[name="answer_${CSS.escape(questionId)}"]`));
+  const questionCards = () => Array.from(form.querySelectorAll('[data-question-card]'));
+
+  const selectedPhoto = () => photoInput?.files?.[0] || null;
+
+  const textAnswerFor = (questionId) => {
+    const fields = fieldsFor(questionId);
+    const radio = fields.find((field) => field.type === 'radio' && field.checked);
+    if (radio) return radio.value.trim();
+    const text = fields.find((field) => field.type !== 'radio');
+    return text ? text.value.trim() : '';
+  };
+
+  const answerFor = (card) => {
+    const text = textAnswerFor(card.dataset.questionCard);
+    if (text) return text;
+    if (card.dataset.finalSolution === 'true' && selectedPhoto()) return '[photo]';
+    return '';
+  };
+
   const collect = () => {
     const answers = {};
-    form.querySelectorAll('[name^="answer_"]').forEach((field) => {
-      const id = field.name.replace('answer_', '');
-      if (field.type === 'radio') {
-        if (field.checked) answers[id] = field.value;
-      } else if (field.value.trim()) {
-        answers[id] = field.value;
-      }
+    questionCards().forEach((card) => {
+      const answer = textAnswerFor(card.dataset.questionCard);
+      if (answer) answers[card.dataset.questionCard] = answer;
     });
     return answers;
   };
 
-  const updateProgress = () => {
-    const answers = collect();
-    const count = Object.keys(answers).length;
-    counters.forEach((node) => { node.textContent = count; });
-    if (progress) progress.style.width = `${(count / 12) * 100}%`;
-    document.querySelectorAll('[data-question-nav]').forEach((node) => {
-      node.classList.toggle('is-answered', Boolean(answers[node.dataset.questionNav]));
-    });
+  const validatePhoto = ({showError = true} = {}) => {
+    const file = selectedPhoto();
+    if (!file) {
+      if (photoError) photoError.hidden = true;
+      return true;
+    }
+    let message = '';
+    if (!allowedPhotoTypes.has(file.type)) message = 'Підтримуються лише PNG, JPG, JPEG і WEBP.';
+    else if (file.size <= 0) message = 'Фото порожнє.';
+    else if (file.size > photoMaxBytes) message = `Фото завелике. Максимум ${Math.floor(photoMaxBytes / 1048576)} МБ.`;
+    if (photoError) {
+      photoError.textContent = message;
+      photoError.hidden = !message || !showError;
+    }
+    return !message;
   };
 
-  const save = () => {
-    if (!draftUrl || submitting) return;
-    fetch(draftUrl, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf},
-      body: JSON.stringify({answers: collect()}),
-      keepalive: true,
-    }).catch(() => {});
+  const clearPhotoPreview = () => {
+    if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
+    photoPreviewUrl = '';
+    if (photoPreview) photoPreview.removeAttribute('src');
+    if (photoPreviewWrap) photoPreviewWrap.hidden = true;
+    if (photoName) photoName.textContent = '';
   };
+
+  const renderPhotoPreview = () => {
+    clearPhotoPreview();
+    const file = selectedPhoto();
+    if (!file || !validatePhoto()) return;
+    photoPreviewUrl = URL.createObjectURL(file);
+    if (photoPreview) photoPreview.src = photoPreviewUrl;
+    if (photoName) photoName.textContent = file.name;
+    if (photoPreviewWrap) photoPreviewWrap.hidden = false;
+  };
+
+  const updateProgress = () => {
+    const answers = {};
+    questionCards().forEach((card) => {
+      const answer = answerFor(card);
+      if (answer) answers[card.dataset.questionCard] = answer;
+    });
+    const count = Object.keys(answers).length;
+    counters.forEach((node) => { node.textContent = count; });
+    if (progress) progress.style.width = `${(count / total) * 100}%`;
+
+    document.querySelectorAll('[data-question-nav]').forEach((node) => {
+      const answered = Boolean(answers[node.dataset.questionNav]);
+      node.classList.toggle('is-answered', answered);
+      node.classList.toggle('is-missing', !answered && node.dataset.wasChecked === 'true');
+    });
+
+    questionCards().forEach((card) => {
+      if (answers[card.dataset.questionCard]) {
+        card.classList.remove('is-missing');
+        const note = card.querySelector('[data-missing-note]');
+        if (note) note.hidden = true;
+      }
+    });
+
+    const complete = count === total;
+    if (submitButton && !submitting) submitButton.disabled = !complete;
+    if (submitStatus && !submitting) {
+      submitStatus.innerHTML = complete
+        ? `<span data-answered-count>${count}</span>/${total} заповнено. Можна завершувати тест.`
+        : `<span data-answered-count>${count}</span>/${total} заповнено. Залишилося ${total - count}.`;
+    }
+    return {answers, count, complete};
+  };
+
+  const save = async () => {
+    if (!draftUrl || submitting) return;
+    if (draftStatus) draftStatus.textContent = 'Зберігаємо текстову чернетку…';
+    try {
+      const response = await fetch(draftUrl, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf},
+        body: JSON.stringify({answers: collect()}),
+        keepalive: true,
+      });
+      if (!response.ok) throw new Error('draft_failed');
+      if (draftStatus) draftStatus.textContent = selectedPhoto()
+        ? 'Текст збережено. Фото надішлеться лише після завершення тесту.'
+        : 'Чернетку збережено';
+    } catch (_) {
+      if (draftStatus) draftStatus.textContent = 'Не вдалося зберегти чернетку. Відповіді залишаються на сторінці.';
+    }
+  };
+
+  const scheduleSave = (delay) => {
+    clearTimeout(timer);
+    timer = setTimeout(save, delay);
+  };
+
+  photoInput?.addEventListener('change', () => {
+    if (!validatePhoto()) {
+      photoInput.value = '';
+      clearPhotoPreview();
+    } else {
+      renderPhotoPreview();
+    }
+    updateProgress();
+  });
+
+  photoRemove?.addEventListener('click', () => {
+    if (photoInput) photoInput.value = '';
+    clearPhotoPreview();
+    if (photoError) photoError.hidden = true;
+    updateProgress();
+  });
 
   form.addEventListener('input', () => {
     updateProgress();
-    clearTimeout(timer);
-    timer = setTimeout(save, 500);
+    scheduleSave(550);
   });
-  form.addEventListener('change', () => {
+  form.addEventListener('change', (event) => {
     updateProgress();
-    clearTimeout(timer);
-    timer = setTimeout(save, 250);
+    if (event.target !== photoInput) scheduleSave(250);
   });
-  window.addEventListener('pagehide', save);
-  form.addEventListener('submit', () => {
+  window.addEventListener('pagehide', () => {
+    if (!submitting) save();
+    if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
+  });
+
+  form.addEventListener('submit', (event) => {
+    if (!validatePhoto()) {
+      event.preventDefault();
+      document.querySelector('[data-final-solution="true"]')?.scrollIntoView({behavior: 'smooth', block: 'center'});
+      return;
+    }
+    const state = updateProgress();
+    if (!state.complete) {
+      event.preventDefault();
+      questionCards().forEach((card) => {
+        const missing = !state.answers[card.dataset.questionCard];
+        card.classList.toggle('is-missing', missing);
+        const note = card.querySelector('[data-missing-note]');
+        if (note) note.hidden = !missing;
+        const nav = document.querySelector(`[data-question-nav="${CSS.escape(card.dataset.questionCard)}"]`);
+        if (nav) {
+          nav.dataset.wasChecked = 'true';
+          nav.classList.toggle('is-missing', missing);
+        }
+      });
+      const firstMissing = form.querySelector('[data-question-card].is-missing');
+      if (submitStatus) submitStatus.textContent = `Заповни ще ${total - state.count} питання.`;
+      save();
+      firstMissing?.scrollIntoView({behavior: 'smooth', block: 'center'});
+      firstMissing?.querySelector('input, textarea')?.focus({preventScroll: true});
+      return;
+    }
+
     submitting = true;
     clearTimeout(timer);
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = 'Easy перевіряє…';
+    }
+    if (submitStatus) {
+      submitStatus.textContent = selectedPhoto()
+        ? 'Easy перевіряє письмові відповіді та читає фото завдання №12. Не закривай сторінку кілька секунд.'
+        : 'Easy аналізує письмові відповіді 5–12, потім сервер безпечно збереже бали, XP і прогрес.';
+    }
   });
+
   updateProgress();
 })();
 </script>

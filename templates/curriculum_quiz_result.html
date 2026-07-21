@@ -4,22 +4,45 @@
 {% block content %}
 <div class="result-page human-result-page production-result-shell">
   <header class="lesson-header fade-up result-hero {% if attempt.passed %}is-passed{% else %}needs-practice{% endif %}">
-    <span class="pill">Результат екзаменаційної практики</span>
-    <h1>{% if attempt.passed %}Тему зараховано{% else %}Ще трохи практики, і буде чисто{% endif %}</h1>
-    <p>{% if attempt.passed %}{{ attempt.score }} з {{ attempt.total }} балів. Маршрут оновлено, XP зараховано.{% else %}{{ attempt.score }} з {{ attempt.total }} балів. Для проходження потрібно {{ pass_score }}. Нижче є точний маршрут повторення без туману й ворожіння на підручнику.{% endif %}</p>
+    <span class="pill">Спроба {{ attempt.attempt_number }}</span>
+    <h1>{% if attempt.passed %}Тему зараховано{% else %}Ще {{ attempt.remaining_to_pass }} {% if attempt.remaining_to_pass == 1 %}бал{% elif attempt.remaining_to_pass in [2, 3, 4] %}бали{% else %}балів{% endif %} до проходження{% endif %}</h1>
+    <p>
+      {% if attempt.passed %}
+        {{ attempt.score }} з {{ attempt.total }} балів. Прогрес збережено{% if attempt.xp_awarded %}, а +{{ attempt.xp_awarded }} XP нараховано один раз{% endif %}.
+      {% else %}
+        {{ attempt.score }} з {{ attempt.total }} балів. Для проходження потрібно {{ pass_score }}. Нижче видно, що саме повторити перед наступною спробою.
+      {% endif %}
+    </p>
   </header>
 
-  <div class="result-summary-grid production-summary-grid">
-    <div class="goal-card premium"><span class="score">{{ attempt.score }}/{{ attempt.total }}</span><span class="desc">підсумок</span></div>
-    <div class="goal-card"><span class="score">{% if attempt.passed %}Пройдено{% else %}Повторити{% endif %}</span><span class="desc">статус</span></div>
+  {% if attempt.idempotent %}
+  <div class="result-safe-notice" role="status">Цю спробу вже було збережено раніше. Повторне відправлення не змінило бали, XP або прогрес.</div>
+  {% endif %}
+
+  <div class="result-summary-grid production-summary-grid task-3d4-summary-grid">
+    <div class="goal-card premium"><span class="score">{{ attempt.score }}/{{ attempt.total }}</span><span class="desc">результат спроби</span></div>
+    <div class="goal-card"><span class="score">{{ attempt.best_score }}/24</span><span class="desc">найкращий результат</span></div>
+    <div class="goal-card"><span class="score">{% if attempt.attempt_number == 1 %}Перший результат{% elif attempt.is_personal_best %}Новий рекорд{% else %}Спроба {{ attempt.attempt_number }}{% endif %}</span><span class="desc">особистий прогрес</span></div>
     <div class="goal-card"><span class="score">+{{ attempt.xp_awarded }} XP</span><span class="desc">за цю спробу</span></div>
   </div>
+
+  <section class="goal-card result-breakdown-card">
+    <div class="review-heading">
+      <span class="score">Картина результату</span>
+      <span class="desc">Частково правильні завдання не губляться: система показує їх окремо.</span>
+    </div>
+    <div class="result-breakdown-grid">
+      <div><strong>{{ attempt.correct_count }}</strong><span>повністю правильні</span></div>
+      <div><strong>{{ attempt.partial_count }}</strong><span>частково правильні</span></div>
+      <div><strong>{{ attempt.incorrect_count }}</strong><span>потребують повторення</span></div>
+    </div>
+  </section>
 
   {% if review_plan %}
   <section class="goal-card review-plan-card">
     <div class="review-heading">
       <span class="score">Твій план повторення</span>
-      <span class="desc">Система зібрала навички, на яких загубилося найбільше балів.</span>
+      <span class="desc">Почни з навичок, на яких втрачено найбільше балів.</span>
     </div>
     <div class="review-plan-grid">
       {% for item in review_plan %}
@@ -39,7 +62,7 @@
   <section class="review-panel goal-card production-review-panel">
     <div class="review-heading">
       <span class="score">Розбір відповідей</span>
-      <span class="desc">У завданнях 9–12 видно результат кожної частини: що зараховано, де помилка і яка форма правильна.</span>
+      <span class="desc">Для кожного завдання видно зараховані бали, твою відповідь і точку, яку потрібно виправити.</span>
     </div>
     <div class="review-list">
       {% for item in attempt.review %}
@@ -47,15 +70,44 @@
         <div class="review-question">
           <span>{{ item.number }}.</span>
           <div class="review-question-copy">
-            {% if item.skill %}<small class="review-skill">{{ item.skill }}</small>{% endif %}
+            <div class="review-skill-line">
+              {% if item.skill %}<small class="review-skill">{{ item.skill }}</small>{% endif %}
+              {% if item.grading_source in ['vision', 'vision-assisted'] %}
+                <small class="review-grading-badge is-vision">📷 Easy Vision{% if item.grading_source == 'vision-assisted' %} + сервер{% endif %}</small>
+              {% elif item.grading_source in ['ai', 'ai-assisted', 'ai-final'] %}
+                <small class="review-grading-badge is-ai">✦ Easy AI{% if item.grading_source == 'ai-assisted' %} + сервер{% endif %}</small>
+              {% elif item.grading_source == 'server-text-fallback' %}
+                <small class="review-grading-badge is-fallback">Перевірено за текстом</small>
+              {% elif item.grading_source == 'server-guarded' %}
+                <small class="review-grading-badge is-guarded">Захищена перевірка</small>
+              {% endif %}
+            </div>
             {% if item.instruction %}<small><b>Що зробити:</b> {{ item.instruction }}</small>{% endif %}
             <p><span class="review-field-label">Завдання</span><b>{{ item.task or item.question }}</b></p>
             {% if item.answer_format %}<small><b>Як відповісти:</b> {{ item.answer_format }}</small>{% endif %}
           </div>
         </div>
         <div class="review-score">{{ item.earned }} / {{ item.points }}</div>
+        {% if item.number == 12 and item.submission_mode %}
+        <div class="review-photo-meta">
+          <span>{% if item.submission_mode == 'photo' %}📷 Фото{% elif item.submission_mode == 'photo_and_text' %}📷 Фото + текст{% else %}⌨️ Текст{% endif %}</span>
+          {% if item.image_quality == 'clear' %}<span>Фото чітке</span>
+          {% elif item.image_quality == 'partly_readable' %}<span>Фото частково читабельне</span>
+          {% elif item.image_quality == 'unavailable' %}<span>Фото не використано для оцінки</span>{% endif %}
+        </div>
+        {% endif %}
         <div class="review-answer"><span>Твоя відповідь</span><b>{{ item.user_answer }}</b></div>
         <div class="review-explanation">{{ item.explanation }}</div>
+        {% if item.criteria %}
+        <div class="review-criteria" aria-label="Критерії оцінювання">
+          {% for criterion in item.criteria %}
+          <div class="review-criterion {% if criterion.passed %}is-passed{% else %}is-missed{% endif %}">
+            <span aria-hidden="true">{% if criterion.passed %}✓{% else %}×{% endif %}</span>
+            <div><b>{{ criterion.label }}</b><small>{{ criterion.evidence }}</small></div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
         {% if item.earned < item.points %}
         <details class="review-reference">
           <summary>Показати еталон після тесту</summary>
@@ -67,14 +119,22 @@
     </div>
   </section>
 
-  <div class="goal-grid compact-actions production-result-actions">
-    {% if next_unit %}
+  <div class="goal-grid compact-actions production-result-actions task-3d4-result-actions">
+    {% if attempt.passed and next_unit %}
     <form method="post" action="{{ url_for('start_curriculum_unit_page', curriculum_unit_id=next_unit.unit_id) }}" class="goal-link">
       <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
       <button class="primary-action" type="submit">Наступна тема →</button>
     </form>
+    {% elif not attempt.passed %}
+    <a href="{{ url_for('curriculum_quiz_page', curriculum_unit_id=attempt.curriculum_unit_id) }}" class="goal-link"><button class="primary-action">Спробувати новий варіант</button></a>
+    {% else %}
+    <a href="{{ url_for('dashboard') }}" class="goal-link"><button class="primary-action">Повернутися до маршруту</button></a>
     {% endif %}
-    <a href="{{ url_for('curriculum_quiz_page', curriculum_unit_id=attempt.curriculum_unit_id) }}" class="goal-link"><button class="secondary-action">Новий варіант тесту</button></a>
+
+    <a href="{{ url_for('curriculum_lesson_page', curriculum_unit_id=attempt.curriculum_unit_id) }}" class="goal-link"><button class="secondary-action">Повторити урок</button></a>
+    {% if attempt.passed %}
+    <a href="{{ url_for('curriculum_quiz_page', curriculum_unit_id=attempt.curriculum_unit_id) }}" class="goal-link"><button class="secondary-action">Пройти ще раз для практики</button></a>
+    {% endif %}
     <a href="{{ url_for('dashboard') }}" class="goal-link"><button class="secondary-action">До кабінету</button></a>
   </div>
 </div>

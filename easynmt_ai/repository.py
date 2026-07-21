@@ -92,6 +92,18 @@ class AIRepository:
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             );
 
+            CREATE TABLE IF NOT EXISTS ai_learner_memory (
+                user_id INTEGER NOT NULL,
+                subject TEXT NOT NULL,
+                preferred_style TEXT NOT NULL DEFAULT 'adaptive',
+                needs_step_by_step INTEGER NOT NULL DEFAULT 0,
+                explanation_failures INTEGER NOT NULL DEFAULT 0,
+                last_focus TEXT NOT NULL DEFAULT '',
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY(user_id, subject),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
             CREATE INDEX IF NOT EXISTS idx_ai_messages_conversation
                 ON ai_messages(user_id, conversation_id, created_at);
             CREATE INDEX IF NOT EXISTS idx_ai_conversations_updated
@@ -320,6 +332,111 @@ class AIRepository:
         )
         conn.commit()
         conn.close()
+
+
+    def get_learner_memory(self, *, user_id: int, subject: str) -> dict:
+        """Return the small cross-conversation teaching preference snapshot."""
+
+        conn = self.connect()
+        try:
+            row = conn.execute(
+                """
+                SELECT preferred_style, needs_step_by_step, explanation_failures,
+                       last_focus, updated_at
+                FROM ai_learner_memory
+                WHERE user_id = ? AND subject = ?
+                """,
+                (int(user_id), str(subject or "none")[:64]),
+            ).fetchone()
+        finally:
+            conn.close()
+        if row is None:
+            return {}
+        return {
+            "preferred_style": row["preferred_style"],
+            "needs_step_by_step": bool(row["needs_step_by_step"]),
+            "explanation_failures": int(row["explanation_failures"] or 0),
+            "last_focus": row["last_focus"] or "",
+            "updated_at": row["updated_at"],
+        }
+
+    def observe_learner_signal(
+        self,
+        *,
+        user_id: int,
+        subject: str,
+        message: str,
+        response_mode: str,
+        lesson_title: str = "",
+    ) -> None:
+        """Persist explicit teaching preferences without another model request."""
+
+        clean = " ".join(str(message or "").strip().lower().split())
+        mode = str(response_mode or "explain").strip().lower()
+        style = "adaptive"
+        if mode == "concise" or any(item in clean for item in ("коротко", "стисло", "без води")):
+            style = "concise"
+        elif mode == "practice" or any(item in clean for item in ("підказ", "натяк", "не кажи відповідь")):
+            style = "guided"
+        elif any(item in clean for item in ("простіш", "з нуля", "не розум", "не зрозум")):
+            style = "simple"
+        elif any(item in clean for item in ("детально", "повністю", "кожен крок")):
+            style = "detailed"
+
+        needs_steps = any(
+            item in clean
+            for item in ("по кроках", "покроково", "кожен крок", "не пропускай", "з нуля")
+        )
+        failure_delta = 1 if any(
+            item in clean for item in ("ще раз", "інакше", "не допомогло", "все одно", "досі не")
+        ) else 0
+        focus = str(lesson_title or "").strip()[:160]
+        now = utc_now()
+
+        conn = self.connect()
+        try:
+            conn.execute(
+                """
+                INSERT INTO ai_learner_memory
+                    (user_id, subject, preferred_style, needs_step_by_step,
+                     explanation_failures, last_focus, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(user_id, subject) DO UPDATE SET
+                    preferred_style = CASE
+                        WHEN excluded.preferred_style <> 'adaptive'
+                        THEN excluded.preferred_style
+                        ELSE ai_learner_memory.preferred_style
+                    END,
+                    needs_step_by_step = MAX(
+                        ai_learner_memory.needs_step_by_step,
+                        excluded.needs_step_by_step
+                    ),
+                    explanation_failures = MIN(
+                        99,
+                        ai_learner_memory.explanation_failures + excluded.explanation_failures
+                    ),
+                    last_focus = CASE
+                        WHEN excluded.last_focus <> '' THEN excluded.last_focus
+                        ELSE ai_learner_memory.last_focus
+                    END,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    int(user_id),
+                    str(subject or "none")[:64],
+                    style,
+                    1 if needs_steps else 0,
+                    failure_delta,
+                    focus,
+                    now,
+                ),
+            )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
 
     def set_feedback(self, *, user_id: int, message_id: str, rating: str) -> bool:
         if rating not in {"up", "down"}:

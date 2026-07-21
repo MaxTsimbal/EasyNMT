@@ -11,6 +11,7 @@ from .lessons import (
     LessonValidationResult,
     validate_lesson,
 )
+from .intelligence import build_execution_plan, build_learner_memory, polish_tutor_answer
 from .models import (
     Curriculum,
     CurriculumStatus,
@@ -25,7 +26,28 @@ from .models import (
 )
 from .orchestrator import AIOrchestrator
 from .repository import AIRepository
-from .schemas import AIContext, AIRequest, AIResult, AIStreamEvent, AttachmentRef, LearningContext
+from .schemas import (
+    AIContext,
+    AIRequest,
+    AIResult,
+    AIStreamEvent,
+    AttachmentRef,
+    LearnerMemory,
+    LearningContext,
+    TutorExecutionPlan,
+)
+from .final_solution_grading import (
+    FinalSolutionGrade,
+    FinalSolutionGradingEngine,
+    FinalSolutionGradingItem,
+)
+from .written_grading import (
+    CriterionGrade,
+    WrittenAnswerGradingEngine,
+    WrittenGradeBatch,
+    WrittenGradingItem,
+    WrittenQuestionGrade,
+)
 from .subjects import (
     ACTIVE_SUBJECT_KEYS,
     SUBJECT_REGISTRY,
@@ -46,6 +68,14 @@ __all__ = [
     "AIStreamEvent",
     "AttachmentRef",
     "ACTIVE_SUBJECT_KEYS",
+    "CriterionGrade",
+    "FinalSolutionGrade",
+    "FinalSolutionGradingEngine",
+    "FinalSolutionGradingItem",
+    "WrittenAnswerGradingEngine",
+    "WrittenGradeBatch",
+    "WrittenGradingItem",
+    "WrittenQuestionGrade",
     "Curriculum",
     "CurriculumEngine",
     "CurriculumRepository",
@@ -58,6 +88,11 @@ __all__ = [
     "GradingEngine",
     "LearningPlan",
     "LearningContext",
+    "polish_tutor_answer",
+    "build_learner_memory",
+    "build_execution_plan",
+    "TutorExecutionPlan",
+    "LearnerMemory",
     "Lesson",
     "LessonEngine",
     "LessonGenerationRequest",

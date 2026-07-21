@@ -25,6 +25,7 @@ LESSON_SECTION_ORDER = (
     "worked_examples",
     "common_mistakes",
     "practical_tips",
+    "guided_practice",
     "mini_recap",
     "assessment_transition",
 )
@@ -384,6 +385,44 @@ class LessonPracticalTip(SerializableAIModel):
 
 
 @dataclass(frozen=True)
+class LessonPracticeTask(SerializableAIModel):
+    id: str
+    difficulty: str
+    prompt: str
+    hint: str
+    solution_steps: tuple[str, ...]
+    expected_answer: str
+    explanation: str
+    concept_ids: tuple[str, ...]
+
+    @classmethod
+    def from_dict(cls, value: Mapping[str, Any]) -> "LessonPracticeTask":
+        data = _mapping(value, "guided practice task")
+        return cls(
+            id=_text(data.get("id"), "guided_practice.id"),
+            difficulty=_text(data.get("difficulty"), "guided_practice.difficulty"),
+            prompt=_text(data.get("prompt"), "guided_practice.prompt"),
+            hint=_text(data.get("hint"), "guided_practice.hint"),
+            solution_steps=_strings(
+                data.get("solution_steps"),
+                "guided_practice.solution_steps",
+            ),
+            expected_answer=_text(
+                data.get("expected_answer"),
+                "guided_practice.expected_answer",
+            ),
+            explanation=_text(
+                data.get("explanation"),
+                "guided_practice.explanation",
+            ),
+            concept_ids=_strings(
+                data.get("concept_ids"),
+                "guided_practice.concept_ids",
+            ),
+        )
+
+
+@dataclass(frozen=True)
 class LessonRecap(SerializableAIModel):
     main_ideas: tuple[str, ...]
     formulas: tuple[str, ...]
@@ -523,6 +562,7 @@ class Lesson(SerializableAIModel):
     worked_examples: tuple[WorkedExample, ...]
     common_mistakes: tuple[LessonCommonMistake, ...]
     practical_tips: tuple[LessonPracticalTip, ...]
+    guided_practice: tuple[LessonPracticeTask, ...]
     recap: LessonRecap
     assessment_transition: LessonAssessmentTransition
     assessment_blueprint: LessonAssessmentBlueprint
@@ -586,6 +626,13 @@ class Lesson(SerializableAIModel):
                     "lesson practical tips",
                 )
             ),
+            guided_practice=tuple(
+                LessonPracticeTask.from_dict(item)
+                for item in _object_array(
+                    data.get("guided_practice"),
+                    "lesson guided practice",
+                )
+            ),
             recap=LessonRecap.from_dict(_mapping(data.get("recap"), "lesson recap")),
             assessment_transition=LessonAssessmentTransition.from_dict(
                 _mapping(data.get("assessment_transition"), "assessment transition")
@@ -618,7 +665,7 @@ class Lesson(SerializableAIModel):
 
     @property
     def practice_tasks(self) -> tuple[str, ...]:
-        return self.assessment_blueprint.question_patterns
+        return tuple(item.prompt for item in self.guided_practice)
 
     @property
     def summary(self) -> str:
@@ -639,6 +686,7 @@ class Lesson(SerializableAIModel):
             "concepts": [item.to_dict() for item in self.concepts],
             "worked_examples": [item.to_dict() for item in self.worked_examples],
             "common_mistakes": [item.to_dict() for item in self.common_mistakes],
+            "guided_practice": [item.to_dict() for item in self.guided_practice],
             "recap": self.recap.to_dict(),
             "assessment_blueprint": self.assessment_blueprint.to_dict(),
         }
@@ -665,6 +713,7 @@ class Lesson(SerializableAIModel):
             "worked_examples": [item.to_dict() for item in self.worked_examples],
             "common_mistakes": [item.to_dict() for item in self.common_mistakes],
             "practical_tips": [item.to_dict() for item in self.practical_tips],
+            "guided_practice": [item.to_dict() for item in self.guided_practice],
             "recap": self.recap.to_dict(),
             "assessment_transition": self.assessment_transition.to_dict(),
             "assessment_blueprint": self.assessment_blueprint.to_dict(),

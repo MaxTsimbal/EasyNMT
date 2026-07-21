@@ -66,6 +66,13 @@ def _educational_text(lesson: Lesson) -> str:
             item.use_when,
             item.recognition_pattern,
         )),
+        *(value for item in lesson.guided_practice for value in (
+            item.prompt,
+            item.hint,
+            item.expected_answer,
+            item.explanation,
+            *item.solution_steps,
+        )),
         *lesson.recap.main_ideas,
         *lesson.recap.formulas,
         *lesson.recap.warnings,
@@ -328,6 +335,69 @@ def validate_lesson(
     tip_ids = [item.id for item in lesson.practical_tips]
     if len(tip_ids) != len(set(tip_ids)):
         add("duplicate_tip_id", "Practical tip IDs must be unique.")
+
+    if len(lesson.guided_practice) != 3:
+        add(
+            "guided_practice_count_invalid",
+            "A learning-ready lesson requires exactly three guided practice tasks.",
+        )
+    practice_ids = [item.id for item in lesson.guided_practice]
+    if len(practice_ids) != len(set(practice_ids)):
+        add("duplicate_practice_id", "Guided practice IDs must be unique.")
+    if _normalized_duplicates(item.prompt for item in lesson.guided_practice):
+        add("duplicate_practice_prompt", "Guided practice tasks must be distinct.")
+    example_prompts = {
+        " ".join(item.problem.casefold().split()) for item in lesson.worked_examples
+    }
+    practice_ranks: list[int] = []
+    practice_coverage: set[str] = set()
+    for task in lesson.guided_practice:
+        rank = difficulty_order.get(task.difficulty)
+        if rank is None:
+            add(
+                "invalid_practice_difficulty",
+                f"Guided practice {task.id} has an unsupported difficulty stage.",
+                task.id,
+            )
+        else:
+            practice_ranks.append(rank)
+        if " ".join(task.prompt.casefold().split()) in example_prompts:
+            add(
+                "practice_copies_example",
+                f"Guided practice {task.id} repeats a worked example.",
+                task.id,
+            )
+        if (
+            len(task.prompt) < 20
+            or len(task.hint) < 15
+            or len(task.solution_steps) < 2
+            or any(len(step) < 10 for step in task.solution_steps)
+            or len(task.explanation) < 25
+            or not task.expected_answer.strip()
+        ):
+            add(
+                "guided_practice_incomplete",
+                f"Guided practice {task.id} lacks a useful task, hint, solution, or explanation.",
+                task.id,
+            )
+        references = set(task.concept_ids)
+        if not references or not references <= valid_concept_ids:
+            add(
+                "invalid_practice_concept",
+                f"Guided practice {task.id} references unknown lesson concepts.",
+                task.id,
+            )
+        practice_coverage.update(references)
+    if practice_ranks and practice_ranks != [0, 1, 2]:
+        add(
+            "practice_progression_invalid",
+            "Guided practice must progress from foundation through exam level.",
+        )
+    if valid_concept_ids and practice_coverage != valid_concept_ids:
+        add(
+            "practice_coverage_incomplete",
+            "Guided practice must rehearse every taught concept.",
+        )
 
     recap_groups = {
         "main_ideas": lesson.recap.main_ideas,

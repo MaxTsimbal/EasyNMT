@@ -280,6 +280,13 @@ class QuizAttemptResult:
     review: tuple[dict[str, Any], ...]
     submitted_at: str
     idempotent: bool
+    attempt_number: int
+    best_score: int
+    is_personal_best: bool
+    correct_count: int
+    partial_count: int
+    incorrect_count: int
+    remaining_to_pass: int
 
     def __post_init__(self) -> None:
         if not 0 <= self.score <= self.total or self.total != 24:
@@ -288,6 +295,18 @@ class QuizAttemptResult:
             raise ValueError("attempt passed must be boolean")
         if self.xp_awarded < 0:
             raise ValueError("attempt xp cannot be negative")
+        if self.attempt_number < 1:
+            raise ValueError("attempt number is invalid")
+        if not 0 <= self.best_score <= self.total:
+            raise ValueError("best score is invalid")
+        if self.best_score < self.score:
+            raise ValueError("best score cannot be lower than this attempt")
+        if min(self.correct_count, self.partial_count, self.incorrect_count) < 0:
+            raise ValueError("attempt breakdown is invalid")
+        if self.correct_count + self.partial_count + self.incorrect_count != 12:
+            raise ValueError("attempt breakdown must contain twelve questions")
+        if self.remaining_to_pass != max(0, 18 - self.score):
+            raise ValueError("remaining-to-pass value is invalid")
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -301,4 +320,11 @@ class QuizAttemptResult:
             "review": list(self.review),
             "submitted_at": self.submitted_at,
             "idempotent": self.idempotent,
+            "attempt_number": self.attempt_number,
+            "best_score": self.best_score,
+            "is_personal_best": self.is_personal_best,
+            "correct_count": self.correct_count,
+            "partial_count": self.partial_count,
+            "incorrect_count": self.incorrect_count,
+            "remaining_to_pass": self.remaining_to_pass,
         }

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import Sequence
 
-from ..schemas import LearningContext
+from ..intelligence import execution_plan_prompt, learner_memory_prompt
+from ..schemas import LearnerMemory, LearningContext, TutorExecutionPlan
 from ..tutor_brain import analyze_tutor_request
 
 
@@ -59,6 +60,8 @@ def build_instructions(
     question: str = "",
     history: Sequence[dict[str, str]] = (),
     has_images: bool = False,
+    learner_memory: LearnerMemory | None = None,
+    execution_plan: TutorExecutionPlan | None = None,
 ) -> str:
     mode = context.response_mode if context.response_mode in MODE_PROMPTS else "explain"
     strategy = analyze_tutor_request(
@@ -68,6 +71,10 @@ def build_instructions(
         has_images=has_images,
     )
     sections = [BASE_TEACHER_PROMPT, MODE_PROMPTS[mode], strategy.as_prompt()]
+    if execution_plan is not None:
+        sections.append(execution_plan_prompt(execution_plan))
+    if learner_memory is not None:
+        sections.append(learner_memory_prompt(learner_memory))
     if context.lesson_context:
         sections.append(LESSON_PROMPT)
     if has_images:
@@ -90,6 +97,16 @@ def build_instructions(
         ])
     if context.weak_topic:
         profile.append(f"- тема, що потребує уваги: {context.weak_topic} ({context.weak_count} помилок)")
+    if context.known_weaknesses:
+        profile.append(f"- слабкі теми: {', '.join(context.known_weaknesses[:5])}")
+    if context.mastery_by_topic:
+        weakest = sorted(context.mastery_by_topic.items(), key=lambda item: item[1])[:4]
+        profile.append(
+            "- найнижчі показники опанування: "
+            + ", ".join(f"{topic}={round(score * 100)}%" for topic, score in weakest)
+        )
+    if context.recent_mistakes:
+        profile.append("- у системі є недавні помилки; використовуй їх як сигнал, але не розкривай готові відповіді без запиту")
 
     sections.append("\n".join(profile))
     return "\n\n".join(section for section in sections if section)

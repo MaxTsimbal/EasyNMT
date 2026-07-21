@@ -3,12 +3,14 @@ import logging
 import sqlite3
 import tempfile
 import unittest
+from types import SimpleNamespace
 
 from easynmt_ai import AIOrchestrator, Lesson, LessonEngine
 from easynmt_ai.curriculum import CurriculumRepository
 from easynmt_core.lessons import CurriculumLessonRepository, CurriculumLessonService
 from easynmt_core.progress import CurriculumProgressRepository, CurriculumProgressService, CurriculumUnitState
 from easynmt_core.quizzes import (
+    CurriculumQuizAnswersIncomplete,
     CurriculumQuizNotAvailable,
     CurriculumQuizNotFound,
     CurriculumQuizOwnershipError,
@@ -74,12 +76,16 @@ class ProductionQuizServiceTests(unittest.TestCase):
         self.progress_service = CurriculumProgressService(self.progress_repository)
         self.curriculum_id = "curriculum-quiz"
         self.unit_id = "unit-integers"
+        self.next_unit_id = "unit-fractions"
         connection = self.progress_repository.connect()
         insert_curriculum_rows(
             connection,
             curriculum_id=self.curriculum_id,
             user_id=1,
-            units=((self.unit_id, "math.numbers.integers", ()),),
+            units=(
+                (self.unit_id, "math.numbers.integers", ()),
+                (self.next_unit_id, "math.numbers.fractions", ("math.numbers.integers",)),
+            ),
             with_checkpoint=False,
         )
         connection.commit()
@@ -137,6 +143,18 @@ class ProductionQuizServiceTests(unittest.TestCase):
     def correct_answers(self, attempt):
         return {question.id: question.correct_answer for question in attempt.quiz.questions}
 
+    @staticmethod
+    def wrong_answers(attempt):
+        answers = {}
+        for question in attempt.quiz.questions:
+            if question.answer_type == "choice":
+                answers[question.id] = next(
+                    option for option in question.options if option != question.correct_answer
+                )
+            else:
+                answers[question.id] = "zzz incorrect response"
+        return answers
+
     def progress(self):
         return self.progress_service.get_curriculum_progress(
             user_id=1,
@@ -174,12 +192,12 @@ class ProductionQuizServiceTests(unittest.TestCase):
             connection.execute("BEGIN IMMEDIATE")
             upgraded = self.quiz_repository.save_quiz(connection, user_id=1, quiz=current)
             connection.commit()
-            self.assertEqual(upgraded.schema_version, "quiz.v1.4-production-exam")
+            self.assertEqual(upgraded.schema_version, "quiz.v1.5-photo-final")
             row = connection.execute(
                 "SELECT schema_version FROM curriculum_quizzes WHERE id = ?",
                 (current.id,),
             ).fetchone()
-            self.assertEqual(row[0], "quiz.v1.4-production-exam")
+            self.assertEqual(row[0], "quiz.v1.5-photo-final")
         finally:
             connection.close()
 
@@ -296,7 +314,19 @@ class ProductionQuizServiceTests(unittest.TestCase):
         self.assertEqual(result.score, 24)
         self.assertTrue(result.passed)
         self.assertEqual(result.xp_awarded, 60)
-        self.assertEqual(self.progress().state, CurriculumUnitState.COMPLETED)
+        self.assertEqual(result.attempt_number, 1)
+        self.assertEqual(result.best_score, 24)
+        self.assertTrue(result.is_personal_best)
+        self.assertEqual(result.correct_count, 12)
+        self.assertEqual(result.partial_count, 0)
+        self.assertEqual(result.incorrect_count, 0)
+        self.assertEqual(result.remaining_to_pass, 0)
+        snapshot = self.progress_service.get_curriculum_progress(
+            user_id=1,
+            curriculum_id=self.curriculum_id,
+        )
+        self.assertEqual(snapshot.units[0].state, CurriculumUnitState.COMPLETED)
+        self.assertEqual(snapshot.units[1].state, CurriculumUnitState.AVAILABLE)
         connection = self.quiz_repository.connect()
         try:
             self.assertEqual(connection.execute(
@@ -336,13 +366,14 @@ class ProductionQuizServiceTests(unittest.TestCase):
         self.complete_lesson()
         attempt = self.quiz_service.start_attempt(user_id=1, subject="math", lesson=self.lesson)
         first = attempt.quiz.questions[0]
-        forged = {
+        forged = self.wrong_answers(attempt)
+        forged.update({
             first.id: first.correct_answer,
             "fake-question": "correct",
             "score": "24",
             "passed": "true",
             "xp": "99999",
-        }
+        })
         result = self.quiz_service.submit_attempt(
             user_id=1,
             subject="math",
@@ -400,6 +431,74 @@ class ProductionQuizServiceTests(unittest.TestCase):
         finally:
             connection.close()
 
+    def test_incomplete_submission_preserves_draft_without_scoring_attempt(self):
+        self.complete_lesson()
+        attempt = self.quiz_service.start_attempt(user_id=1, subject="math", lesson=self.lesson)
+        first = attempt.quiz.questions[0]
+
+        with self.assertRaises(CurriculumQuizAnswersIncomplete) as raised:
+            self.quiz_service.submit_attempt(
+                user_id=1,
+                subject="math",
+                curriculum_unit_id=self.unit_id,
+                attempt_token=attempt.attempt_token,
+                answers={first.id: first.correct_answer},
+            )
+
+        self.assertEqual(raised.exception.missing_questions, tuple(range(2, 13)))
+        self.assertEqual(self.progress().state, CurriculumUnitState.ASSESSMENT_REQUIRED)
+        connection = self.quiz_repository.connect()
+        try:
+            self.assertEqual(
+                connection.execute("SELECT COUNT(*) FROM curriculum_quiz_attempts").fetchone()[0],
+                0,
+            )
+            draft = connection.execute(
+                "SELECT answers_json FROM curriculum_quiz_drafts WHERE user_id = 1 AND curriculum_unit_id = ?",
+                (self.unit_id,),
+            ).fetchone()
+            self.assertEqual(json.loads(draft[0]), {first.id: first.correct_answer})
+        finally:
+            connection.close()
+
+    def test_completed_unit_allows_practice_attempt_without_duplicate_xp(self):
+        self.complete_lesson()
+        first = self.quiz_service.start_attempt(user_id=1, subject="math", lesson=self.lesson)
+        passed = self.quiz_service.submit_attempt(
+            user_id=1,
+            subject="math",
+            curriculum_unit_id=self.unit_id,
+            attempt_token=first.attempt_token,
+            answers=self.correct_answers(first),
+        )
+        self.assertEqual(passed.xp_awarded, 60)
+
+        practice = self.quiz_service.start_attempt(user_id=1, subject="math", lesson=self.lesson)
+        result = self.quiz_service.submit_attempt(
+            user_id=1,
+            subject="math",
+            curriculum_unit_id=self.unit_id,
+            attempt_token=practice.attempt_token,
+            answers=self.wrong_answers(practice),
+        )
+
+        self.assertEqual(result.attempt_number, 2)
+        self.assertEqual(result.best_score, 24)
+        self.assertFalse(result.is_personal_best)
+        self.assertEqual(result.xp_awarded, 0)
+        self.assertEqual(result.remaining_to_pass, 18)
+        self.assertEqual(self.progress().state, CurriculumUnitState.COMPLETED)
+        connection = self.quiz_repository.connect()
+        try:
+            self.assertEqual(
+                connection.execute(
+                    "SELECT xp FROM user_subject_progress WHERE user_id = 1 AND subject = 'math'"
+                ).fetchone()[0],
+                75,
+            )
+        finally:
+            connection.close()
+
     def test_draft_accepts_only_server_question_ids(self):
         self.complete_lesson()
         attempt = self.quiz_service.start_attempt(user_id=1, subject="math", lesson=self.lesson)
@@ -417,6 +516,94 @@ class ProductionQuizServiceTests(unittest.TestCase):
             connection.close()
         self.assertEqual(json.loads(raw), {first.id: "saved"})
 
+
+    def test_ai_written_grading_runs_after_sqlite_write_lock_is_released(self):
+        """The provider call must not hold BEGIN IMMEDIATE for many seconds."""
+
+        class LockProbeGrader:
+            enabled = True
+            max_output_tokens = 2600
+
+            def __init__(self, db_path):
+                self.db_path = db_path
+                self.calls = 0
+
+            def grade(self, *, context, items):
+                self.calls += 1
+                probe = sqlite3.connect(self.db_path, timeout=0.5)
+                try:
+                    probe.execute("CREATE TABLE IF NOT EXISTS grading_lock_probe (id INTEGER PRIMARY KEY)")
+                    probe.execute("INSERT INTO grading_lock_probe DEFAULT VALUES")
+                    probe.commit()
+                finally:
+                    probe.close()
+                grades = []
+                for item in items:
+                    criteria = tuple(
+                        SimpleNamespace(
+                            label=f"Критерій {index + 1}",
+                            passed=True,
+                            evidence="Підтверджено тестовим AI grader.",
+                            to_dict=lambda index=index: {
+                                "label": f"Критерій {index + 1}",
+                                "passed": True,
+                                "evidence": "Підтверджено тестовим AI grader.",
+                            },
+                        )
+                        for index in range(item.max_points)
+                    )
+                    grades.append(SimpleNamespace(
+                        question_id=item.question_id,
+                        awarded_points=item.max_points,
+                        max_points=item.max_points,
+                        confidence="high",
+                        summary="Зміст і кроки зараховано.",
+                        first_error="",
+                        next_step="Перейди до наступного завдання.",
+                        criteria=criteria,
+                    ))
+                return SimpleNamespace(
+                    success=True,
+                    value=SimpleNamespace(grades=tuple(grades)),
+                )
+
+        self.complete_lesson()
+        attempt = self.quiz_service.start_attempt(user_id=1, subject="math", lesson=self.lesson)
+        answers = self.wrong_answers(attempt)
+        # Keep choice questions correct; this test targets only Q5–11 grading.
+        for question in attempt.quiz.questions[:4]:
+            answers[question.id] = question.correct_answer
+        grader = LockProbeGrader(self.db_path)
+        self.quiz_service.written_grader = grader
+
+        result = self.quiz_service.submit_attempt(
+            user_id=1,
+            subject="math",
+            curriculum_unit_id=self.unit_id,
+            attempt_token=attempt.attempt_token,
+            answers=answers,
+        )
+
+        self.assertEqual(grader.calls, 1)
+        self.assertTrue(all(
+            result.review[index - 1]["grading_source"] == "ai"
+            for index in range(5, 12)
+        ))
+        connection = sqlite3.connect(self.db_path)
+        try:
+            self.assertEqual(connection.execute("SELECT COUNT(*) FROM grading_lock_probe").fetchone()[0], 1)
+        finally:
+            connection.close()
+
+        repeated = self.quiz_service.submit_attempt(
+            user_id=1,
+            subject="math",
+            curriculum_unit_id=self.unit_id,
+            attempt_token=attempt.attempt_token,
+            answers=answers,
+        )
+        self.assertTrue(repeated.idempotent)
+        self.assertEqual(grader.calls, 1)
 
 if __name__ == "__main__":
     unittest.main()
@@ -456,6 +643,8 @@ if __name__ == "__main__":
                 attempt_token=attempt.attempt_token,
                 question_id="missing-question",
             )
+
+
 
 
 
@@ -568,12 +757,60 @@ class ProductionQuizApiTests(unittest.TestCase):
         self.assertEqual(repeated.status_code, 200)
         self.assertTrue(repeated.get_json()["attempt"]["idempotent"])
 
+        result_page = self.client.get(
+            f"/curriculum/quiz/attempts/{attempt['attempt_id']}/result"
+        )
+        self.assertEqual(result_page.status_code, 200)
+        result_html = result_page.get_data(as_text=True)
+        self.assertIn("Картина результату", result_html)
+        self.assertIn("найкращий результат", result_html)
+        self.assertIn("Перший результат", result_html)
+
+    def test_api_rejects_incomplete_finalization_and_keeps_draft(self):
+        self.prepare_assessment()
+        started = self.client.post(
+            f"/api/curriculum/units/{self.unit_id}/quiz/start",
+            json={},
+            headers={"X-CSRF-Token": self.csrf},
+        )
+        attempt = started.get_json()["attempt"]
+        first = attempt["quiz"]["questions"][0]
+        response = self.client.post(
+            f"/api/curriculum/units/{self.unit_id}/quiz/submit",
+            json={
+                "attempt_token": attempt["attempt_token"],
+                "answers": {first["id"]: first["options"][0]},
+            },
+            headers={"X-CSRF-Token": self.csrf},
+        )
+        self.assertEqual(response.status_code, 422)
+        payload = response.get_json()
+        self.assertEqual(payload["error"], "quiz_answers_incomplete")
+        self.assertEqual(payload["missing_questions"], list(range(2, 13)))
+
+        connection = self.app_module.get_db_connection()
+        try:
+            self.assertEqual(
+                connection.execute(
+                    "SELECT COUNT(*) FROM curriculum_quiz_attempts WHERE user_id = ? AND curriculum_unit_id = ?",
+                    (self.user_id, self.unit_id),
+                ).fetchone()[0],
+                0,
+            )
+            draft = connection.execute(
+                "SELECT answers_json FROM curriculum_quiz_drafts WHERE user_id = ? AND curriculum_unit_id = ?",
+                (self.user_id, self.unit_id),
+            ).fetchone()
+            self.assertIn(first["id"], json.loads(draft["answers_json"]))
+        finally:
+            connection.close()
+
     def test_html_quiz_and_result_routes_render(self):
         self.prepare_assessment()
         page = self.client.get(f"/curriculum/units/{self.unit_id}/quiz")
         self.assertEqual(page.status_code, 200)
         html = page.get_data(as_text=True)
-        self.assertIn("12 питань", html)
+        self.assertIn("усі 12 завдань", html)
         self.assertIn("Завершити тест", html)
         self.assertNotIn("correct_answer", html)
 
@@ -653,6 +890,8 @@ class ProductionQuizApiTests(unittest.TestCase):
         payload = response.get_json()
         self.assertTrue(payload["answer"])
         self.assertEqual(payload["surface"], "lesson")
+
+
 
 
 
@@ -856,7 +1095,8 @@ class HumanAnswerGradingHotfixTests(unittest.TestCase):
         self.assertIn("Відповідь дає 2 бали", quiz.questions[8].answer_format)
         self.assertEqual(quiz.questions[10].instruction, "Виконай конкретне завдання.")
         self.assertTrue(quiz.questions[10].task)
-        self.assertEqual(quiz.questions[11].instruction, "Перевір наведену відповідь.")
-        self.assertIn("Наведена відповідь", quiz.questions[11].task)
+        self.assertIn("Розв’яжи фінальне завдання", quiz.questions[11].instruction)
+        self.assertEqual(quiz.questions[11].grading_mode, "solution")
+        self.assertIn("фото", quiz.questions[11].instruction.lower())
         self.assertTrue(all(q.instruction and q.task and q.answer_format for q in quiz.questions))
-        self.assertEqual(quiz.schema_version, "quiz.v1.4-production-exam")
+        self.assertEqual(quiz.schema_version, "quiz.v1.5-photo-final")
