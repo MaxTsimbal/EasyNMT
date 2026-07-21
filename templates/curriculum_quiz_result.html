@@ -1,46 +1,65 @@
 {% extends "base.html" %}
 {% block title %}Результат перевірки | EasyNMT{% endblock %}
+{% block body_class %}production-exam-result-page{% endblock %}
 {% block content %}
-<div class="result-page human-result-page">
-  <header class="lesson-header fade-up">
-    <span class="pill">Результат перевірки</span>
-    <h1>{% if attempt.passed %}Тему завершено{% else %}Потрібне ще одне коло практики{% endif %}</h1>
-    <p>{% if attempt.passed %}Ти набрав {{ attempt.score }} з {{ attempt.total }} балів. Тему зараховано, а навчальний маршрут оновлено.{% else %}Ти набрав {{ attempt.score }} з {{ attempt.total }}. Для проходження потрібно {{ pass_score }}. Нижче видно, де саме загубилися бали.{% endif %}</p>
+<div class="result-page human-result-page production-result-shell">
+  <header class="lesson-header fade-up result-hero {% if attempt.passed %}is-passed{% else %}needs-practice{% endif %}">
+    <span class="pill">Результат екзаменаційної практики</span>
+    <h1>{% if attempt.passed %}Тему зараховано{% else %}Ще трохи практики, і буде чисто{% endif %}</h1>
+    <p>{% if attempt.passed %}{{ attempt.score }} з {{ attempt.total }} балів. Маршрут оновлено, XP зараховано.{% else %}{{ attempt.score }} з {{ attempt.total }} балів. Для проходження потрібно {{ pass_score }}. Нижче є точний маршрут повторення без туману й ворожіння на підручнику.{% endif %}</p>
   </header>
 
-  <div class="result-summary-grid">
-    <div class="goal-card premium"><span class="score">{{ attempt.score }}/{{ attempt.total }}</span><span class="desc">результат</span></div>
-    <div class="goal-card"><span class="score">{% if attempt.passed %}Пройдено{% else %}Повторити{% endif %}</span><span class="desc">статус теми</span></div>
-    <div class="goal-card"><span class="score">+{{ attempt.xp_awarded }} XP</span><span class="desc">нараховано цією спробою</span></div>
+  <div class="result-summary-grid production-summary-grid">
+    <div class="goal-card premium"><span class="score">{{ attempt.score }}/{{ attempt.total }}</span><span class="desc">підсумок</span></div>
+    <div class="goal-card"><span class="score">{% if attempt.passed %}Пройдено{% else %}Повторити{% endif %}</span><span class="desc">статус</span></div>
+    <div class="goal-card"><span class="score">+{{ attempt.xp_awarded }} XP</span><span class="desc">за цю спробу</span></div>
   </div>
 
-  <section class="review-panel goal-card">
+  {% if review_plan %}
+  <section class="goal-card review-plan-card">
+    <div class="review-heading">
+      <span class="score">Твій план повторення</span>
+      <span class="desc">Система зібрала навички, на яких загубилося найбільше балів.</span>
+    </div>
+    <div class="review-plan-grid">
+      {% for item in review_plan %}
+      <article class="review-plan-item">
+        <div class="review-plan-rank">{{ loop.index }}</div>
+        <div>
+          <b>{{ item.skill }}</b>
+          <p>{{ item.action }}</p>
+          <small>Питання: {{ item.question_list }} · втрачено {{ item.lost }} {% if item.lost == 1 %}бал{% else %}бали{% endif %}</small>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="review-panel goal-card production-review-panel">
     <div class="review-heading">
       <span class="score">Розбір відповідей</span>
-      <span class="desc">Короткі правильні відповіді теж зараховуються. За правильну частину неповної відповіді можна отримати частину балів.</span>
+      <span class="desc">У завданнях 9–12 кожна правильна частина оцінюється окремо.</span>
     </div>
     <div class="review-list">
       {% for item in attempt.review %}
-      <article class="review-item {% if item.earned == item.points %}correct{% elif item.earned > 0 %}partial{% else %}wrong{% endif %}">
+      <article class="review-item production-review-item {% if item.earned == item.points %}correct{% elif item.earned > 0 %}partial{% else %}wrong{% endif %}">
         <div class="review-question">
           <span>{{ item.number }}.</span>
-          {% if item.instruction and item.task %}
           <div class="review-question-copy">
-            <small><b>Що зробити:</b> {{ item.instruction }}</small>
-            <p><b>Завдання:</b> {{ item.task }}</p>
+            {% if item.skill %}<small class="review-skill">{{ item.skill }}</small>{% endif %}
+            {% if item.instruction %}<small><b>Що зробити:</b> {{ item.instruction }}</small>{% endif %}
+            <p><span class="review-field-label">Завдання</span><b>{{ item.task or item.question }}</b></p>
             {% if item.answer_format %}<small><b>Як відповісти:</b> {{ item.answer_format }}</small>{% endif %}
           </div>
-          {% else %}
-          {{ item.question }}
-          {% endif %}
         </div>
-        <div class="review-score">{{ item.earned }} / {{ item.points }} балів</div>
-        <div class="review-answer">Твоя відповідь: <b>{{ item.user_answer }}</b></div>
+        <div class="review-score">{{ item.earned }} / {{ item.points }}</div>
+        <div class="review-answer"><span>Твоя відповідь</span><b>{{ item.user_answer }}</b></div>
         <div class="review-explanation">{{ item.explanation }}</div>
         {% if item.earned < item.points %}
         <details class="review-reference">
-          <summary>Показати приклад повної відповіді</summary>
-          <div class="review-answer"><b>{{ item.correct_answer }}</b></div>
+          <summary>Показати еталон після тесту</summary>
+          <div class="review-answer reference-answer"><span>Еталон</span><b>{{ item.correct_answer }}</b></div>
         </details>
         {% endif %}
       </article>
@@ -48,15 +67,15 @@
     </div>
   </section>
 
-  <div class="goal-grid compact-actions">
+  <div class="goal-grid compact-actions production-result-actions">
     {% if next_unit %}
     <form method="post" action="{{ url_for('start_curriculum_unit_page', curriculum_unit_id=next_unit.unit_id) }}" class="goal-link">
       <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
       <button class="primary-action" type="submit">Наступна тема →</button>
     </form>
     {% endif %}
-    <a href="{{ url_for('curriculum_quiz_page', curriculum_unit_id=attempt.curriculum_unit_id) }}" class="goal-link"><button class="secondary-action">Спробувати ще раз</button></a>
-    <a href="{{ url_for('dashboard') }}" class="goal-link"><button class="secondary-action">Повернутися в кабінет</button></a>
+    <a href="{{ url_for('curriculum_quiz_page', curriculum_unit_id=attempt.curriculum_unit_id) }}" class="goal-link"><button class="secondary-action">Новий варіант тесту</button></a>
+    <a href="{{ url_for('dashboard') }}" class="goal-link"><button class="secondary-action">До кабінету</button></a>
   </div>
 </div>
 {% endblock %}

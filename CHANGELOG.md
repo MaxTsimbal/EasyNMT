@@ -1,5 +1,19 @@
 # EasyNMT Changelog
 
+## Task 3D — Production Exam Engine (2026-07-21)
+
+- Rebuilt all 12 English curriculum assessments around practical exam exercises.
+- Added seeded variants for all 12 English topics without breaking drafts on refresh or parallel tabs.
+- Replaced rule-recall questions 5–8 with negation, questions, word order, correction, translation and reading tasks.
+- Rebuilt questions 9–12 as three independently scored parts.
+- Added `exact` and `rubric` grading modes with server-only answer keys.
+- Added skill, reading context, placeholders and safe review metadata to the quiz contract.
+- Upgraded Contextual Easy to exercise-aware help while guarding every rubric answer part.
+- Added answered-progress navigation, compact exam cards and a personalized result practice plan.
+- Removed the confusing dependency of question 12 on question 11.
+- Preserved legacy snapshot readability and upgraded new quizzes to `quiz.v1.4-production-exam`.
+- Verified the integrated project with 141 automated tests and 31 subtests.
+
 ## Task 3C.2 — Student Clarity Final (2026-07-20)
 
 - Split every quiz item into a clear action, concrete task, and answer format.

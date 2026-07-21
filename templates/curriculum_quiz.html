@@ -1,91 +1,110 @@
 {% extends "base.html" %}
 {% block title %}{{ production_quiz.title }} | EasyNMT{% endblock %}
-{% block body_class %}lesson-active-page{% endblock %}
+{% block body_class %}lesson-active-page production-exam-page{% endblock %}
 {% block content %}
-<div class="lesson-page beginner-lesson-page">
-  <div class="lesson-topline">
-    <span>Перевірка після уроку</span>
-    <span>12 питань</span>
+<div class="lesson-page beginner-lesson-page production-exam-shell">
+  <div class="lesson-topline exam-topline">
+    <span>Екзаменаційна практика</span>
+    <span>Спроба {{ quiz_attempt_count + 1 }}</span>
     <span>18 / 24 для проходження</span>
   </div>
 
-  <header class="lesson-header fade-up">
-    <span class="pill">Перевірка знань за завершеним уроком</span>
+  <header class="lesson-header fade-up exam-hero">
+    <span class="pill">Екзаменаційний тренажер</span>
     <h1>{{ production_quiz.title }}</h1>
-    <p>Усі завдання стосуються матеріалу цього уроку. Результат, XP і прогрес збережуться автоматично.</p>
+    <p>12 питань без переказу правил. Обирай, перетворюй, складай, виправляй і працюй із контекстом.</p>
   </header>
 
-  <div class="quiz-levels-legend">
-    <span><b>1–4</b> Вибір відповіді · 1 бал</span>
-    <span><b>5–8</b> Коротка відповідь · 2 бали</span>
-    <span><b>9–12</b> Відповідь + коротка логіка · 3 бали</span>
+  <section class="exam-dashboard goal-card">
+    <div class="exam-progress-copy">
+      <b><span data-answered-count>0</span> із 12 відповідей готові</b>
+      <span>Чернетка зберігається автоматично</span>
+    </div>
+    <div class="exam-progress-track" aria-hidden="true"><span data-answered-progress></span></div>
+    <nav class="exam-question-nav" aria-label="Навігація питаннями">
+      {% for question in production_quiz.questions %}
+      <a href="#question-{{ loop.index }}" data-question-nav="{{ question.id }}" aria-label="Питання {{ loop.index }}">{{ loop.index }}</a>
+      {% endfor %}
+    </nav>
+  </section>
+
+  <div class="quiz-levels-legend exam-levels-legend">
+    <span><b>1–4</b> вибір у контексті · 1 бал</span>
+    <span><b>5–8</b> практичне перетворення · 2 бали</span>
+    <span><b>9–12</b> три окремі частини · 3 бали</span>
   </div>
 
-  <form method="post" class="quiz-form" data-draft-url="{{ url_for('curriculum_quiz_draft_api', curriculum_unit_id=production_quiz.curriculum_unit_id) }}" data-csrf="{{ csrf_token() }}">
+  <form method="post" class="quiz-form production-exam-form" data-draft-url="{{ url_for('curriculum_quiz_draft_api', curriculum_unit_id=production_quiz.curriculum_unit_id) }}" data-csrf="{{ csrf_token() }}">
     <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="attempt_token" value="{{ quiz_attempt_token }}">
 
     {% for question in production_quiz.questions %}
-    <section class="goal-card quiz-question {% if question.points == 1 %}quiz-basic{% elif question.points == 2 %}quiz-middle{% else %}quiz-advanced{% endif %}"
+    <section id="question-{{ loop.index }}" class="goal-card quiz-question exam-question-card {% if question.points == 1 %}quiz-basic{% elif question.points == 2 %}quiz-middle{% else %}quiz-advanced{% endif %}"
       data-easy-question-id="{{ question.id }}"
       data-easy-question-number="{{ loop.index }}"
       data-easy-question-prompt="{{ (question.task or question.prompt)|striptags|e }}">
-      <div class="quiz-question-head">
-        <span class="quiz-badge">{{ loop.index }} / 12</span>
+      <div class="quiz-question-head exam-question-head">
+        <div class="exam-question-meta">
+          <span class="quiz-badge">{{ loop.index }} / 12</span>
+          {% if question.skill %}<span class="exam-skill-chip">{{ question.skill }}</span>{% endif %}
+        </div>
         <span class="quiz-points">{{ question.points }} {% if question.points == 1 %}бал{% else %}бали{% endif %}</span>
       </div>
+
+      {% if question.source_text %}
+      <blockquote class="exam-source-text">
+        <span>Текст</span>
+        <p>{{ question.source_text }}</p>
+      </blockquote>
+      {% endif %}
+
       {% if question.instruction and question.task and question.answer_format %}
-      <div class="quiz-copy-block">
-        <div class="quiz-copy-row quiz-copy-instruction">
-          <span class="quiz-copy-label">Що зробити</span>
-          <p>{{ question.instruction }}</p>
-        </div>
-        <div class="quiz-copy-row quiz-copy-task">
-          <span class="quiz-copy-label">Завдання</span>
-          <p>{{ question.task }}</p>
-        </div>
-        <div class="quiz-copy-row quiz-copy-format">
-          <span class="quiz-copy-label">Як відповісти</span>
-          <p>{{ question.answer_format }}</p>
-        </div>
+      <div class="quiz-copy-block exam-copy-block">
+        <span class="exam-field-label">Що зробити</span>
+        <p class="exam-instruction">{{ question.instruction }}</p>
+        <span class="exam-field-label">Завдання</span>
+        <div class="exam-task">{{ question.task|replace('\n', '<br>')|safe }}</div>
+        <span class="exam-field-label">Як відповісти</span>
+        <p class="exam-answer-format">{{ question.answer_format }}</p>
       </div>
       {% else %}
       <span class="score quiz-legacy-prompt">{{ question.prompt }}</span>
       {% endif %}
-      <button type="button" class="contextual-easy-question-button" data-easy-open-question="{{ question.id }}">
-        <span aria-hidden="true">✦</span> Пояснити з Easy
+
+      <button type="button" class="contextual-easy-question-button exam-easy-button" data-easy-open-question="{{ question.id }}">
+        <span aria-hidden="true">✦</span> Розібрати спосіб з Easy
       </button>
 
       {% if question.answer_type == 'choice' %}
-      <div class="quiz-options">
+      <div class="quiz-options exam-options">
         {% for option in question.options %}
-        <label class="quiz-option">
+        <label class="quiz-option exam-option">
           <input type="radio" name="answer_{{ question.id }}" value="{{ option }}" {% if quiz_draft_answers.get(question.id) == option %}checked{% endif %} required>
-          <span>{{ ['А','Б','В','Г'][loop.index0] }}. {{ option }}</span>
+          <span><b>{{ ['А','Б','В','Г'][loop.index0] }}</b>{{ option }}</span>
         </label>
         {% endfor %}
       </div>
       {% elif question.answer_type == 'short_text' %}
-      <div class="written-answer-wrap">
-        <textarea name="answer_{{ question.id }}" class="written-answer" rows="3" maxlength="4000" placeholder="Напиши коротку відповідь своїми словами" required>{{ quiz_draft_answers.get(question.id, '') }}</textarea>
-        <p class="answer-hint">Пиши своїми словами. Одне правильне речення може дати повний бал.</p>
+      <div class="written-answer-wrap exam-written-wrap">
+        <textarea name="answer_{{ question.id }}" class="written-answer exam-written-answer" rows="3" maxlength="4000" placeholder="{{ question.input_placeholder or 'Напиши готову відповідь англійською' }}" required>{{ quiz_draft_answers.get(question.id, '') }}</textarea>
+        <p class="answer-hint">Одне готове речення. Пунктуація та великі літери не забирають бал.</p>
       </div>
       {% else %}
-      <div class="written-answer-wrap">
-        <div class="paper-task-box">
-          <div class="paper-task-icon">🧩</div>
-          <div><b>Без твору на пів сторінки</b><p>Правильна кінцева відповідь уже дає частину балів. Для повного бала додай 1–2 речення пояснення.</p></div>
+      <div class="written-answer-wrap exam-written-wrap">
+        <div class="paper-task-box exam-parts-box">
+          <div class="paper-task-icon">3×</div>
+          <div><b>Три маленькі завдання</b><p>Пиши кожну відповідь з нового рядка. Кожен правильний рядок дає 1 бал.</p></div>
         </div>
-        <textarea name="answer_{{ question.id }}" class="written-answer" rows="6" maxlength="8000" placeholder="Спочатку відповідь, нижче коротко поясни правило або крок" required>{{ quiz_draft_answers.get(question.id, '') }}</textarea>
+        <textarea name="answer_{{ question.id }}" class="written-answer written-answer-large exam-written-answer" rows="6" maxlength="8000" placeholder="{{ question.input_placeholder or '1) ...\n2) ...\n3) ...' }}" required>{{ quiz_draft_answers.get(question.id, '') }}</textarea>
       </div>
       {% endif %}
     </section>
     {% endfor %}
 
-    <div class="quiz-submit-panel goal-card premium">
+    <div class="quiz-submit-panel goal-card premium exam-submit-panel">
       <div>
-        <b>Перед відправленням</b>
-        <p>Перевір, чи заповнені всі 12 відповідей. Повторне натискання не створить дубль XP.</p>
+        <b>Фінішна перевірка</b>
+        <p><span data-answered-count>0</span>/12 заповнено. Переконайся, що в завданнях на 3 бали є три окремі рядки.</p>
       </div>
       <button class="primary-action" type="submit">Завершити тест</button>
     </div>
@@ -97,6 +116,8 @@
   if (!form) return;
   const draftUrl = form.dataset.draftUrl;
   const csrf = form.dataset.csrf;
+  const progress = document.querySelector('[data-answered-progress]');
+  const counters = document.querySelectorAll('[data-answered-count]');
   let timer = null;
   let submitting = false;
 
@@ -113,6 +134,16 @@
     return answers;
   };
 
+  const updateProgress = () => {
+    const answers = collect();
+    const count = Object.keys(answers).length;
+    counters.forEach((node) => { node.textContent = count; });
+    if (progress) progress.style.width = `${(count / 12) * 100}%`;
+    document.querySelectorAll('[data-question-nav]').forEach((node) => {
+      node.classList.toggle('is-answered', Boolean(answers[node.dataset.questionNav]));
+    });
+  };
+
   const save = () => {
     if (!draftUrl || submitting) return;
     fetch(draftUrl, {
@@ -124,10 +155,12 @@
   };
 
   form.addEventListener('input', () => {
+    updateProgress();
     clearTimeout(timer);
     timer = setTimeout(save, 500);
   });
   form.addEventListener('change', () => {
+    updateProgress();
     clearTimeout(timer);
     timer = setTimeout(save, 250);
   });
@@ -136,6 +169,7 @@
     submitting = true;
     clearTimeout(timer);
   });
+  updateProgress();
 })();
 </script>
 {% include "components/contextual_easy.html" %}

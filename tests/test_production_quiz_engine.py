@@ -173,12 +173,12 @@ class ProductionQuizServiceTests(unittest.TestCase):
             connection.execute("BEGIN IMMEDIATE")
             upgraded = self.quiz_repository.save_quiz(connection, user_id=1, quiz=current)
             connection.commit()
-            self.assertEqual(upgraded.schema_version, "quiz.v1.3-student-clarity")
+            self.assertEqual(upgraded.schema_version, "quiz.v1.4-production-exam")
             row = connection.execute(
                 "SELECT schema_version FROM curriculum_quizzes WHERE id = ?",
                 (current.id,),
             ).fetchone()
-            self.assertEqual(row[0], "quiz.v1.3-student-clarity")
+            self.assertEqual(row[0], "quiz.v1.4-production-exam")
         finally:
             connection.close()
 
@@ -546,7 +546,7 @@ class ProductionQuizApiTests(unittest.TestCase):
 
 class HumanAnswerGradingHotfixTests(unittest.TestCase):
     @staticmethod
-    def question(*, mode, points, primary=(), secondary=(), accepted=(), correct="reference"):
+    def question(*, mode, points, primary=(), secondary=(), accepted=(), correct="reference", scoring_parts=()):
         return QuizQuestion(
             id="unit-q",
             prompt="Clear prompt",
@@ -561,6 +561,7 @@ class HumanAnswerGradingHotfixTests(unittest.TestCase):
             primary_answers=primary,
             secondary_answers=secondary,
             feedback_hint="Додай відсутню частину.",
+            scoring_parts=scoring_parts,
         )
 
     def test_human_short_answer_can_receive_full_credit_without_copying_reference(self):
@@ -618,6 +619,35 @@ class HumanAnswerGradingHotfixTests(unittest.TestCase):
         self.assertEqual(earned, 2)
         self.assertFalse(correct)
 
+
+    def test_exact_sentence_grading_ignores_case_and_terminal_punctuation(self):
+        question = self.question(
+            mode="exact",
+            points=2,
+            correct="Does she study English every day?",
+            accepted=("Does she study English every day?",),
+        )
+        earned, correct, _, _ = CurriculumQuizService._grade(
+            question,
+            "does she study english every day",
+        )
+        self.assertEqual(earned, 2)
+        self.assertTrue(correct)
+
+    def test_rubric_question_awards_one_point_per_completed_line(self):
+        question = self.question(
+            mode="rubric",
+            points=3,
+            correct="goes\nis studying\nvisited",
+            scoring_parts=(("goes",), ("is studying",), ("visited",)),
+        )
+        earned, correct, _, _ = CurriculumQuizService._grade(
+            question,
+            "1) goes\n2) is studying",
+        )
+        self.assertEqual(earned, 2)
+        self.assertFalse(correct)
+
     def test_builder_uses_concrete_final_questions(self):
         payload = valid_lesson_proposal(competency_count=2)
         payload.update({
@@ -646,7 +676,7 @@ class HumanAnswerGradingHotfixTests(unittest.TestCase):
         self.assertIn("Відповідь дає 2 бали", quiz.questions[8].answer_format)
         self.assertEqual(quiz.questions[10].instruction, "Виконай конкретне завдання.")
         self.assertTrue(quiz.questions[10].task)
-        self.assertEqual(quiz.questions[11].instruction, "Поясни, як перевірити результат.")
-        self.assertIn("завдання №11", quiz.questions[11].task)
+        self.assertEqual(quiz.questions[11].instruction, "Перевір наведену відповідь.")
+        self.assertIn("Наведена відповідь", quiz.questions[11].task)
         self.assertTrue(all(q.instruction and q.task and q.answer_format for q in quiz.questions))
-        self.assertEqual(quiz.schema_version, "quiz.v1.3-student-clarity")
+        self.assertEqual(quiz.schema_version, "quiz.v1.4-production-exam")

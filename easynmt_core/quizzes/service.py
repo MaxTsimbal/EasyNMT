@@ -83,6 +83,11 @@ class CurriculumQuizService:
                 instruction=question.instruction,
                 task=question.task,
                 answer_format=question.answer_format,
+                skill=question.skill,
+                source_text=question.source_text,
+                input_placeholder=question.input_placeholder,
+                scoring_parts=question.scoring_parts,
+                review_tip=question.review_tip,
             ))
         return ProductionQuiz(
             id=quiz.id,
@@ -122,8 +127,18 @@ class CurriculumQuizService:
                 user_id=int(user_id),
                 quiz=build_deterministic_quiz(lesson),
             )
+            count = connection.execute(
+                """SELECT COUNT(*) AS total FROM curriculum_quiz_attempts
+                   WHERE user_id = ? AND curriculum_id = ? AND curriculum_unit_id = ?""",
+                (int(user_id), quiz.curriculum_id, quiz.curriculum_unit_id),
+            ).fetchone()["total"]
             attempt_token = secrets.token_urlsafe(36)
-            snapshot = self._shuffle_public_quiz(quiz, attempt_token)
+            # The variant changes after each submitted attempt, but remains
+            # stable across refreshes and parallel tabs before submission so a
+            # saved draft can never be attached to different questions.
+            variant_seed = f"{int(user_id)}|{quiz.curriculum_unit_id}|{int(count) + 1}"
+            variant = build_deterministic_quiz(lesson, variant_seed=variant_seed)
+            snapshot = self._shuffle_public_quiz(variant, attempt_token)
             snapshot_payload = snapshot.to_dict(include_answer_key=True)
             now = datetime.now(timezone.utc)
             expires_at = (now + timedelta(hours=self.SESSION_HOURS)).isoformat(timespec="seconds")
@@ -153,11 +168,6 @@ class CurriculumQuizService:
                 draft = json.loads(draft_row["answers_json"]) if draft_row else {}
             except Exception:
                 draft = {}
-            count = connection.execute(
-                """SELECT COUNT(*) AS total FROM curriculum_quiz_attempts
-                   WHERE user_id = ? AND curriculum_id = ? AND curriculum_unit_id = ?""",
-                (int(user_id), quiz.curriculum_id, quiz.curriculum_unit_id),
-            ).fetchone()["total"]
             connection.commit()
             return QuizAttemptDelivery(
                 attempt_token=attempt_token,
@@ -283,6 +293,35 @@ class CurriculumQuizService:
             earned = int(first) + int(second)
         elif mode == "any_valid":
             earned = 2 if accepted_score >= 0.44 or primary_score >= 0.44 else 1 if accepted_score >= 0.25 or primary_score >= 0.25 else 0
+        elif mode == "exact":
+            # Sentence transformations, word order, translation and gap tasks.
+            # Punctuation and case do not matter; a nearly correct structure can
+            # still receive one point instead of being treated as entirely wrong.
+            exact = any(
+                _normalize(answer) == _normalize(item)
+                for item in question.accepted_answers
+                if str(item).strip()
+            )
+            if exact or accepted_score >= 0.92:
+                earned = question.points
+            elif accepted_score >= 0.58 or primary_score >= 0.58:
+                earned = max(1, question.points - 1)
+            else:
+                earned = 0
+        elif mode == "rubric":
+            # Multi-part exam tasks award one point per independently visible
+            # line. Positional matching prevents one repeated word from being
+            # counted for two different blanks.
+            segments = [
+                re.sub(r"^\s*(?:[-•]|\d+[).:-]?)\s*", "", item).strip()
+                for item in re.split(r"[\n;]+", answer)
+                if item.strip()
+            ]
+            earned = 0
+            for index, alternatives in enumerate(question.scoring_parts):
+                candidate = segments[index] if index < len(segments) else ""
+                if cls._best_similarity(candidate, alternatives) >= 0.72:
+                    earned += 1
         elif mode == "solution":
             final_is_present = primary_score >= 0.72 or accepted_score >= 0.9
             answer_token_set = set(cls._semantic_tokens(answer))
@@ -386,6 +425,8 @@ class CurriculumQuizService:
                     "task": question.task,
                     "answer_format": question.answer_format,
                     "answer_type": question.answer_type,
+                    "skill": question.skill,
+                    "review_tip": question.review_tip or question.feedback_hint,
                     "user_answer": answer,
                     "correct_answer": question.correct_answer,
                     "earned": earned,

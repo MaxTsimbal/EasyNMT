@@ -7,6 +7,7 @@ from typing import Iterable
 
 from easynmt_ai.lessons import Lesson
 
+from .english_exam_bank import build_english_blueprints
 from .models import ProductionQuiz, QuizQuestion
 from .task_bank import AssessmentTask, get_topic_tasks
 
@@ -130,6 +131,11 @@ def _question(
     primary_answers: tuple[str, ...] = (),
     secondary_answers: tuple[str, ...] = (),
     feedback_hint: str = "Звір відповідь із правилом уроку й спробуй ще раз.",
+    skill: str = "",
+    source_text: str = "",
+    input_placeholder: str = "",
+    scoring_parts: tuple[tuple[str, ...], ...] = (),
+    review_tip: str = "",
 ) -> QuizQuestion:
     instruction = _clean(instruction)
     task = _clean(task)
@@ -140,6 +146,11 @@ def _question(
         instruction=instruction,
         task=task,
         answer_format=answer_format,
+        skill=_clean(skill) if skill else "",
+        source_text=str(source_text or "").strip(),
+        input_placeholder=_clean(input_placeholder) if input_placeholder else "",
+        scoring_parts=scoring_parts,
+        review_tip=_clean(review_tip) if review_tip else "",
         answer_type=answer_type,
         options=options,
         correct_answer=_clean(correct_answer),
@@ -212,8 +223,54 @@ def _assessment_tasks(lesson: Lesson) -> tuple[AssessmentTask, AssessmentTask, A
     raise ValueError(f"not enough concrete tasks for topic {lesson.topic_id}")
 
 
-def build_deterministic_quiz(lesson: Lesson) -> ProductionQuiz:
+def build_deterministic_quiz(lesson: Lesson, *, variant_seed: str = "") -> ProductionQuiz:
     """Build a student-readable 12-question, 24-point assessment."""
+
+    if lesson.subject == "english":
+        try:
+            blueprints = build_english_blueprints(lesson.topic_id, variant_seed)
+        except KeyError:
+            blueprints = ()
+        if blueprints:
+            questions = tuple(
+                _question(
+                    lesson,
+                    index,
+                    instruction=item.instruction,
+                    task=item.task,
+                    answer_format=item.answer_format,
+                    answer_type=item.answer_type,
+                    options=item.options,
+                    correct_answer=item.correct_answer,
+                    accepted_answers=item.accepted_answers,
+                    explanation=item.explanation,
+                    feedback_hint=item.feedback_hint,
+                    points=item.points,
+                    grading_mode=item.grading_mode,
+                    primary_answers=item.primary_answers,
+                    secondary_answers=item.secondary_answers,
+                    skill=item.skill,
+                    source_text=item.source_text,
+                    input_placeholder=item.input_placeholder,
+                    scoring_parts=item.scoring_parts,
+                    review_tip=item.review_tip,
+                )
+                for index, item in enumerate(blueprints, start=1)
+            )
+            fingerprint = hashlib.sha256(
+                f"quiz.v1.2|{lesson.id}|{lesson.generation_metadata.request_fingerprint}".encode("utf-8")
+            ).hexdigest()[:28]
+            return ProductionQuiz(
+                id=f"quiz-{fingerprint}",
+                curriculum_id=lesson.curriculum_id,
+                curriculum_unit_id=lesson.curriculum_unit_id,
+                topic_id=lesson.topic_id,
+                lesson_id=lesson.id,
+                subject=lesson.subject,
+                title=f"Екзаменаційна практика: {lesson.title}",
+                questions=questions,
+                schema_version="quiz.v1.4-production-exam",
+            )
 
     concepts = list(lesson.concepts)
     mistakes = list(lesson.common_mistakes)
@@ -391,9 +448,9 @@ def build_deterministic_quiz(lesson: Lesson) -> ProductionQuiz:
     questions.append(_question(
         lesson,
         12,
-        instruction="Поясни, як перевірити результат.",
-        task=f"Повернися до завдання №11: {t3.task}",
-        answer_format="Назви один реальний спосіб перевірки та коротко поясни, що саме він підтвердить. Повторювати весь розв’язок не потрібно.",
+        instruction="Перевір наведену відповідь.",
+        task=f"Завдання: {t3.task} Наведена відповідь: «{t3.final_answer}». Запиши один конкретний спосіб перевірки й поясни, що він підтвердить.",
+        answer_format="Напиши спосіб перевірки та один короткий висновок. Не потрібно повторювати весь розв’язок.",
         answer_type="long_text",
         correct_answer=f"Перевірка: {t3.verification} Пов’язане міркування: {t3.reasoning}",
         accepted_answers=(t3.verification, f"{t3.verification} {t3.reasoning}"),
@@ -419,5 +476,5 @@ def build_deterministic_quiz(lesson: Lesson) -> ProductionQuiz:
         subject=lesson.subject,
         title=f"Перевірка: {lesson.title}",
         questions=tuple(questions),
-        schema_version="quiz.v1.3-student-clarity",
+        schema_version="quiz.v1.4-production-exam",
     )

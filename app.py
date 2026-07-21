@@ -3696,6 +3696,43 @@ def curriculum_quiz_draft_api(curriculum_unit_id):
     return jsonify({"ok": True})
 
 
+def _quiz_review_plan(review):
+    """Build a compact, deterministic practice plan from lost quiz points."""
+
+    grouped = {}
+    for item in review or ():
+        lost = max(0, int(item.get("points", 0)) - int(item.get("earned", 0)))
+        if not lost:
+            continue
+        skill = str(item.get("skill") or "Матеріал уроку").strip()
+        bucket = grouped.setdefault(skill, {"skill": skill, "lost": 0, "questions": [], "tip": ""})
+        bucket["lost"] += lost
+        bucket["questions"].append(int(item.get("number", 0)))
+        if not bucket["tip"]:
+            bucket["tip"] = str(item.get("review_tip") or "Повтори правило й виконай кілька подібних вправ.").strip()
+
+    ranked = sorted(grouped.values(), key=lambda item: (-item["lost"], item["skill"]))[:3]
+    for item in ranked:
+        lowered = item["skill"].lower()
+        if "запереч" in lowered or "negative" in lowered:
+            action = "Зроби 5 перетворень у заперечення."
+        elif "питан" in lowered or "question" in lowered:
+            action = "Склади 5 загальних питань і перевір допоміжне дієслово."
+        elif "порядок" in lowered or "word order" in lowered:
+            action = "Збери 5 речень із перемішаних слів."
+        elif "виправ" in lowered or "correction" in lowered or "редактор" in lowered:
+            action = "Виправ 5 речень з однією помилкою."
+        elif "чит" in lowered or "detail" in lowered or "inference" in lowered or "evidence" in lowered:
+            action = "Прочитай короткий текст і підкресли доказ для кожної відповіді."
+        elif "strategy" in lowered:
+            action = "Пройди ще один мінітест із таймером і фінальною перевіркою."
+        else:
+            action = "Виконай 5 коротких вправ саме на цю навичку."
+        item["action"] = action
+        item["question_list"] = ", ".join(str(number) for number in sorted(set(item["questions"])))
+    return ranked
+
+
 @app.get("/curriculum/quiz/attempts/<string:attempt_id>/result")
 @require_login
 def curriculum_quiz_result_page(attempt_id):
@@ -3725,6 +3762,7 @@ def curriculum_quiz_result_page(attempt_id):
         current_unit=current_unit,
         next_unit=next_unit,
         pass_score=18,
+        review_plan=_quiz_review_plan(attempt.review),
     )
 
 

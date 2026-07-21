@@ -170,6 +170,9 @@ def quiz_prompt_context(
         "task": question.task or question.prompt,
         "answer_format": question.answer_format or "Дай коротку відповідь за умовою.",
         "answer_type": question.answer_type,
+        "skill": question.skill or "поточна навичка",
+        "source_text": question.source_text,
+        "input_placeholder": question.input_placeholder,
         "visible_options": list(question.options),
         "lesson_objective": lesson.objective_overview,
         "concepts": _lesson_concepts(lesson, compact=True),
@@ -209,8 +212,10 @@ def _instructions(surface: str) -> str:
 - НЕ виконуй обчислення або мовне перетворення до фінального результату поточного питання;
 - можеш перефразувати умову простіше, пояснити термін, нагадати загальне правило,
   розкласти інструкцію на кроки та показати СХОЖИЙ приклад з іншими даними;
+- визнач тип вправи: вибір форми, заперечення, питання, порядок слів, виправлення,
+  переклад, читання, діалог або завдання з трьома частинами;
 - коли учень просить «поясни простіше», чітко розділи відповідь на три частини:
-  1) що саме треба зробити; 2) на що звернути увагу; 3) як оформити відповідь;
+  1) що саме треба зробити; 2) яку загальну схему пригадати; 3) як перевірити себе;
 - не повторюй складне формулювання дослівно: переклади його на звичайну учнівську мову;
 - схожий приклад не повинен повторювати імена, числа, слова, варіанти чи кінцеву відповідь поточного питання;
 - якщо учень просить готову відповідь, коротко відмов і відразу дай корисний наступний крок;
@@ -324,12 +329,28 @@ def quiz_fallback(lesson: Lesson, question: QuizQuestion, *, message: str) -> st
     answer_format = question.answer_format or "дай коротку відповідь за умовою"
     lowered = normalize_text(message)
 
+    skill = normalize_text(question.skill)
+    instruction_text = normalize_text(question.instruction)
     if question.answer_type == "choice":
-        next_step = "Знайди в умові ключову ознаку, а потім перевір усі варіанти за одним правилом."
+        next_step = "Знайди маркер у реченні або доказ у тексті, а потім перевір кожен варіант за ним."
+    elif "запереч" in instruction_text or "negative" in skill:
+        next_step = "Визнач час, постав правильне допоміжне дієслово з not і поверни основне дієслово в потрібну форму."
+    elif "питан" in instruction_text or "question" in skill:
+        next_step = "Винеси допоміжне дієслово перед підметом і перевір форму основного дієслова."
+    elif "слів" in instruction_text or "порядок" in skill or "word order" in skill:
+        next_step = "Спочатку знайди підмет і присудок, потім додай обставини часу та місця."
+    elif "виправ" in instruction_text or "correction" in skill:
+        next_step = "Знайди одну ділянку, де форма не узгоджується з підметом, часом або сталою конструкцією."
+    elif "переклад" in instruction_text or "translation" in skill:
+        next_step = "Спершу визнач час і підмет, потім побудуй англійську структуру, не перекладаючи слово в слово."
+    elif "чит" in skill or question.source_text:
+        next_step = "Повернися до конкретної фрази в тексті й відповідай лише тим, що вона підтверджує."
+    elif question.grading_mode == "rubric" if hasattr(question, "grading_mode") else False:
+        next_step = "Розділи відповідь на три рядки й виконай кожну частину як окреме маленьке завдання."
     elif question.answer_type == "short_text":
-        next_step = "Назви головну думку своїми словами; якщо просять дві частини, запиши їх окремо."
+        next_step = "Побудуй одне готове речення й перевір допоміжне дієслово та порядок слів."
     else:
-        next_step = "Спочатку отримай власний результат, потім додай 1–2 речення про правило або ознаку."
+        next_step = "Розділи завдання на три незалежні частини та перевір кожну окремо."
 
     if "правил" in lowered:
         return f"Загальна схема для цього питання: {rule} Потім сам застосуй її до завдання «{visible_task}»."
@@ -360,10 +381,16 @@ def answer_leaks_quiz_key(answer: str, question: QuizQuestion) -> bool:
     normalized = normalize_text(answer)
     if not normalized:
         return True
+    rubric_references = [
+        alternative
+        for part in question.scoring_parts
+        for alternative in part
+    ]
     references: list[str] = [
         question.correct_answer,
         *question.accepted_answers,
         *question.primary_answers,
+        *rubric_references,
     ]
     for reference in references:
         clean_reference = normalize_text(reference)

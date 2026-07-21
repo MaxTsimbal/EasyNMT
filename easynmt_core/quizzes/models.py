@@ -7,7 +7,10 @@ from typing import Any, Mapping
 
 
 QUESTION_TYPES = frozenset({"choice", "short_text", "long_text"})
-GRADING_MODES = frozenset({"legacy", "choice", "concept", "two_part", "any_valid", "solution", "correction", "verification"})
+GRADING_MODES = frozenset({
+    "legacy", "choice", "concept", "two_part", "any_valid", "solution",
+    "correction", "verification", "exact", "rubric",
+})
 
 
 def _text(value: object, field: str, *, maximum: int = 8000) -> str:
@@ -46,6 +49,11 @@ class QuizQuestion:
     instruction: str = ""
     task: str = ""
     answer_format: str = ""
+    skill: str = ""
+    source_text: str = ""
+    input_placeholder: str = ""
+    scoring_parts: tuple[tuple[str, ...], ...] = ()
+    review_tip: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "id", _text(self.id, "question.id", maximum=160))
@@ -62,12 +70,24 @@ class QuizQuestion:
         object.__setattr__(self, "primary_answers", _string_tuple(self.primary_answers, "question.primary_answers", allow_empty=True))
         object.__setattr__(self, "secondary_answers", _string_tuple(self.secondary_answers, "question.secondary_answers", allow_empty=True))
         object.__setattr__(self, "feedback_hint", _text(self.feedback_hint, "question.feedback_hint", maximum=2000))
-        for name in ("instruction", "task", "answer_format"):
+        for name, maximum in (
+            ("instruction", 4000), ("task", 4000), ("answer_format", 4000),
+            ("skill", 240), ("source_text", 8000), ("input_placeholder", 500),
+            ("review_tip", 2000),
+        ):
             value = getattr(self, name)
             if value:
-                object.__setattr__(self, name, _text(value, f"question.{name}", maximum=4000))
+                object.__setattr__(self, name, _text(value, f"question.{name}", maximum=maximum))
             else:
                 object.__setattr__(self, name, "")
+        if not isinstance(self.scoring_parts, (list, tuple)):
+            raise ValueError("question.scoring_parts must be a list")
+        normalized_parts: list[tuple[str, ...]] = []
+        for index, part in enumerate(self.scoring_parts):
+            normalized_parts.append(_string_tuple(part, f"question.scoring_parts[{index}]"))
+        object.__setattr__(self, "scoring_parts", tuple(normalized_parts))
+        if self.grading_mode == "rubric" and len(self.scoring_parts) != self.points:
+            raise ValueError("rubric questions require one scoring part per point")
         structured = (self.instruction, self.task, self.answer_format)
         if any(structured) and not all(structured):
             raise ValueError("structured question copy requires instruction, task, and answer_format")
@@ -104,6 +124,11 @@ class QuizQuestion:
             instruction=value.get("instruction", ""),
             task=value.get("task", ""),
             answer_format=value.get("answer_format", ""),
+            skill=value.get("skill", ""),
+            source_text=value.get("source_text", ""),
+            input_placeholder=value.get("input_placeholder", ""),
+            scoring_parts=tuple(tuple(part) for part in (value.get("scoring_parts") or ())),
+            review_tip=value.get("review_tip", ""),
         )
 
     def to_dict(self, *, include_answer_key: bool = True) -> dict[str, Any]:
@@ -113,6 +138,7 @@ class QuizQuestion:
         result["keywords"] = list(self.keywords)
         result["primary_answers"] = list(self.primary_answers)
         result["secondary_answers"] = list(self.secondary_answers)
+        result["scoring_parts"] = [list(part) for part in self.scoring_parts]
         if not include_answer_key:
             result.pop("correct_answer")
             result.pop("accepted_answers")
@@ -122,6 +148,7 @@ class QuizQuestion:
             result.pop("feedback_hint")
             result.pop("grading_mode")
             result.pop("explanation")
+            result.pop("scoring_parts")
         return result
 
 
