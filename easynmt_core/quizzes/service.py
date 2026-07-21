@@ -20,7 +20,6 @@ from easynmt_core.progress import (
 
 from .builder import build_deterministic_quiz
 from .errors import (
-    CurriculumQuizConflict,
     CurriculumQuizNotAvailable,
     CurriculumQuizNotFound,
     CurriculumQuizOwnershipError,
@@ -55,6 +54,41 @@ class CurriculumQuizService:
         self.repository = repository
         self.progress_service = progress_service
         self.logger = logger
+
+    @staticmethod
+    def _parse_utc(value: object) -> datetime:
+        """Parse SQLite ISO timestamps into timezone-aware UTC datetimes."""
+
+        text = str(value or "").strip()
+        if not text:
+            raise ValueError("timestamp is empty")
+        if text.endswith("Z"):
+            text = text[:-1] + "+00:00"
+        parsed = datetime.fromisoformat(text)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc)
+
+    @staticmethod
+    def _draft_from_row(row) -> dict[str, str]:
+        try:
+            payload = json.loads(row["answers_json"]) if row else {}
+        except Exception:
+            payload = {}
+        if not isinstance(payload, dict):
+            return {}
+        return {
+            str(key): str(value)
+            for key, value in payload.items()
+            if isinstance(key, str) and isinstance(value, (str, int, float))
+        }
+
+    @staticmethod
+    def _snapshot_from_session(row) -> ProductionQuiz:
+        payload = json.loads(row["quiz_snapshot_json"])
+        if content_hash(payload) != row["quiz_snapshot_hash"]:
+            raise CurriculumQuizPersistenceError("Quiz snapshot integrity check failed.")
+        return ProductionQuiz.from_dict(payload)
 
     @staticmethod
     def _shuffle_public_quiz(quiz: ProductionQuiz, attempt_token: str) -> ProductionQuiz:
@@ -132,20 +166,94 @@ class CurriculumQuizService:
                    WHERE user_id = ? AND curriculum_id = ? AND curriculum_unit_id = ?""",
                 (int(user_id), quiz.curriculum_id, quiz.curriculum_unit_id),
             ).fetchone()["total"]
-            attempt_token = secrets.token_urlsafe(36)
-            # The variant changes after each submitted attempt, but remains
-            # stable across refreshes and parallel tabs before submission so a
-            # saved draft can never be attached to different questions.
-            variant_seed = f"{int(user_id)}|{quiz.curriculum_unit_id}|{int(count) + 1}"
-            variant = build_deterministic_quiz(lesson, variant_seed=variant_seed)
-            snapshot = self._shuffle_public_quiz(variant, attempt_token)
-            snapshot_payload = snapshot.to_dict(include_answer_key=True)
             now = datetime.now(timezone.utc)
-            expires_at = (now + timedelta(hours=self.SESSION_HOURS)).isoformat(timespec="seconds")
             connection.execute(
                 "DELETE FROM curriculum_quiz_sessions WHERE user_id = ? AND submitted_at IS NULL AND expires_at < ?",
                 (int(user_id), now.isoformat(timespec="seconds")),
             )
+
+            draft_row = connection.execute(
+                """SELECT answers_json FROM curriculum_quiz_drafts
+                   WHERE user_id = ? AND curriculum_id = ? AND curriculum_unit_id = ?""",
+                (int(user_id), quiz.curriculum_id, quiz.curriculum_unit_id),
+            ).fetchone()
+            draft = self._draft_from_row(draft_row)
+
+            # Refreshes and parallel tabs should reopen the same unfinished
+            # attempt.  Sessions older than a submitted attempt are skipped so
+            # the learner still receives a fresh variant after completion.
+            active_row = connection.execute(
+                """
+                SELECT session.*
+                FROM curriculum_quiz_sessions AS session
+                WHERE session.user_id = ?
+                  AND session.curriculum_id = ?
+                  AND session.curriculum_unit_id = ?
+                  AND session.subject = ?
+                  AND session.submitted_at IS NULL
+                  AND session.expires_at > ?
+                  AND NOT EXISTS (
+                      SELECT 1 FROM curriculum_quiz_attempts AS attempt
+                      WHERE attempt.user_id = session.user_id
+                        AND attempt.curriculum_id = session.curriculum_id
+                        AND attempt.curriculum_unit_id = session.curriculum_unit_id
+                        AND attempt.submitted_at > session.started_at
+                  )
+                ORDER BY session.started_at DESC
+                LIMIT 1
+                """,
+                (
+                    int(user_id), quiz.curriculum_id, quiz.curriculum_unit_id,
+                    subject, now.isoformat(timespec="seconds"),
+                ),
+            ).fetchone()
+            if active_row is not None:
+                try:
+                    active_snapshot = self._snapshot_from_session(active_row)
+                    if (
+                        active_snapshot.curriculum_id != quiz.curriculum_id
+                        or active_snapshot.curriculum_unit_id != quiz.curriculum_unit_id
+                        or active_snapshot.subject != subject
+                    ):
+                        raise CurriculumQuizPersistenceError("Active quiz snapshot identity is invalid.")
+                    active_expires = self._parse_utc(active_row["expires_at"])
+                    connection.commit()
+                    return QuizAttemptDelivery(
+                        attempt_token=active_row["attempt_token"],
+                        quiz=active_snapshot,
+                        draft_answers=draft,
+                        expires_at=active_expires.isoformat(timespec="seconds"),
+                        attempt_count=int(count),
+                    )
+                except Exception as exc:
+                    # A broken unfinished session must not brick the entire
+                    # assessment. Remove only that disposable session and issue
+                    # a clean server snapshot below.
+                    connection.execute(
+                        "DELETE FROM curriculum_quiz_sessions WHERE attempt_token = ? AND submitted_at IS NULL",
+                        (active_row["attempt_token"],),
+                    )
+                    if self.logger:
+                        self.logger.warning(
+                            "Discarded invalid curriculum quiz session token=%s error=%s",
+                            str(active_row["attempt_token"])[:12],
+                            type(exc).__name__,
+                        )
+
+            attempt_token = secrets.token_urlsafe(36)
+            # The variant changes after each submitted attempt and remains
+            # stable across refreshes because the active session is reused.
+            variant_seed = f"{int(user_id)}|{quiz.curriculum_unit_id}|{int(count) + 1}"
+            variant = build_deterministic_quiz(lesson, variant_seed=variant_seed)
+            if variant.id != quiz.id:
+                # The repository may preserve a legacy DB primary key. Sessions
+                # must reference that same row while keeping the fresh content.
+                variant_payload = variant.to_dict(include_answer_key=True)
+                variant_payload["id"] = quiz.id
+                variant = ProductionQuiz.from_dict(variant_payload)
+            snapshot = self._shuffle_public_quiz(variant, attempt_token)
+            snapshot_payload = snapshot.to_dict(include_answer_key=True)
+            expires_at = (now + timedelta(hours=self.SESSION_HOURS)).isoformat(timespec="seconds")
             connection.execute(
                 """
                 INSERT INTO curriculum_quiz_sessions (
@@ -159,20 +267,11 @@ class CurriculumQuizService:
                     canonical_json(snapshot_payload), now.isoformat(timespec="seconds"), expires_at,
                 ),
             )
-            draft_row = connection.execute(
-                """SELECT answers_json FROM curriculum_quiz_drafts
-                   WHERE user_id = ? AND curriculum_id = ? AND curriculum_unit_id = ?""",
-                (int(user_id), quiz.curriculum_id, quiz.curriculum_unit_id),
-            ).fetchone()
-            try:
-                draft = json.loads(draft_row["answers_json"]) if draft_row else {}
-            except Exception:
-                draft = {}
             connection.commit()
             return QuizAttemptDelivery(
                 attempt_token=attempt_token,
                 quiz=snapshot,
-                draft_answers={str(k): str(v) for k, v in draft.items() if isinstance(k, str)},
+                draft_answers=draft,
                 expires_at=expires_at,
                 attempt_count=int(count),
             )
@@ -484,21 +583,27 @@ class CurriculumQuizService:
                 raise CurriculumQuizOwnershipError("Quiz attempt belongs to another learner.")
             if session_row["curriculum_unit_id"] != curriculum_unit_id or session_row["subject"] != subject:
                 raise CurriculumQuizSessionInvalid("Quiz attempt does not match this curriculum unit.")
-            if session_row["submitted_at"] is not None:
-                raise CurriculumQuizConflict("Quiz session was already submitted.")
             now = datetime.now(timezone.utc)
-            expires = datetime.fromisoformat(session_row["expires_at"])
+            expires = self._parse_utc(session_row["expires_at"])
             if expires <= now:
                 raise CurriculumQuizSessionInvalid("Quiz attempt has expired.")
             try:
-                payload = json.loads(session_row["quiz_snapshot_json"])
-                if content_hash(payload) != session_row["quiz_snapshot_hash"]:
-                    raise CurriculumQuizPersistenceError("Quiz snapshot integrity check failed.")
-                quiz = ProductionQuiz.from_dict(payload)
+                quiz = self._snapshot_from_session(session_row)
             except CurriculumQuizPersistenceError:
                 raise
             except Exception as exc:
                 raise CurriculumQuizPersistenceError("Stored quiz snapshot is invalid.") from exc
+
+            # A session marked submitted without its matching attempt can only
+            # come from legacy/manual data or an interrupted old deployment.
+            # There is no scored row to duplicate, so finalizing from the intact
+            # snapshot is safe and repairs the state instead of returning 409.
+            if session_row["submitted_at"] is not None and self.logger:
+                self.logger.warning(
+                    "Recovering orphaned submitted quiz session token=%s user_id=%s",
+                    str(attempt_token)[:12],
+                    int(user_id),
+                )
 
             allowed = {question.id for question in quiz.questions}
             safe_answers = {
@@ -573,7 +678,7 @@ class CurriculumQuizService:
                 ),
             )
             connection.execute(
-                "UPDATE curriculum_quiz_sessions SET submitted_at = ? WHERE attempt_token = ? AND submitted_at IS NULL",
+                "UPDATE curriculum_quiz_sessions SET submitted_at = ? WHERE attempt_token = ?",
                 (submitted_at, attempt_token),
             )
             connection.execute(
@@ -629,13 +734,10 @@ class CurriculumQuizService:
             if row["submitted_at"] is not None:
                 raise CurriculumQuizSessionInvalid("Quiz attempt has already been submitted.")
             expires_at = str(row["expires_at"])
-            if datetime.fromisoformat(expires_at) <= datetime.now(timezone.utc):
+            if self._parse_utc(expires_at) <= datetime.now(timezone.utc):
                 raise CurriculumQuizSessionInvalid("Quiz attempt has expired.")
             try:
-                payload = json.loads(row["quiz_snapshot_json"])
-                if content_hash(payload) != row["quiz_snapshot_hash"]:
-                    raise CurriculumQuizPersistenceError("Quiz snapshot integrity check failed.")
-                quiz = ProductionQuiz.from_dict(payload)
+                quiz = self._snapshot_from_session(row)
             except CurriculumQuizPersistenceError:
                 raise
             except Exception as exc:

@@ -62,10 +62,12 @@ from easynmt_core.progress import (
     CurriculumUnitState,
 )
 from easynmt_core.quizzes import (
+    CurriculumQuizConflict,
     CurriculumQuizError,
     CurriculumQuizNotAvailable,
     CurriculumQuizNotFound,
     CurriculumQuizOwnershipError,
+    CurriculumQuizPersistenceError,
     CurriculumQuizRepository,
     CurriculumQuizService,
     CurriculumQuizSessionInvalid,
@@ -3346,10 +3348,12 @@ def complete_curriculum_lesson_page(curriculum_unit_id):
 
 
 def curriculum_quiz_error_response(error):
-    app.logger.info(
-        "Curriculum quiz request rejected type=%s user_id=%s",
+    app.logger.warning(
+        "Curriculum quiz request rejected path=%s type=%s user_id=%s detail=%s",
+        request.path,
         type(error).__name__,
         session.get("user_id"),
+        str(error),
     )
     if isinstance(error, CurriculumQuizOwnershipError):
         status, code, message = 403, "quiz_forbidden", "Цей тест належить іншому користувачу."
@@ -3359,8 +3363,12 @@ def curriculum_quiz_error_response(error):
         status, code, message = 409, "quiz_session_invalid", "Сесія тесту застаріла. Відкрий тест ще раз."
     elif isinstance(error, CurriculumQuizNotAvailable):
         status, code, message = 409, "quiz_not_available", "Спочатку заверши урок, а потім переходь до перевірки."
+    elif isinstance(error, CurriculumQuizConflict):
+        status, code, message = 409, "quiz_conflict", "Спроба тесту змінилася. Відкрий тест ще раз."
+    elif isinstance(error, CurriculumQuizPersistenceError):
+        status, code, message = 503, "quiz_storage_error", "Не вдалося підготувати тест. Онови сторінку й спробуй ще раз."
     else:
-        status, code, message = 409, "quiz_conflict", "Не вдалося безпечно завершити тест. Спробуй ще раз."
+        status, code, message = 500, "quiz_internal_error", "Під час підготовки тесту сталася помилка. Спробуй ще раз."
     if request.path.startswith("/api/"):
         return jsonify({"ok": False, "error": code, "message": message}), status
     return render_template(

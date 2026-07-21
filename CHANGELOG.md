@@ -1,5 +1,18 @@
 # EasyNMT Changelog
 
+## Task 3D.3 — Quiz 409 Stability Recovery (2026-07-21)
+
+- Fixed the production failure where opening a test could immediately return HTTP 409 before the quiz page appeared.
+- Replaced the brittle same-schema quiz-template conflict with a verified in-place refresh that preserves old session and attempt foreign keys.
+- Added automatic repair for damaged or legacy reusable quiz templates using the current server-authoritative lesson.
+- Reuses the same unfinished attempt on refresh and in parallel tabs instead of creating a trail of duplicate sessions.
+- Discards only a corrupt unfinished session and creates a clean replacement instead of blocking the learner.
+- Recovers orphaned `submitted_at` sessions when no scored attempt exists, while keeping normal duplicate submission idempotent.
+- Normalized legacy, naive, `Z`, and timezone-aware quiz timestamps before expiration checks.
+- Improved server logs and stopped reporting internal storage failures as misleading generic 409 conflicts.
+- Added five regression tests, including a full Flask route test for reopening a same-schema stale quiz template.
+- Verified the integrated project with 154 automated tests, Python compilation, AST parsing, and `pip check`.
+
 ## Task 3D.2 — Lesson Generation Loader (2026-07-21)
 
 - Added a dedicated full-screen loading scene when a curriculum lesson is opened or generated.

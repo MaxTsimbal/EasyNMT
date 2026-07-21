@@ -18,6 +18,7 @@ from easynmt_core.quizzes import (
     QuizQuestion,
     build_deterministic_quiz,
 )
+from easynmt_core.quizzes.repository import canonical_json, content_hash
 from tests.lesson_fixtures import valid_lesson_proposal
 from tests.test_curriculum_progress import insert_curriculum_rows
 from tests.test_lesson_engine import FakeGateway, ai_response
@@ -181,6 +182,94 @@ class ProductionQuizServiceTests(unittest.TestCase):
             self.assertEqual(row[0], "quiz.v1.4-production-exam")
         finally:
             connection.close()
+
+    def test_same_schema_quiz_content_refreshes_in_place(self):
+        """A lesson regeneration must not brick quiz opening with HTTP 409."""
+
+        current = build_deterministic_quiz(self.lesson)
+        changed_payload = current.to_dict(include_answer_key=True)
+        changed_payload["title"] = current.title + " · оновлено"
+        changed = ProductionQuiz.from_dict(changed_payload)
+
+        connection = self.quiz_repository.connect()
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            self.quiz_repository.save_quiz(connection, user_id=1, quiz=current)
+            connection.commit()
+
+            connection.execute("BEGIN IMMEDIATE")
+            refreshed = self.quiz_repository.save_quiz(connection, user_id=1, quiz=changed)
+            connection.commit()
+
+            self.assertEqual(refreshed.id, current.id)
+            self.assertEqual(refreshed.schema_version, current.schema_version)
+            self.assertEqual(refreshed.title, changed.title)
+            row = connection.execute(
+                "SELECT COUNT(*), content_json FROM curriculum_quizzes WHERE id = ?",
+                (current.id,),
+            ).fetchone()
+            self.assertEqual(row[0], 1)
+            self.assertEqual(json.loads(row[1])["title"], changed.title)
+        finally:
+            connection.close()
+
+    def test_refresh_reuses_the_same_unfinished_quiz_session(self):
+        self.complete_lesson()
+        first = self.quiz_service.start_attempt(user_id=1, subject="math", lesson=self.lesson)
+        second = self.quiz_service.start_attempt(user_id=1, subject="math", lesson=self.lesson)
+
+        self.assertEqual(second.attempt_token, first.attempt_token)
+        self.assertEqual(second.quiz.to_dict(), first.quiz.to_dict())
+        connection = self.quiz_repository.connect()
+        try:
+            self.assertEqual(
+                connection.execute(
+                    "SELECT COUNT(*) FROM curriculum_quiz_sessions WHERE submitted_at IS NULL"
+                ).fetchone()[0],
+                1,
+            )
+        finally:
+            connection.close()
+
+    def test_corrupt_unfinished_session_is_replaced_instead_of_blocking_quiz(self):
+        self.complete_lesson()
+        first = self.quiz_service.start_attempt(user_id=1, subject="math", lesson=self.lesson)
+        connection = self.quiz_repository.connect()
+        try:
+            connection.execute(
+                "UPDATE curriculum_quiz_sessions SET quiz_snapshot_hash = 'broken' WHERE attempt_token = ?",
+                (first.attempt_token,),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+        replacement = self.quiz_service.start_attempt(user_id=1, subject="math", lesson=self.lesson)
+        self.assertNotEqual(replacement.attempt_token, first.attempt_token)
+        self.assertEqual(len(replacement.quiz.questions), 12)
+
+    def test_orphaned_submitted_session_can_finalize_without_conflict(self):
+        self.complete_lesson()
+        attempt = self.quiz_service.start_attempt(user_id=1, subject="math", lesson=self.lesson)
+        connection = self.quiz_repository.connect()
+        try:
+            connection.execute(
+                "UPDATE curriculum_quiz_sessions SET submitted_at = '2026-01-01T00:00:00+00:00' WHERE attempt_token = ?",
+                (attempt.attempt_token,),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+        result = self.quiz_service.submit_attempt(
+            user_id=1,
+            subject="math",
+            curriculum_unit_id=self.unit_id,
+            attempt_token=attempt.attempt_token,
+            answers=self.correct_answers(attempt),
+        )
+        self.assertTrue(result.passed)
+        self.assertEqual(result.score, 24)
 
     def test_quiz_cannot_start_before_lesson_completion(self):
         with self.assertRaises(CurriculumQuizNotAvailable):
@@ -487,6 +576,29 @@ class ProductionQuizApiTests(unittest.TestCase):
         self.assertIn("12 питань", html)
         self.assertIn("Завершити тест", html)
         self.assertNotIn("correct_answer", html)
+
+    def test_html_quiz_repairs_same_schema_stale_template_instead_of_returning_409(self):
+        self.prepare_assessment()
+        first = self.client.get(f"/curriculum/units/{self.unit_id}/quiz")
+        self.assertEqual(first.status_code, 200)
+
+        connection = self.app_module.get_db_connection()
+        row = connection.execute(
+            "SELECT id, content_json FROM curriculum_quizzes WHERE user_id = ? AND curriculum_unit_id = ?",
+            (self.user_id, self.unit_id),
+        ).fetchone()
+        stale_payload = json.loads(row["content_json"])
+        stale_payload["title"] = stale_payload["title"] + " · stale"
+        connection.execute(
+            "UPDATE curriculum_quizzes SET content_json = ?, content_hash = ? WHERE id = ?",
+            (canonical_json(stale_payload), content_hash(stale_payload), row["id"]),
+        )
+        connection.commit()
+        connection.close()
+
+        reopened = self.client.get(f"/curriculum/units/{self.unit_id}/quiz")
+        self.assertEqual(reopened.status_code, 200)
+        self.assertIn("Завершити тест", reopened.get_data(as_text=True))
 
     def test_contextual_easy_is_bound_to_active_question_and_refuses_answers(self):
         self.prepare_assessment()

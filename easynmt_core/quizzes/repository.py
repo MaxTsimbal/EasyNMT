@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+from dataclasses import replace
 from datetime import datetime, timezone
 from typing import Any
 
@@ -134,6 +135,19 @@ class CurriculumQuizRepository:
         return quiz
 
     def save_quiz(self, connection: sqlite3.Connection, *, user_id: int, quiz: ProductionQuiz) -> ProductionQuiz:
+        """Persist the current quiz definition without breaking old attempts.
+
+        ``curriculum_quiz_sessions`` stores a complete immutable snapshot, and
+        submitted attempts store their own review.  Because of that, refreshing
+        the reusable per-lesson quiz template is safe: already-started attempts
+        keep the exact questions they received.
+
+        Earlier versions treated any same-schema content change as a conflict.
+        A regenerated lesson or a grading hotfix could therefore make the quiz
+        page return HTTP 409 before it even opened.  This method now repairs and
+        refreshes the template in place while preserving its database identity.
+        """
+
         payload = quiz.to_dict(include_answer_key=True)
         digest = content_hash(payload)
         connection.execute(
@@ -156,23 +170,52 @@ class CurriculumQuizRepository:
         ).fetchone()
         if row is None:
             raise CurriculumQuizPersistenceError("Quiz could not be persisted.")
-        stored = self.quiz_from_row(row)
-        if stored.to_dict() != quiz.to_dict():
-            if stored.id != quiz.id or stored.schema_version == quiz.schema_version:
-                raise CurriculumQuizPersistenceError("A different immutable quiz owns this lesson identity.")
-            connection.execute(
-                """
-                UPDATE curriculum_quizzes
-                SET content_hash = ?, content_json = ?, schema_version = ?, generation_source = ?
-                WHERE id = ? AND user_id = ?
-                """,
-                (
-                    digest, canonical_json(payload), quiz.schema_version,
-                    quiz.generation_source, quiz.id, int(user_id),
-                ),
-            )
-            return quiz
-        return stored
+
+        # The unique lesson identity can outlive a quiz-ID algorithm change.
+        # Keep the existing primary key so old sessions and attempts retain
+        # valid foreign keys, then write the new content under that identity.
+        if row["id"] != quiz.id:
+            quiz = replace(quiz, id=row["id"])
+            payload = quiz.to_dict(include_answer_key=True)
+            digest = content_hash(payload)
+
+        try:
+            stored = self.quiz_from_row(row)
+        except CurriculumQuizPersistenceError:
+            # A damaged or legacy payload is recoverable because the canonical
+            # quiz can be rebuilt from the server-authoritative lesson.
+            stored = None
+
+        if stored is not None and stored.to_dict() == quiz.to_dict():
+            return stored
+
+        cursor = connection.execute(
+            """
+            UPDATE curriculum_quizzes
+            SET subject = ?, content_hash = ?, content_json = ?, schema_version = ?,
+                generation_source = ?
+            WHERE id = ? AND user_id = ?
+              AND curriculum_id = ? AND curriculum_unit_id = ? AND lesson_id = ?
+            """,
+            (
+                quiz.subject, digest, canonical_json(payload), quiz.schema_version,
+                quiz.generation_source, quiz.id, int(user_id), quiz.curriculum_id,
+                quiz.curriculum_unit_id, quiz.lesson_id,
+            ),
+        )
+        if cursor.rowcount != 1:
+            raise CurriculumQuizPersistenceError("Quiz template refresh did not update exactly one row.")
+
+        refreshed_row = connection.execute(
+            "SELECT * FROM curriculum_quizzes WHERE id = ? AND user_id = ?",
+            (quiz.id, int(user_id)),
+        ).fetchone()
+        if refreshed_row is None:
+            raise CurriculumQuizPersistenceError("Refreshed quiz could not be read back.")
+        refreshed = self.quiz_from_row(refreshed_row)
+        if refreshed.to_dict() != quiz.to_dict():
+            raise CurriculumQuizPersistenceError("Refreshed quiz failed verification.")
+        return refreshed
 
     @staticmethod
     def attempt_result_from_row(row: sqlite3.Row, *, idempotent: bool) -> QuizAttemptResult:
