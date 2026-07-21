@@ -804,6 +804,98 @@ def clear_plan_session():
     session.pop("diagnostic_required", None)
 
 
+def reconcile_subject_xp(user_id, subject):
+    """Repair stale XP mirrors from the authoritative award records.
+
+    Older Beta builds could preserve lesson completion while leaving the
+    ``user_subject_progress`` and ``user_plans`` XP mirrors at zero. The quiz
+    attempts and curriculum progress rows still contain the immutable award
+    evidence, so we only ever raise the mirror to the proven total and never
+    subtract or duplicate XP.
+    """
+    if not user_id or subject not in VALID_SUBJECTS:
+        return 0
+
+    conn = get_db_connection()
+    try:
+        progress_row = conn.execute(
+            "SELECT xp FROM user_subject_progress WHERE user_id = ? AND subject = ?",
+            (int(user_id), subject),
+        ).fetchone()
+        current_xp = int(progress_row["xp"] or 0) if progress_row else 0
+
+        legacy_awards = int(conn.execute(
+            """
+            SELECT COALESCE(SUM(xp_awarded), 0) AS total
+            FROM quiz_attempts
+            WHERE user_id = ? AND subject = ?
+            """,
+            (int(user_id), subject),
+        ).fetchone()["total"] or 0)
+        curriculum_awards = int(conn.execute(
+            """
+            SELECT COALESCE(SUM(progress.xp_awarded), 0) AS total
+            FROM curriculum_unit_progress AS progress
+            JOIN ai_curricula AS curriculum
+              ON curriculum.id = progress.curriculum_id
+             AND curriculum.user_id = progress.user_id
+            WHERE progress.user_id = ? AND curriculum.subject = ?
+            """,
+            (int(user_id), subject),
+        ).fetchone()["total"] or 0)
+        legacy_completed = int(conn.execute(
+            """
+            SELECT COUNT(*) AS total
+            FROM completed_lessons
+            WHERE user_id = ? AND subject = ?
+            """,
+            (int(user_id), subject),
+        ).fetchone()["total"] or 0)
+        curriculum_completed = int(conn.execute(
+            """
+            SELECT COUNT(*) AS total
+            FROM curriculum_unit_progress AS progress
+            JOIN ai_curricula AS curriculum
+              ON curriculum.id = progress.curriculum_id
+             AND curriculum.user_id = progress.user_id
+            WHERE progress.user_id = ?
+              AND curriculum.subject = ?
+              AND progress.state = 'completed'
+            """,
+            (int(user_id), subject),
+        ).fetchone()["total"] or 0)
+
+        completion_floor = max(legacy_completed, curriculum_completed) * 60
+        proven_xp = max(
+            current_xp,
+            legacy_awards + curriculum_awards,
+            completion_floor,
+        )
+        if proven_xp > current_xp:
+            conn.execute(
+                """
+                INSERT INTO user_subject_progress (user_id, subject, xp)
+                VALUES (?, ?, ?)
+                ON CONFLICT(user_id, subject) DO UPDATE SET
+                    xp = MAX(user_subject_progress.xp, excluded.xp),
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (int(user_id), subject, proven_xp),
+            )
+            conn.execute(
+                """
+                UPDATE user_plans
+                SET xp = MAX(xp, ?), updated_at = CURRENT_TIMESTAMP
+                WHERE user_id = ? AND subject = ?
+                """,
+                (proven_xp, int(user_id), subject),
+            )
+            conn.commit()
+        return proven_xp
+    finally:
+        conn.close()
+
+
 def load_subject_progress_to_session(user_id, subject):
     if not subject:
         session["progress"] = 0
@@ -812,6 +904,7 @@ def load_subject_progress_to_session(user_id, subject):
         session["last_activity_date"] = None
         return
 
+    reconcile_subject_xp(user_id, subject)
     conn = get_db_connection()
     row = conn.execute(
         "SELECT * FROM user_subject_progress WHERE user_id = ? AND subject = ?",
@@ -1554,7 +1647,15 @@ def diagnostic_complete(subject_key=None):
     return get_diagnostic_result(subject_key) is not None
 
 
-def get_personal_insights(subject_key=None):
+def get_personal_insights(subject_key=None, curriculum_navigation=None):
+    """Build one concrete, curriculum-aware focus for the dashboard.
+
+    The previous panel mostly repeated the diagnostic level. This version first
+    uses recent production quiz evidence, then current curriculum mastery, and
+    only falls back to the legacy mistake table when no curriculum evidence is
+    available.
+    """
+
     user_id = session.get("user_id")
     subject_key = subject_key or session.get("subject", "none")
     diagnostic = get_diagnostic_result(subject_key)
@@ -1564,34 +1665,203 @@ def get_personal_insights(subject_key=None):
         "foundation": "Основа вже є",
         "confident": "Можна рухатися швидше",
     }
+    current_unit = (curriculum_navigation or {}).get("current_unit") or {}
+    current_title = str(current_unit.get("title") or "поточну тему").strip()
+    current_state = str(current_unit.get("state") or "")
+    mastery_score = current_unit.get("mastery_score")
+
+    if user_id and curriculum_navigation:
+        connection = get_db_connection()
+        try:
+            rows = connection.execute(
+                """
+                SELECT attempt.attempt_id, attempt.review_json, attempt.score,
+                       attempt.total, attempt.passed, attempt.submitted_at,
+                       unit.title AS unit_title
+                FROM curriculum_quiz_attempts AS attempt
+                LEFT JOIN ai_curriculum_units AS unit
+                  ON unit.curriculum_id = attempt.curriculum_id
+                 AND unit.unit_id = attempt.curriculum_unit_id
+                WHERE attempt.user_id = ?
+                  AND attempt.subject = ?
+                  AND attempt.curriculum_id = ?
+                ORDER BY attempt.submitted_at DESC
+                LIMIT 5
+                """,
+                (
+                    int(user_id),
+                    str(subject_key),
+                    str(curriculum_navigation["curriculum_id"]),
+                ),
+            ).fetchall()
+        except sqlite3.OperationalError:
+            rows = []
+        finally:
+            connection.close()
+
+        skill_buckets = {}
+        latest_attempt = rows[0] if rows else None
+        for recency_index, row in enumerate(rows):
+            try:
+                review = json.loads(row["review_json"] or "[]")
+            except (TypeError, ValueError, json.JSONDecodeError):
+                review = []
+            if not isinstance(review, list):
+                continue
+            # Recent work matters more, without allowing one accidental answer
+            # to erase a repeated pattern from the previous attempts.
+            weight = max(1, 5 - recency_index)
+            for item in review:
+                if not isinstance(item, dict):
+                    continue
+                try:
+                    points = max(0, int(item.get("points", 0)))
+                    earned = max(0, min(points, int(item.get("earned", 0))))
+                except (TypeError, ValueError):
+                    continue
+                lost = points - earned
+                if lost <= 0:
+                    continue
+                skill = str(item.get("skill") or "Матеріал поточної теми").strip()
+                if not skill:
+                    skill = "Матеріал поточної теми"
+                skill = skill[:120]
+                bucket = skill_buckets.setdefault(
+                    skill,
+                    {
+                        "skill": skill,
+                        "weighted_lost": 0,
+                        "lost": 0,
+                        "questions": set(),
+                        "next_step": "",
+                        "review_tip": "",
+                    },
+                )
+                bucket["weighted_lost"] += lost * weight
+                bucket["lost"] += lost
+                try:
+                    number = int(item.get("number", 0))
+                except (TypeError, ValueError):
+                    number = 0
+                if number > 0:
+                    bucket["questions"].add(number)
+                if not bucket["next_step"]:
+                    bucket["next_step"] = str(item.get("next_step") or "").strip()[:240]
+                if not bucket["review_tip"]:
+                    bucket["review_tip"] = str(item.get("review_tip") or "").strip()[:240]
+
+        if skill_buckets:
+            weakest = max(
+                skill_buckets.values(),
+                key=lambda item: (item["weighted_lost"], item["lost"], item["skill"]),
+            )
+            latest_score = int(latest_attempt["score"] or 0) if latest_attempt else 0
+            latest_total = int(latest_attempt["total"] or 24) if latest_attempt else 24
+            latest_title = str(latest_attempt["unit_title"] or current_title) if latest_attempt else current_title
+            question_note = ""
+            if weakest["questions"]:
+                question_note = " Найчастіше це проявилося у питаннях " + ", ".join(
+                    str(number) for number in sorted(weakest["questions"])
+                ) + "."
+            action = weakest["next_step"] or weakest["review_tip"]
+            if not action:
+                action = "Повтори правило, розбери один приклад і виконай новий варіант тесту."
+            return {
+                "diagnostic_level": level,
+                "diagnostic_level_name": f"Фокус: {weakest['skill']}",
+                "personal_focus": (
+                    f"Останній результат у темі «{latest_title}» — {latest_score}/{latest_total}. "
+                    f"Найбільше балів зараз губиться на навичці «{weakest['skill']}»."
+                    f"{question_note}"
+                ),
+                "personal_action": action,
+                "weak_topic": weakest["skill"],
+                "weak_count": int(weakest["lost"]),
+                "personal_focus_attempt_id": str(latest_attempt["attempt_id"]) if latest_attempt else None,
+                "personal_focus_source": "quiz_history",
+            }
+
+        if latest_attempt is not None and bool(latest_attempt["passed"]):
+            latest_score = int(latest_attempt["score"] or 0)
+            latest_total = int(latest_attempt["total"] or 24)
+            return {
+                "diagnostic_level": level,
+                "diagnostic_level_name": "Можна рухатися далі",
+                "personal_focus": (
+                    f"Останню перевірку завершено з результатом {latest_score}/{latest_total}. "
+                    f"Наступний фокус — тема «{current_title}»."
+                ),
+                "personal_action": "Почни з головного прикладу уроку, а потім одразу закріпи його практикою.",
+                "weak_topic": None,
+                "weak_count": 0,
+                "personal_focus_attempt_id": str(latest_attempt["attempt_id"]),
+                "personal_focus_source": "quiz_success",
+            }
+
+        if current_state == CurriculumUnitState.REVIEW_REQUIRED.value:
+            return {
+                "diagnostic_level": level,
+                "diagnostic_level_name": "Повторення перед новою спробою",
+                "personal_focus": f"Тема «{current_title}» потребує короткого повторення перед рухом далі.",
+                "personal_action": "Переглянь типові помилки, повтори один приклад і спробуй новий варіант тесту.",
+                "weak_topic": current_title,
+                "weak_count": 0,
+                "personal_focus_attempt_id": None,
+                "personal_focus_source": "curriculum_review",
+            }
+
+        if isinstance(mastery_score, (int, float)):
+            mastery_percent = round(float(mastery_score) * 100)
+            if mastery_percent >= 80:
+                heading = "Сильна основа"
+                focus = f"Рівень засвоєння поточної теми — близько {mastery_percent}%. Далі працюємо над «{current_title}»."
+                action = "Переходь до складніших прикладів і перевіряй відповідь після кожного кроку."
+            else:
+                heading = "Закріплюємо основу"
+                focus = f"Рівень засвоєння — близько {mastery_percent}%. Зараз головна тема — «{current_title}»."
+                action = "Спочатку розбери базовий приклад, потім виконай дві короткі вправи без підказки."
+            return {
+                "diagnostic_level": level,
+                "diagnostic_level_name": heading,
+                "personal_focus": focus,
+                "personal_action": action,
+                "weak_topic": None,
+                "weak_count": 0,
+                "personal_focus_attempt_id": None,
+                "personal_focus_source": "mastery",
+            }
+
     weak_topic = None
     weak_count = 0
     if user_id:
-        conn = get_db_connection()
-        row = conn.execute(
-            """SELECT lesson_id, COUNT(*) AS cnt FROM mistakes
-               WHERE user_id = ? AND subject = ?
-               GROUP BY lesson_id ORDER BY cnt DESC, lesson_id ASC LIMIT 1""",
-            (user_id, subject_key),
-        ).fetchone()
-        conn.close()
+        connection = get_db_connection()
+        try:
+            row = connection.execute(
+                """SELECT lesson_id, COUNT(*) AS cnt FROM mistakes
+                   WHERE user_id = ? AND subject = ?
+                   GROUP BY lesson_id ORDER BY cnt DESC, lesson_id ASC LIMIT 1""",
+                (user_id, subject_key),
+            ).fetchone()
+        finally:
+            connection.close()
         if row:
             weak_count = int(row["cnt"] or 0)
             try:
                 weak_topic = get_lesson_content(int(row["lesson_id"]))["title"]
             except Exception:
                 weak_topic = None
+
     if weak_topic:
         focus = f"Найбільше уваги зараз потребує тема «{weak_topic}». У ній уже було {weak_count} помилок."
         action = "Спочатку переглянь розбір помилок, а потім повтори короткий тест."
     elif level == "beginner":
-        focus = "Почнемо без поспіху. Спочатку зрозуміємо головну ідею, потім розберемо приклад."
+        focus = f"Почнемо без поспіху з теми «{current_title}». Спочатку зрозуміємо головну ідею, потім розберемо приклад."
         action = "Сьогодні достатньо пройти один урок і мініперевірку."
     elif level == "foundation":
-        focus = "Базові знання вже є. Тепер важливо навчитися не губитися в типових завданнях НМТ."
+        focus = f"Базові знання вже є. У темі «{current_title}» важливо не губитися в типових завданнях НМТ."
         action = "Пройди поточний урок і зверни увагу на типові помилки."
     else:
-        focus = "Ти впевнено знаєш основу. Можна швидше переходити до практики та складніших завдань."
+        focus = f"Ти впевнено знаєш основу. У темі «{current_title}» можна швидше переходити до практики."
         action = "Почни з прикладу, а потім одразу перевір себе тестом."
     return {
         "diagnostic_level": level,
@@ -1600,6 +1870,8 @@ def get_personal_insights(subject_key=None):
         "personal_action": action,
         "weak_topic": weak_topic,
         "weak_count": weak_count,
+        "personal_focus_attempt_id": None,
+        "personal_focus_source": "diagnostic",
     }
 
 
@@ -1621,6 +1893,8 @@ def get_user_data():
     goal = session.get("goal", "Ще не вибрано")
     subject_key = session.get("subject", "none")
     time_key = session.get("time_left", "none")
+    if session.get("user_id") and subject_key in VALID_SUBJECTS:
+        session["xp"] = reconcile_subject_xp(session["user_id"], subject_key)
 
     subject_names = {
         "math": "📐 Математика",
@@ -1661,7 +1935,6 @@ def get_user_data():
     session["progress"] = progress
 
     achievements = get_achievements(limit=4)
-    insights = get_personal_insights(subject_key)
     attempt_summary = get_quiz_attempt_summary(subject_key)
     journey_complete = completed_count >= lessons_total and lessons_total > 0
 
@@ -1673,11 +1946,30 @@ def get_user_data():
         journey_complete = curriculum_navigation["journey_complete"]
         session["progress"] = progress
 
+    insights = get_personal_insights(
+        subject_key,
+        curriculum_navigation=curriculum_navigation,
+    )
+
+    legacy_current_index = next(
+        (index for index, lesson in enumerate(lessons) if lesson["id"] == resume_lesson_id),
+        0,
+    )
+    if len(lessons) <= 3:
+        legacy_preview_start = 0
+    elif journey_complete:
+        legacy_preview_start = len(lessons) - 3
+    else:
+        legacy_preview_start = max(0, min(legacy_current_index - 1, len(lessons) - 3))
+    dashboard_lessons = lessons[legacy_preview_start:legacy_preview_start + 3]
+
     return {
         "goal": goal,
         "subject_key": subject_key,
         "subject": subject_names.get(subject_key, "Ще не вибрано"),
         "lessons": lessons,
+        "dashboard_lessons": dashboard_lessons,
+        "other_lessons_count": max(0, len(lessons) - len(dashboard_lessons)),
         "completed_lessons": completed_lessons,
         "unlocked_lessons": unlocked_lessons,
         "completed_count": completed_count,
@@ -2411,7 +2703,7 @@ def google_auth_status():
         {
             "callback_url": google_callback_url(),
             "implementation": "oauth2_pkce_requests",
-            "version": "v1.0 Beta",
+            "version": "v1.0 Beta.2",
         }
     )
     return status
@@ -3599,6 +3891,7 @@ def submit_curriculum_quiz_api(curriculum_unit_id):
             attempt_token=str(payload.get("attempt_token") or ""),
             answers=payload["answers"],
         )
+        load_subject_progress_to_session(session["user_id"], get_subject_key())
     except CurriculumQuizError as error:
         return curriculum_quiz_error_response(error)
     except CurriculumProgressError as error:
@@ -3634,6 +3927,7 @@ def curriculum_quiz_page(curriculum_unit_id):
                 answers=answers,
                 final_attachment=final_attachment,
             )
+            load_subject_progress_to_session(session["user_id"], get_subject_key())
         except AttachmentError as error:
             flash(str(error), "info")
             return redirect(url_for(

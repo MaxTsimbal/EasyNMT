@@ -1,11 +1,11 @@
-# EasyNMT v1.0 Beta · ручна перевірка
+# EasyNMT v1.0 Beta.2 · ручна перевірка
 
 Проходь список на публічному Railway-домені. Для чистого сценарію створи новий
 акаунт. Біля помилки записуй URL, дію, час і `X-Request-ID` з DevTools → Network.
 
 ## 1. Стан deployment
 
-- Відкрий `/health`: має бути `status: ok`, release `1.0.0-beta.1`.
+- Відкрий `/health`: має бути `status: ok`, release `1.0.0-beta.2`.
 - Відкрий `/ready`: має бути HTTP 200 і `status: ready`.
 - Перевір Railway Variables: OpenAI key, один worker, Volume, secure cookies.
 

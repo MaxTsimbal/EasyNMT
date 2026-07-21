@@ -4,7 +4,7 @@ EasyNMT is a Flask and SQLite learning platform for structured NMT preparation.
 The active product path combines curated lessons, server-generated quizzes,
 per-subject progress, mistake review, and an optional OpenAI-powered tutor.
 
-This repository is the cumulative `1.0.0-beta.1` candidate. Local development
+This repository is the cumulative `1.0.0-beta.2` candidate. Local development
 can still run without an OpenAI key and exposes a truthful offline mode. A
 Railway Beta deployment requires OpenAI by default because written grading,
 lesson generation, and the final photo solution are part of the accepted

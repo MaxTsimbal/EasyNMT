@@ -83,7 +83,7 @@ class Config:
     AI_DAILY_UPLOAD_LIMIT = int(os.environ.get("AI_DAILY_UPLOAD_LIMIT", "20"))
     AI_MAX_ATTACHMENT_BYTES = int(os.environ.get("AI_MAX_ATTACHMENT_BYTES", str(5 * 1024 * 1024)))
 
-    APP_VERSION = "1.0.0-beta.1"
+    APP_VERSION = "1.0.0-beta.2"
     RELEASE_CHANNEL = "beta"
     AUTO_BACKUP_ENABLED = (
         os.environ.get("EASYNMT_AUTO_BACKUP", "1") == "1"

@@ -58,7 +58,10 @@ class CurriculumLessonRenderer:
             CurriculumUnitState.COMPLETED: 5,
             CurriculumUnitState.LOCKED: 6,
         }
-        selected = min(snapshot.units, key=lambda item: (priority[item.state], item.order))
+        if snapshot.completed_units == snapshot.total_units and snapshot.units:
+            selected = max(snapshot.units, key=lambda item: item.order)
+        else:
+            selected = min(snapshot.units, key=lambda item: (priority[item.state], item.order))
         units = tuple({
             "unit_id": item.unit_id,
             "topic_id": item.topic_id,
@@ -73,12 +76,31 @@ class CurriculumLessonRenderer:
             "is_locked": item.state is CurriculumUnitState.LOCKED,
             "is_completed": item.state is CurriculumUnitState.COMPLETED,
             "is_current": item.unit_id == selected.unit_id,
+            "mastery_score": item.mastery_score,
+            "mastery_band": item.mastery_band.value,
         } for item in snapshot.units)
-        current = next(item for item in units if item["is_current"])
+        current_index = next(index for index, item in enumerate(units) if item["is_current"])
+        current = units[current_index]
+
+        # The dashboard should show a small, useful window instead of the full
+        # curriculum wall. Keep the current topic in the middle whenever
+        # possible, with one nearby topic on each side. The complete route
+        # remains available in the library.
+        preview_limit = 3
+        if len(units) <= preview_limit:
+            preview_start = 0
+        elif snapshot.completed_units == snapshot.total_units:
+            preview_start = len(units) - preview_limit
+        else:
+            preview_start = max(0, min(current_index - 1, len(units) - preview_limit))
+        nearby_units = units[preview_start:preview_start + preview_limit]
+
         return {
             "curriculum_id": snapshot.curriculum_id,
             "subject": snapshot.subject,
             "units": units,
+            "nearby_units": nearby_units,
+            "other_units_count": max(0, len(units) - len(nearby_units)),
             "current_unit": current,
             "completed_count": snapshot.completed_units,
             "total_count": snapshot.total_units,

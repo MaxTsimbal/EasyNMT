@@ -150,11 +150,11 @@ class BetaRuntimeIntegrationTests(unittest.TestCase):
         health = self.client.get("/health")
         ready = self.client.get("/ready")
         self.assertEqual(health.status_code, 200)
-        self.assertEqual(health.get_json()["release"], "1.0.0-beta.1")
+        self.assertEqual(health.get_json()["release"], "1.0.0-beta.2")
         self.assertEqual(ready.status_code, 200)
         self.assertEqual(ready.get_json()["status"], "ready")
         for response in (health, ready):
-            self.assertEqual(response.headers["X-EasyNMT-Version"], "1.0.0-beta.1")
+            self.assertEqual(response.headers["X-EasyNMT-Version"], "1.0.0-beta.2")
             self.assertRegex(response.headers["X-Request-ID"], r"^[a-f0-9]{32}$")
 
     def test_valid_request_id_is_preserved_and_invalid_one_is_replaced(self):
@@ -181,7 +181,7 @@ class BetaRuntimeIntegrationTests(unittest.TestCase):
     def test_footer_uses_release_version(self):
         response = self.client.get("/")
         self.assertEqual(response.status_code, 200)
-        self.assertIn("1.0.0-beta.1", response.get_data(as_text=True))
+        self.assertIn("1.0.0-beta.2", response.get_data(as_text=True))
 
 
 if __name__ == "__main__":

@@ -16,9 +16,9 @@
         <div class="progress-bar"><div class="progress-fill" style="width: {{ progress }}%;"></div></div>
     </div>
 
-    <div class="level-path">
+    <div class="level-path" aria-label="Три найближчі теми">
         {% if curriculum_navigation %}
-        {% for unit in curriculum_navigation.units %}
+        {% for unit in curriculum_navigation.nearby_units %}
             {% if unit.can_open %}
             <a href="{{ url_for('curriculum_lesson_page', curriculum_unit_id=unit.unit_id) }}" class="level-card {% if unit.is_completed %}is-complete{% elif unit.is_current %}is-current{% endif %}">
             {% elif unit.can_start %}
@@ -38,7 +38,7 @@
             {% if unit.can_open %}</a>{% elif unit.can_start %}</button></form>{% else %}</div>{% endif %}
         {% endfor %}
         {% else %}
-        {% for lesson in lessons %}
+        {% for lesson in dashboard_lessons %}
             {% set completed = lesson.id in completed_lessons %}
             {% set unlocked = lesson.id in unlocked_lessons %}
             {% if unlocked %}
@@ -57,6 +57,19 @@
         {% endfor %}
         {% endif %}
     </div>
+
+    {% if (curriculum_navigation and curriculum_navigation.other_units_count) or (not curriculum_navigation and other_lessons_count) %}
+    <section class="nearby-lessons-more glass-card" aria-label="Інші уроки">
+        <div>
+            <span class="section-kicker">Повний маршрут</span>
+            <h2>Інші уроки</h2>
+            <p>Тут зібрані решта тем. Вони відкриватимуться по черзі після поточного тесту.</p>
+        </div>
+        <a class="button button-ghost" href="{{ url_for('library') }}">
+            Переглянути всі {% if curriculum_navigation %}{{ curriculum_navigation.other_units_count }}{% else %}{{ other_lessons_count }}{% endif %} тем →
+        </a>
+    </section>
+    {% endif %}
 
     <div class="goal-grid compact-actions">
         <a href="{{ url_for('progress_page') }}" class="goal-link"><button class="secondary-action">Переглянути прогрес</button></a>

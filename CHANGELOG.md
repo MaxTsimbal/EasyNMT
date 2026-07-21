@@ -1,3 +1,24 @@
+# EasyNMT v1.0.0-beta.2 · Mobile & XP Polish
+
+- Виправлено історичний баг, коли завершений урок відображався з `0 XP`. XP відновлюється лише з серверних доказів і ніколи не дублюється чи зменшується.
+- Після curriculum-тесту сервер одразу оновлює XP у сесії для сторінок результату, кабінету та профілю.
+- На телефоні кнопка «Почати тему» займає всю ширину картки, має стабільну висоту й більше не ламає текст.
+- Мобільний hero став компактнішим: прибрано порожній декоративний блок під основною дією.
+- На сторінці «Сьогодні» показуються лише три найближчі теми; повний маршрут відкривається через «Інші уроки».
+- Task 5.1 Personal Focus і компактний маршрут включені в цю накопичувальну збірку.
+- Додано регресійні тести для XP-repair, мобільної CTA та компактного маршруту.
+
+# EasyNMT Task 5.1 · Personal Focus & Compact Route
+
+- Dashboard now shows only the three nearest curriculum topics; the full route stays in “Інші уроки”.
+- The three-topic window follows the learner: previous/current/next where possible, and the final three topics after route completion.
+- Personal focus now uses up to five recent production quiz attempts, lost points by skill, question numbers, current mastery, and the next recommended action.
+- The focus panel links directly to the latest detailed quiz review when evidence exists.
+- English retakes continue to receive a fresh server-gradeable variant after each submitted attempt; refreshing an unfinished attempt preserves the same questions.
+- Added four regression tests for the compact route and dashboard contract.
+
+---
+
 # EasyNMT v1.0.0-beta.1 · Task 5 Beta Readiness
 
 - Додано release gate для SQLite, storage, backups, OpenAI, Google OAuth і single-worker runtime.

@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
-RELEASE_VERSION = "1.0.0-beta.1"
+RELEASE_VERSION = "1.0.0-beta.2"
 RELEASE_CHANNEL = "beta"
 
 CORE_TABLES = frozenset(
