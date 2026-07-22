@@ -5,7 +5,7 @@
 
 ## 1. Стан deployment
 
-- Відкрий `/health`: має бути `status: ok`, release `1.0.0-beta.2`.
+- Відкрий `/health`: має бути `status: ok`, release `1.0.0-beta`.
 - Відкрий `/ready`: має бути HTTP 200 і `status: ready`.
 - Перевір Railway Variables: OpenAI key, один worker, Volume, secure cookies.
 

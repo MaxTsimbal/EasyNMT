@@ -17,8 +17,8 @@
     <meta property="og:description" content="{% block og_description %}Персональний маршрут, короткі уроки, smart-тести та AI-викладач.{% endblock %}">
     <meta property="og:url" content="{{ request.url_root.rstrip('/') }}{{ request.path }}">
     {% if config.GOOGLE_SITE_VERIFICATION %}<meta name="google-site-verification" content="{{ config.GOOGLE_SITE_VERIFICATION }}">{% endif %}
-    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/favicon.png') }}">
-    <link rel="preload" as="image" href="{{ url_for('static', filename='images/easynmt-mascot.png', v='0999-keyboard-dock-final') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/mentory-favicon.png') }}">
+    <link rel="preload" as="image" href="{{ url_for('static', filename='images/mentory-mascot.png', v='mentory-v1-full-rebrand') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
@@ -62,10 +62,10 @@
     <div class="page-loader-content" role="status" aria-live="polite">
         <div class="page-loader-mascot-wrap" aria-hidden="true">
             <span class="page-loader-orbit"><i></i></span>
-            <img class="page-loader-mascot" src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
+            <img class="page-loader-mascot" src="{{ url_for('static', filename='images/mentory-mascot.png') }}" alt="">
         </div>
         <div class="page-loader-copy">
-            <strong id="pageLoaderTitle">Завантажуємо Easy<span>NMT</span></strong>
+            <strong id="pageLoaderTitle">Завантажуємо Mentory</strong>
             <p id="pageLoaderMessage">Готуємо для тебе найкращий досвід…</p>
         </div>
         <div class="lesson-generation-status" id="lessonGenerationStatus" hidden>
@@ -83,10 +83,10 @@
 <header class="site-header" id="siteHeader">
     <div class="container header-container">
         <a class="brand" href="{{ url_for('home') }}" aria-label="Mentory — головна">
-            <img class="brand-mascot brand-mascot-clean" src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="" width="46" height="46">
+            <img class="brand-mascot brand-mascot-clean" src="{{ url_for('static', filename='images/mentory-mascot.png') }}" alt="" width="46" height="46">
             <span class="brand-copy">
-                <span class="brand-text">Easy<span>NMT</span></span>
-                <span class="brand-version">v1.0 Beta.2</span>
+                <span class="brand-text">Mentory</span>
+                <span class="brand-version">v1.0 Beta</span>
             </span>
         </a>
         <button class="mobile-menu-button" id="mobileMenuButton" type="button" aria-label="Відкрити меню" aria-expanded="false" aria-controls="mainNavigation"><span class="mobile-menu-line"></span><span class="mobile-menu-line"></span><span class="mobile-menu-line"></span></button>
@@ -191,7 +191,7 @@
 })();
 </script>
 {% endif %}
-<script src="{{ url_for('static', filename='js/main.js', v='0999-keyboard-dock-final') }}"></script>
+<script src="{{ url_for('static', filename='js/main.js', v='mentory-v1-full-rebrand') }}"></script>
 <script src="{{ url_for('static', filename='js/animations.js', v='0999-chat-mobile-stream-final') }}" defer></script>
 <script src="{{ url_for('static', filename='js/page_transitions.js', v='task3d2-lesson-loader') }}" defer></script>
 {% block extra_js %}{% endblock %}

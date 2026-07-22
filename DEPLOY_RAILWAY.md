@@ -36,7 +36,7 @@ EASYNMT_ALLOW_DETERMINISTIC_LESSON_FALLBACK=0
 
 ## Після deployment
 
-- `/health` має повернути 200 і release `1.0.0-beta.2`.
+- `/health` має повернути 200 і release `1.0.0-beta`.
 - `/ready` має повернути 200 і `status: ready`.
 - Пройди `BETA_MANUAL_TEST_CHECKLIST.md`.
 - Перед важливою зміною створи backup:

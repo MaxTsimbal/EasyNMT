@@ -114,7 +114,7 @@
 
         const { loader, title, message, status, topic, hint, fill } = loaderParts();
         loader?.classList.remove("lesson-generation-mode");
-        if (title) title.innerHTML = "Завантажуємо Easy<span>NMT</span>";
+        if (title) title.innerHTML = "Завантажуємо Mentory";
         if (message) message.textContent = "Готуємо для тебе найкращий досвід…";
         if (status) status.hidden = true;
         if (topic) topic.textContent = "";

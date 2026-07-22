@@ -1,3 +1,6 @@
 Mentory v1.0 Beta
-Complete public-facing rebrand applied.
-Lowercase internal package paths remain unchanged for compatibility.
+Full visual rebrand correction.
+Fixed split HTML branding such as Easy + NMT in separate tags.
+Renamed public mascot and favicon assets to prevent stale caching.
+Added backward-compatible Google callback aliases.
+Internal easynmt_ai/easynmt_core package names remain unchanged for compatibility.

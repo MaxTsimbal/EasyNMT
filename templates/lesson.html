@@ -67,7 +67,7 @@
 </div>
 
 <button class="lesson-easy-launcher" id="lessonEasyLauncher" type="button" aria-label="Відкрити чат з Easy" aria-expanded="false" aria-controls="lessonEasyPanel">
-  <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
+  <img src="{{ url_for('static', filename='images/mentory-mascot.png') }}" alt="">
   <span>Easy</span>
   <i aria-hidden="true"></i>
 </button>
@@ -76,14 +76,14 @@
 <aside class="lesson-easy-panel" id="lessonEasyPanel" aria-label="Чат з Easy під час уроку" aria-hidden="true" data-endpoint="{{ url_for('lesson_chat_api') }}" data-lesson-id="{{ lesson.id }}">
   <header class="lesson-easy-header">
     <div class="lesson-easy-identity">
-      <span class="lesson-easy-avatar"><img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt=""></span>
+      <span class="lesson-easy-avatar"><img src="{{ url_for('static', filename='images/mentory-mascot.png') }}" alt=""></span>
       <span><strong>Easy</strong><small>Допомагаю з темою «{{ lesson.title }}»</small></span>
     </div>
     <button class="lesson-easy-close" id="lessonEasyClose" type="button" aria-label="Закрити чат">×</button>
   </header>
   <div class="lesson-easy-messages" id="lessonEasyMessages" aria-live="polite">
     <article class="lesson-easy-message lesson-easy-message-assistant">
-      <span class="lesson-easy-mini-avatar"><img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt=""></span>
+      <span class="lesson-easy-mini-avatar"><img src="{{ url_for('static', filename='images/mentory-mascot.png') }}" alt=""></span>
       <div><b>Easy</b><p>Привіт! Я бачу тему цього уроку. Запитай, що пояснити простіше або який момент розібрати ще раз.</p></div>
     </article>
   </div>

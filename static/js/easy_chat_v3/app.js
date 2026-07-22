@@ -436,7 +436,7 @@
             article.dataset.role = "assistant";
             article.innerHTML = `
                 <div class="ec2-message__rail">
-                    <span class="ec2-message__easy-avatar"><img src="/static/images/easynmt-mascot.png" alt=""></span>
+                    <span class="ec2-message__easy-avatar"><img src="/static/images/mentory-mascot.png" alt=""></span>
                     <span class="ec2-message__rail-line"></span>
                 </div>
                 <div class="ec2-message__column">

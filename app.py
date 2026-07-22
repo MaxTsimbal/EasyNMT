@@ -2703,7 +2703,7 @@ def google_auth_status():
         {
             "callback_url": google_callback_url(),
             "implementation": "oauth2_pkce_requests",
-            "version": "v1.0 Beta.2",
+            "version": "v1.0 Beta",
         }
     )
     return status
@@ -2743,6 +2743,8 @@ def google_login():
 
 
 @app.route("/auth/google/callback")
+@app.route("/login/google/callback")
+@app.route("/google/callback")
 def google_callback():
     if request.args.get("error"):
         app.logger.warning("Google OAuth was cancelled: %s", request.args.get("error"))

@@ -12,10 +12,10 @@
 
 ## Після деплою
 
-1. Відкрий https://easynmt.up.railway.app/robots.txt
-2. Відкрий https://easynmt.up.railway.app/sitemap.xml
+1. Відкрий https://mentory.up.railway.app/robots.txt
+2. Відкрий https://mentory.up.railway.app/sitemap.xml
 3. У Google Search Console додай URL-prefix property:
-   https://easynmt.up.railway.app/
+   https://mentory.up.railway.app/
 4. Обери HTML tag verification і скопіюй тільки значення content.
 5. У Railway Variables створи:
    GOOGLE_SITE_VERIFICATION=<значення content>
