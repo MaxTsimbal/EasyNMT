@@ -1,6 +1,6 @@
 /* AI Teacher workspace foundation
    Stable visual foundation before the OpenAI integration.
-   All selectors are namespaced with ec2 to avoid collisions with the rest of EasyNMT. */
+   All selectors are namespaced with ec2 to avoid collisions with the rest of Mentory. */
 
 :root {
     --ec2-sidebar-width: 294px;
@@ -3935,7 +3935,7 @@ body.easy-chat-v3-page .ec2-dialog::backdrop {
     }
 }
 
-/* EasyNMT Final Update Before Beta: photo workflow */
+/* Mentory Final Update Before Beta: photo workflow */
 .ec2-attachment-tray {
     display: flex;
     gap: 10px;

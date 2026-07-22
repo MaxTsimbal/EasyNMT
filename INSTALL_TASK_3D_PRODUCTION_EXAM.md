@@ -1,6 +1,6 @@
 # Task 3D Production Exam Engine — встановлення
 
-Цей пакет накладається поверх поточного `EasyNMT_Public`. Він **не видаляє** базу, `.env`, `.git`, Railway Volume або прогрес користувачів.
+Цей пакет накладається поверх поточного `Mentory_Public`. Він **не видаляє** базу, `.env`, `.git`, Railway Volume або прогрес користувачів.
 
 ## Головні зміни
 
@@ -17,9 +17,9 @@
 ## Встановлення у PowerShell
 
 ```powershell
-Set-Location 'C:\Users\Derossi\Documents\EasyNMT\EasyNMT_Public'
+Set-Location 'C:\Users\Derossi\Documents\Mentory\Mentory_Public'
 
-$zip = Get-ChildItem "$env:USERPROFILE\Downloads\EasyNMT_Task3D_PRODUCTION_EXAM_ENGINE_READY*.zip" |
+$zip = Get-ChildItem "$env:USERPROFILE\Downloads\Mentory_Task3D_PRODUCTION_EXAM_ENGINE_READY*.zip" |
     Sort-Object LastWriteTime -Descending |
     Select-Object -First 1
 
@@ -27,11 +27,11 @@ if (-not $zip) {
     throw "Архів Task 3D не знайдено у Downloads."
 }
 
-$temp = Join-Path $env:TEMP "EasyNMT_Task3D_ProductionExam"
+$temp = Join-Path $env:TEMP "Mentory_Task3D_ProductionExam"
 Remove-Item $temp -Recurse -Force -ErrorAction SilentlyContinue
 Expand-Archive -Path $zip.FullName -DestinationPath $temp -Force
 
-robocopy "$temp\EasyNMT_Public" "." /E `
+robocopy "$temp\Mentory_Public" "." /E `
     /XD .git .venv instance __pycache__ .pytest_cache `
     /XF .env *.pyc *.db *.sqlite *.sqlite3
 

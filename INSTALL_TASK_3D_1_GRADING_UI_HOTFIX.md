@@ -1,4 +1,4 @@
-# EasyNMT Task 3D.1 — Grading & Quiz UI Hotfix
+# Mentory Task 3D.1 — Grading & Quiz UI Hotfix
 
 ## Base
 

@@ -1,7 +1,7 @@
 {
   "version": "nmt-ukrainian-1.0.0",
   "subject": "ukrainian",
-  "completeness_note_uk": "Внутрішня таксономія EasyNMT для системної підготовки до мовного блоку НМТ. Структура підлягає регулярній предметній перевірці відповідно до чинної програми оцінювання.",
+  "completeness_note_uk": "Внутрішня таксономія Mentory для системної підготовки до мовного блоку НМТ. Структура підлягає регулярній предметній перевірці відповідно до чинної програми оцінювання.",
   "topics": [
     {
       "subject": "ukrainian", "id": "ukrainian.phonetics.sounds_stress", "slug": "sounds-stress", "title_uk": "Звуки, букви й наголос", "description_uk": "Співвідношення звуків і букв, уподібнення, чергування та нормативний наголос.", "domain": "phonetics", "difficulty": "foundation", "estimated_minutes": 90,

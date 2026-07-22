@@ -1,4 +1,4 @@
-# Task 5 · EasyNMT v1.0 Beta Readiness
+# Task 5 · Mentory v1.0 Beta Readiness
 
 Дата: 2026-07-21  
 Версія: `1.0.0-beta.1`  
@@ -67,7 +67,7 @@ flask --app app beta smoke
 Кожен HTTP response отримує:
 
 - `X-Request-ID`;
-- `X-EasyNMT-Version: 1.0.0-beta.1`.
+- `X-Mentory-Version: 1.0.0-beta.1`.
 
 Коректний вхідний request ID зберігається, небезпечний замінюється. Для 500
 користувач бачить код запиту, а сервер записує той самий код у log. Це дозволяє

@@ -1,4 +1,4 @@
-"""Reusable domain models produced and consumed by EasyNMT AI engines."""
+"""Reusable domain models produced and consumed by Mentory AI engines."""
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field

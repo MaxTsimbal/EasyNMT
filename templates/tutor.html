@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}AI Викладач | EasyNMT{% endblock %}
+{% block title %}AI Викладач | Mentory{% endblock %}
 {% block body_class %}tutor-chat-page easy-chat-v2-page easy-chat-v3-page{% endblock %}
 
 {% set close_url = url_for('lesson', lesson_id=lesson.id) if lesson_context and lesson else url_for('dashboard') %}
@@ -54,7 +54,7 @@ window.MathJax = {
 
     <aside class="ec2-sidebar" id="ec2Sidebar" aria-label="Історія чатів">
         <div class="ec2-sidebar__header">
-            <a class="ec2-brand" href="{{ url_for('dashboard') }}" data-no-transition aria-label="EasyNMT, у кабінет">
+            <a class="ec2-brand" href="{{ url_for('dashboard') }}" data-no-transition aria-label="Mentory, у кабінет">
                 <span class="ec2-brand__mark" aria-hidden="true">
                     <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
                 </span>
@@ -280,7 +280,7 @@ window.MathJax = {
             <section class="ec2-settings-card">
                 <span class="ec2-settings-card__eyebrow">Дані</span>
                 <h3>Синхронізація навчання</h3>
-                <p>Нові повідомлення зберігаються у захищеній базі EasyNMT та локально в браузері. Це готує персональну пам’ять до Beta.</p>
+                <p>Нові повідомлення зберігаються у захищеній базі Mentory та локально в браузері. Це готує персональну пам’ять до Beta.</p>
                 <div class="ec2-settings-actions">
                     <button type="button" id="ec2ExportSettings"><span>⇩</span> Експортувати чат</button>
                     <button type="button" class="is-danger" id="ec2ClearHistory"><span>×</span> Очистити історію</button>
@@ -290,7 +290,7 @@ window.MathJax = {
             <section class="ec2-settings-card ec2-settings-card--about">
                 <div class="ec2-settings-brand">
                     <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="">
-                    <div><strong>EasyNMT v1.0 Beta.2</strong><small>OpenAI-ready learning foundation</small></div>
+                    <div><strong>Mentory v1.0 Beta</strong><small>OpenAI-ready learning foundation</small></div>
                 </div>
                 <p>Готові Responses API, нативний streaming, серверна пам’ять, контекст прогресу та безпечний канал аналізу фото.</p>
             </section>
@@ -329,7 +329,7 @@ window.MathJax = {
     <template id="ec2WelcomeTemplate">
         <section class="ec2-welcome">
             <div class="ec3-mobile-intro">
-                <span class="ec3-mobile-intro__eyebrow"><i></i> AI Викладач EasyNMT</span>
+                <span class="ec3-mobile-intro__eyebrow"><i></i> AI Викладач Mentory</span>
                 <h1>Привіт, {{ user_display_name }}.</h1>
                 <p>{% if lesson_context and lesson %}Тема вже підключена. Що саме розберемо?{% else %}Що хочеш розібрати сьогодні?{% endif %}</p>
             </div>
@@ -344,7 +344,7 @@ window.MathJax = {
                     <span class="ec2-welcome__spark ec2-welcome__spark--two">✧</span>
                 </div>
                 <div class="ec2-welcome__copy">
-                    <span class="ec2-welcome__eyebrow"><i></i> AI Викладач EasyNMT</span>
+                    <span class="ec2-welcome__eyebrow"><i></i> AI Викладач Mentory</span>
                     <h1>Привіт, {{ user_display_name }}.</h1>
                     <p>{% if lesson_context and lesson %}Я вже бачу тему «{{ lesson.title }}». Можемо розібрати правило, задачу або місце, де все почало плутатися.{% else %}Тут можна спокійно розібрати тему, задачу чи помилку. Без стіни складних слів, зате з логікою та кроками.{% endif %}</p>
                     <div class="ec2-welcome__badges">

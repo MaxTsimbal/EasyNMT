@@ -8,7 +8,7 @@ def _secret_key() -> str:
     production = bool(os.environ.get("RAILWAY_ENVIRONMENT"))
     known_placeholders = {
         "replace-with-a-long-random-secret",
-        "EasyNMT_2026_SECRET_CHANGE_ME",
+        "Mentory_2026_SECRET_CHANGE_ME",
     }
     if production and (
         len(configured) < 32

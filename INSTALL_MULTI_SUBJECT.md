@@ -1,6 +1,6 @@
-# EasyNMT Task 3B.3: встановлення мультипредметного оновлення
+# Mentory Task 3B.3: встановлення мультипредметного оновлення
 
-Цей архів переводить усі активні предмети EasyNMT на спільну Production Lesson Platform:
+Цей архів переводить усі активні предмети Mentory на спільну Production Lesson Platform:
 
 - Математика — 39 тем
 - Українська мова — 12 тем
@@ -9,7 +9,7 @@
 
 ## 1. Зробіть резервну копію
 
-Перед заміною файлів скопіюйте всю поточну папку `EasyNMT_Public` у безпечне місце.
+Перед заміною файлів скопіюйте всю поточну папку `Mentory_Public` у безпечне місце.
 
 Не видаляйте власні файли:
 
@@ -24,7 +24,7 @@
 Розпакуйте вміст архіву поверх поточної папки:
 
 ```text
-C:\Users\Derossi\Documents\EasyNMT\EasyNMT_Public
+C:\Users\Derossi\Documents\Mentory\Mentory_Public
 ```
 
 Погодьтеся на заміну програмних файлів.
@@ -40,7 +40,7 @@ bootstrap_all_subjects.bat
 Або виконайте у PowerShell:
 
 ```powershell
-Set-Location 'C:\Users\Derossi\Documents\EasyNMT\EasyNMT_Public'
+Set-Location 'C:\Users\Derossi\Documents\Mentory\Mentory_Public'
 .\.venv\Scripts\python.exe -m flask --app app curriculum status
 .\.venv\Scripts\python.exe -m flask --app app curriculum bootstrap-development --all-subjects
 .\.venv\Scripts\python.exe -m flask --app app curriculum status

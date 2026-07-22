@@ -1,4 +1,4 @@
-"""Production readiness and SQLite backup utilities for EasyNMT v1.0 Beta.
+"""Production readiness and SQLite backup utilities for Mentory v1.0 Beta.
 
 The module deliberately avoids network calls. It verifies the local runtime,
 SQLite integrity, persistent storage, backup freshness, and required provider

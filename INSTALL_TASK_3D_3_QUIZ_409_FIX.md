@@ -1,6 +1,6 @@
 # Task 3D.3 — Quiz 409 Stability Recovery
 
-Цей архів накладається поверх поточної версії EasyNMT у гілці `codex/production-hardening`.
+Цей архів накладається поверх поточної версії Mentory у гілці `codex/production-hardening`.
 
 ## Що виправлено
 
@@ -16,9 +16,9 @@
 ## Встановлення через PowerShell
 
 ```powershell
-Set-Location 'C:\Users\Derossi\Documents\EasyNMT\EasyNMT_Public'
+Set-Location 'C:\Users\Derossi\Documents\Mentory\Mentory_Public'
 
-$zip = Get-ChildItem "$env:USERPROFILE\Downloads\EasyNMT_Task3D_3_QUIZ_409_STABILITY_FIX_READY*.zip" |
+$zip = Get-ChildItem "$env:USERPROFILE\Downloads\Mentory_Task3D_3_QUIZ_409_STABILITY_FIX_READY*.zip" |
     Sort-Object LastWriteTime -Descending |
     Select-Object -First 1
 
@@ -26,11 +26,11 @@ if (-not $zip) {
     throw "Архів Task 3D.3 не знайдено у Downloads."
 }
 
-$temp = Join-Path $env:TEMP "EasyNMT_Task3D_3_Quiz409"
+$temp = Join-Path $env:TEMP "Mentory_Task3D_3_Quiz409"
 Remove-Item $temp -Recurse -Force -ErrorAction SilentlyContinue
 Expand-Archive -Path $zip.FullName -DestinationPath $temp -Force
 
-robocopy "$temp\EasyNMT_Public" "." /E `
+robocopy "$temp\Mentory_Public" "." /E `
     /XD .git .venv instance __pycache__ .pytest_cache `
     /XF .env *.pyc *.db *.sqlite *.sqlite3
 

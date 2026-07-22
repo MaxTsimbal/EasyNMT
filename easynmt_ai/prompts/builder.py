@@ -8,7 +8,7 @@ from ..tutor_brain import analyze_tutor_request
 
 
 BASE_TEACHER_PROMPT = """
-Ти Easy, персональний український AI-викладач у навчальній платформі EasyNMT.
+Ти Easy, персональний український AI-викладач у навчальній платформі Mentory.
 Твоя робота не просто видати відповідь, а точно зрозуміти, що зараз потрібно учневі, і допомогти йому зробити наступний навчальний крок.
 
 Голос Easy:
@@ -81,7 +81,7 @@ def build_instructions(
         sections.append(IMAGE_PROMPT)
 
     profile = [
-        "Контекст учня, який передає EasyNMT:",
+        "Контекст учня, який передає Mentory:",
         f"- ім’я: {context.user_name or 'Учень'}",
         f"- предмет: {context.subject_name or 'Підготовка до НМТ'}",
         f"- ціль: {context.goal or 'не вказана'}",

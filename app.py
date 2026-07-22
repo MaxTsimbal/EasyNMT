@@ -119,7 +119,7 @@ app.register_blueprint(health_bp)
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 INSTANCE_DIR = os.path.join(BASE_DIR, "instance")
 # Railway mounts a persistent volume at RAILWAY_VOLUME_MOUNT_PATH.
-# Locally, EasyNMT continues to use instance/users.db.
+# Locally, Mentory continues to use instance/users.db.
 PERSISTENT_DIR = os.environ.get("RAILWAY_VOLUME_MOUNT_PATH", INSTANCE_DIR)
 DB_PATH = os.environ.get("EASYNMT_DB_PATH", os.path.join(PERSISTENT_DIR, "users.db"))
 os.makedirs(os.path.dirname(DB_PATH) or BASE_DIR, exist_ok=True)
@@ -144,7 +144,7 @@ VALID_TIME_LEFT = frozenset({"1-month", "2-months", "3-plus", "6-plus"})
 EMAIL_PATTERN = re.compile(r"^[^@\s]{1,64}@[^@\s]{1,189}\.[^@\s]{2,63}$")
 LOGIN_WINDOW_SECONDS = 15 * 60
 LOGIN_FAILURE_LIMIT = 8
-DUMMY_PASSWORD_HASH = generate_password_hash("EasyNMT invalid login sentinel")
+DUMMY_PASSWORD_HASH = generate_password_hash("Mentory invalid login sentinel")
 
 
 def get_db_connection():
@@ -559,7 +559,7 @@ def curriculum_status_command():
 @click.option(
     "--all-subjects",
     is_flag=True,
-    help="Provision every active EasyNMT subject.",
+    help="Provision every active Mentory subject.",
 )
 @click.option(
     "--allow-production",
@@ -597,7 +597,7 @@ def curriculum_bootstrap_command(user_ids, subjects, all_subjects, allow_product
 app.cli.add_command(curriculum_cli)
 
 
-beta_cli = AppGroup("beta", help="Verify and protect the EasyNMT v1.0 Beta deployment.")
+beta_cli = AppGroup("beta", help="Verify and protect the Mentory v1.0 Beta deployment.")
 
 
 @beta_cli.command("check")
@@ -614,7 +614,7 @@ def beta_check_command(strict):
         f"warnings={report.warnings} failures={report.failures}"
     )
     if not report.ready or (strict and not report.strict_ready):
-        raise click.ClickException("EasyNMT beta readiness check failed")
+        raise click.ClickException("Mentory beta readiness check failed")
 
 
 @beta_cli.command("backup")
@@ -718,7 +718,7 @@ def add_security_headers(response):
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     response.headers.setdefault("Permissions-Policy", "camera=(self), microphone=(), geolocation=()")
     response.headers.setdefault("X-Request-ID", getattr(g, "request_id", uuid.uuid4().hex))
-    response.headers.setdefault("X-EasyNMT-Version", app.config.get("APP_VERSION", RELEASE_VERSION))
+    response.headers.setdefault("X-Mentory-Version", app.config.get("APP_VERSION", RELEASE_VERSION))
     if request.is_secure:
         response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
     if is_logged_in() and request.endpoint != "static":
@@ -968,7 +968,7 @@ def load_plan_to_session(user_id):
 def ensure_legacy_google_plan(user_id):
     """Make an existing Google account immediately usable.
 
-    Early EasyNMT builds could create a Google user before ``user_plans`` existed,
+    Early Mentory builds could create a Google user before ``user_plans`` existed,
     or leave a partially filled plan after an interrupted onboarding flow. Such an
     account is already registered and must go straight to the dashboard on the next
     Google login. Brand-new Google users are handled separately and still complete
@@ -1391,7 +1391,7 @@ def finalize_quiz_attempt(*, attempt_token, lesson_id, score, total, passed, rev
                 new_achievements.append({"icon": icon, "title": title, "description": description})
 
         if passed and not completed_before:
-            add_achievement("first_lesson", "🥉", "Перший урок", "Ти завершив перший урок в EasyNMT.")
+            add_achievement("first_lesson", "🥉", "Перший урок", "Ти завершив перший урок в Mentory.")
         if int(completed_count) >= 3:
             add_achievement("three_lessons", "📚", "Перший маршрут", "Ти завершив 3 уроки з одного предмета.")
         if score == total and total > 0:
@@ -2109,7 +2109,7 @@ LESSON_CATALOG = {
         {
             "id": 1,
             "title": "Стартовий урок",
-            "badge": "🧠 EasyNMT",
+            "badge": "🧠 Mentory",
             "theory": "Спочатку з’ясуємо, що ти вже знаєш, а потім спокійно розберемо першу тему.",
             "example": "Спочатку прочитай пояснення, потім виконай короткий тест. Після цього побачиш свій результат і прогрес.",
             "goal": "Зрозумій, з чого почати, і пройди першу тему у зручному темпі.",
@@ -2188,7 +2188,7 @@ QUIZ_BANK = {
     },
     "none": {
         1: [
-            {"question": "Що робить EasyNMT?", "options": ["Будує навчальний маршрут", "Видаляє файли", "Замінює школу повністю"], "answer": "Будує навчальний маршрут"},
+            {"question": "Що робить Mentory?", "options": ["Будує навчальний маршрут", "Видаляє файли", "Замінює школу повністю"], "answer": "Будує навчальний маршрут"},
             {"question": "Після уроку буде:", "options": ["міні-тест", "нічого", "тільки картинка"], "answer": "міні-тест"},
             {"question": "Головна ідея першого уроку:", "options": ["зробити перший крок", "перевантажити учня", "пропустити практику"], "answer": "зробити перший крок"},
         ]
@@ -2256,7 +2256,7 @@ EXTRA_QUIZ_QUESTIONS = {
     "none": {
         1: [
             {"question": "Що краще після теорії?", "options": ["коротка практика", "закрити сайт", "нічого не робити"], "answer": "коротка практика"},
-            {"question": "EasyNMT зберігає:", "options": ["прогрес", "паролі у відкритому тексті", "випадкові картинки"], "answer": "прогрес"},
+            {"question": "Mentory зберігає:", "options": ["прогрес", "паролі у відкритому тексті", "випадкові картинки"], "answer": "прогрес"},
         ]
     },
 }
@@ -2814,7 +2814,7 @@ def google_callback():
     except sqlite3.IntegrityError:
         conn.rollback()
         app.logger.exception("Could not link Google account")
-        flash("Цей Google-акаунт уже прив’язаний до іншого профілю EasyNMT.", "error")
+        flash("Цей Google-акаунт уже прив’язаний до іншого профілю Mentory.", "error")
         return redirect(url_for("login"))
     finally:
         conn.close()
@@ -2896,7 +2896,7 @@ def switch_subject(subject):
     session.pop("last_score", None)
     session.pop("last_total", None)
     save_plan_to_db()
-    flash("Предмет змінено. EasyNMT перебудував стартові уроки.", "success")
+    flash("Предмет змінено. Mentory перебудував стартові уроки.", "success")
 
     curriculum_navigation = get_active_curriculum_navigation(subject)
     if requested_curriculum_unit and not curriculum_navigation:

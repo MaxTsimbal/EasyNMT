@@ -1,4 +1,4 @@
-"""Builds step-by-step 'notebook' explanations for EasyNMT lessons."""
+"""Builds step-by-step 'notebook' explanations for Mentory lessons."""
 from __future__ import annotations
 
 from typing import Any

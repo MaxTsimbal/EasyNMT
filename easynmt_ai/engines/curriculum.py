@@ -1,4 +1,4 @@
-"""Production curriculum engine constrained by an EasyNMT subject taxonomy."""
+"""Production curriculum engine constrained by an Mentory subject taxonomy."""
 from __future__ import annotations
 
 import math
@@ -39,7 +39,7 @@ class CurriculumEngine(AIEngine[Curriculum]):
 
     OpenAI chooses pacing and priority only within a deterministic candidate
     set. Topic definitions, prerequisites, lifecycle state, IDs, and metadata
-    always come from EasyNMT.
+    always come from Mentory.
     """
 
     name = "curriculum"

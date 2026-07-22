@@ -1,13 +1,13 @@
 # Install Task 5.1 · Personal Focus & Compact Route
 
-This patch is installed on top of `EasyNMT_Task5_V1_BETA_READY`.
+This patch is installed on top of `Mentory_Task5_V1_BETA_READY`.
 
 ## PowerShell
 
 ```powershell
-Set-Location 'C:\Users\Derossi\Documents\EasyNMT\EasyNMT_Public'
+Set-Location 'C:\Users\Derossi\Documents\Mentory\Mentory_Public'
 
-$zip = Get-ChildItem "$env:USERPROFILE\Downloads\EasyNMT_Task5_1_PERSONAL_FOCUS_COMPACT_ROUTE_READY*.zip" |
+$zip = Get-ChildItem "$env:USERPROFILE\Downloads\Mentory_Task5_1_PERSONAL_FOCUS_COMPACT_ROUTE_READY*.zip" |
     Sort-Object LastWriteTime -Descending |
     Select-Object -First 1
 
@@ -15,11 +15,11 @@ if (-not $zip) {
     throw "Task 5.1 archive was not found in Downloads."
 }
 
-$temp = Join-Path $env:TEMP "EasyNMT_Task5_1"
+$temp = Join-Path $env:TEMP "Mentory_Task5_1"
 Remove-Item $temp -Recurse -Force -ErrorAction SilentlyContinue
 Expand-Archive -Path $zip.FullName -DestinationPath $temp -Force
 
-robocopy "$temp\EasyNMT_Public" "." /E `
+robocopy "$temp\Mentory_Public" "." /E `
     /XD .git .venv instance __pycache__ .pytest_cache `
     /XF .env *.pyc *.db *.sqlite *.sqlite3
 

@@ -1,7 +1,7 @@
-# Встановлення Task 5 · EasyNMT v1.0 Beta
+# Встановлення Task 5 · Mentory v1.0 Beta
 
 Це cumulative package. Він уже містить Task 3D.4, 4A, 4B, 4C, 4D і Task 5,
-тому його можна накласти поверх поточного `EasyNMT_Public` без послідовного
+тому його можна накласти поверх поточного `Mentory_Public` без послідовного
 копіювання п’яти попередніх архівів. `.env`, `.git`, база, Volume і backups не
 перезаписуються.
 
@@ -10,19 +10,19 @@
 У VS Code → Terminal встав одним блоком:
 
 ```powershell
-Set-Location 'C:\Users\Derossi\Documents\EasyNMT\EasyNMT_Public'
+Set-Location 'C:\Users\Derossi\Documents\Mentory\Mentory_Public'
 
-$zip = Get-ChildItem "$env:USERPROFILE\Downloads\EasyNMT_Task5_V1_BETA_READY*.zip" |
+$zip = Get-ChildItem "$env:USERPROFILE\Downloads\Mentory_Task5_V1_BETA_READY*.zip" |
     Sort-Object LastWriteTime -Descending |
     Select-Object -First 1
 
 if (-not $zip) { throw "Архів Task 5 не знайдено у Downloads." }
 
-$temp = Join-Path $env:TEMP "EasyNMT_Task5_V1_Beta"
+$temp = Join-Path $env:TEMP "Mentory_Task5_V1_Beta"
 Remove-Item $temp -Recurse -Force -ErrorAction SilentlyContinue
 Expand-Archive -Path $zip.FullName -DestinationPath $temp -Force
 
-robocopy "$temp\EasyNMT_Public" "." /E `
+robocopy "$temp\Mentory_Public" "." /E `
     /XD .git .venv instance __pycache__ .pytest_cache backups `
     /XF .env *.pyc *.db *.sqlite *.sqlite3
 
@@ -70,7 +70,7 @@ Railway Volume має бути підключений до сервісу. Googl
 
 ```powershell
 git add .
-git commit -m "Task 5: prepare EasyNMT v1.0 Beta"
+git commit -m "Task 5: prepare Mentory v1.0 Beta"
 git push origin codex/production-hardening
 ```
 

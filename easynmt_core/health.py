@@ -18,7 +18,7 @@ def health() -> tuple[object, int]:
     return (
         jsonify(
             status="ok",
-            service="EasyNMT",
+            service="Mentory",
             release=current_app.config.get("APP_VERSION", RELEASE_VERSION),
             channel=current_app.config.get("RELEASE_CHANNEL", RELEASE_CHANNEL),
         ),

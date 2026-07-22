@@ -1,6 +1,6 @@
 # Production curriculum engine
 
-This package owns EasyNMT's versioned mathematics-roadmap domain. It remains
+This package owns Mentory's versioned mathematics-roadmap domain. It remains
 separate from the legacy three-lesson UI catalog, while Task 3A now connects a
 published version to dedicated curriculum-unit progress without changing the
 current lesson pages or dashboard.
@@ -196,7 +196,7 @@ repair is limited to missing rows from a deterministic baseline whose immutable
 identity still matches.
 
 ```powershell
-$repo = 'C:\path\to\EasyNMT_Public'
+$repo = 'C:\path\to\Mentory_Public'
 Set-Location -LiteralPath $repo
 .\.venv\Scripts\python.exe -m flask --app app curriculum status
 .\.venv\Scripts\python.exe -m flask --app app curriculum bootstrap-development --all-subjects

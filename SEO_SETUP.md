@@ -1,9 +1,9 @@
-# EasyNMT SEO та Google Search Console
+# Mentory SEO та Google Search Console
 
 ## Що вже додано у v0.9.4
 
 - SEO title та meta description для головної сторінки.
-- Пошукові фрази EasyNMT і «Легкий НМТ» у видимому тексті.
+- Пошукові фрази Mentory і «Легкий НМТ» у видимому тексті.
 - canonical URL, Open Graph і Twitter metadata.
 - structured data WebApplication.
 - /robots.txt і /sitemap.xml.

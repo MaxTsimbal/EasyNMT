@@ -117,7 +117,7 @@ class OpenAIResponsesProvider:
             "store": self.store_responses,
             "stream": stream,
             "metadata": {
-                "app": "EasyNMT",
+                "app": "Mentory",
                 "conversation_id": request.conversation_id[:64],
                 "subject": request.context.subject[:32],
                 "mode": getattr(request.context, "response_mode", "explain")[:16],

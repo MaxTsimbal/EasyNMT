@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Тест: {{ lesson.title }} | EasyNMT{% endblock %}
+{% block title %}Тест: {{ lesson.title }} | Mentory{% endblock %}
 {% block content %}
 <div class="quiz-page expanded-quiz-page">
     <div class="lesson-header fade-up">
@@ -42,7 +42,7 @@
                     <div class="paper-task-icon">📄</div>
                     <div>
                         <b>Покажи повний хід розв’язання</b>
-                        <p>{% if vision_enabled %}Запиши кроки текстом або додай чітке фото роботи. EasyNMT перевірить хід, а не лише відповідь.{% else %}AI-перевірка фото зараз недоступна, тому запиши основні кроки текстом.{% endif %}</p>
+                        <p>{% if vision_enabled %}Запиши кроки текстом або додай чітке фото роботи. Mentory перевірить хід, а не лише відповідь.{% else %}AI-перевірка фото зараз недоступна, тому запиши основні кроки текстом.{% endif %}</p>
                     </div>
                 </div>
                 <textarea name="answer_{{ question.id }}" class="written-answer" rows="4" placeholder="Запиши основні кроки та остаточну відповідь">{{ draft_answers.get(question.id, '') }}</textarea>

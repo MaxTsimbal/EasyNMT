@@ -1,14 +1,14 @@
 # Встановлення Task 4B — Easy Intelligence Core
 
-Патч встановлюється поверх поточного `EasyNMT_Public` із Task 4A.
+Патч встановлюється поверх поточного `Mentory_Public` із Task 4A.
 Базу даних, Railway Volume та прогрес учнів видаляти не потрібно.
 
 ## 1. Накласти архів
 
-Розпакуй архів. Скопіюй вміст папки `EasyNMT_Public` у:
+Розпакуй архів. Скопіюй вміст папки `Mentory_Public` у:
 
 ```text
-C:\Users\Derossi\Documents\EasyNMT\EasyNMT_Public
+C:\Users\Derossi\Documents\Mentory\Mentory_Public
 ```
 
 Підтвердь заміну файлів.
@@ -18,7 +18,7 @@ C:\Users\Derossi\Documents\EasyNMT\EasyNMT_Public
 У VS Code Terminal:
 
 ```powershell
-Set-Location 'C:\Users\Derossi\Documents\EasyNMT\EasyNMT_Public'
+Set-Location 'C:\Users\Derossi\Documents\Mentory\Mentory_Public'
 python -m compileall -q .
 python -m unittest discover -v
 python -m pip check

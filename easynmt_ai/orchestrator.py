@@ -1,4 +1,4 @@
-"""Central orchestration boundary for every EasyNMT AI request."""
+"""Central orchestration boundary for every Mentory AI request."""
 from __future__ import annotations
 
 import json
@@ -242,7 +242,7 @@ class AIOrchestrator:
                 model=model,
                 max_output_tokens=token_limit,
                 metadata={
-                    "app": "EasyNMT",
+                    "app": "Mentory",
                     "engine": engine_name,
                     "user_id": str(context.user_id),
                 },
@@ -281,7 +281,7 @@ class AIOrchestrator:
                 model=model,
                 max_output_tokens=token_limit,
                 metadata={
-                    "app": "EasyNMT",
+                    "app": "Mentory",
                     "engine": engine_name,
                     "user_id": str(context.user_id),
                     "format": "text_fallback",
@@ -360,7 +360,7 @@ class AIOrchestrator:
                 model=model,
                 max_output_tokens=max_output_tokens or context.available_tokens,
                 metadata={
-                    "app": "EasyNMT",
+                    "app": "Mentory",
                     "engine": engine_name,
                     "user_id": str(context.user_id),
                 },

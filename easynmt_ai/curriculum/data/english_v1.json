@@ -1,7 +1,7 @@
 {
   "version": "nmt-english-1.0.0",
   "subject": "english",
-  "completeness_note_uk": "Внутрішня таксономія EasyNMT для підготовки до англомовного блоку НМТ: use of English, vocabulary та reading. Приклади й рівні складності підлягають регулярній предметній перевірці.",
+  "completeness_note_uk": "Внутрішня таксономія Mentory для підготовки до англомовного блоку НМТ: use of English, vocabulary та reading. Приклади й рівні складності підлягають регулярній предметній перевірці.",
   "topics": [
     {
       "subject": "english", "id": "english.grammar.present_past", "slug": "present-past-tenses", "title_uk": "Present і Past: базові часові форми", "description_uk": "Present Simple/Continuous і Past Simple/Continuous: форма, значення, часові маркери та контекст.", "domain": "grammar", "difficulty": "foundation", "estimated_minutes": 120,

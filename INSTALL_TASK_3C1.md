@@ -10,7 +10,7 @@ not contain `.git`, `.env`, `.venv`, or `instance/users.db`.
 3. From the current project directory, copy only source-controlled files:
 
 ```powershell
-robocopy "C:\path\to\extracted\EasyNMT_Public" "." /E /XD .git .venv instance __pycache__ /XF .env *.pyc
+robocopy "C:\path\to\extracted\Mentory_Public" "." /E /XD .git .venv instance __pycache__ /XF .env *.pyc
 ```
 
 4. Verify that private/runtime files still exist:

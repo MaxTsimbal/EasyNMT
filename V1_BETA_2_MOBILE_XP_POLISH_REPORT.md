@@ -1,4 +1,4 @@
-# EasyNMT v1.0 Beta.2 · Mobile & XP Polish
+# Mentory v1.0 Beta · Mobile & XP Polish
 
 ## Виправлено
 

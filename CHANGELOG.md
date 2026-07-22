@@ -1,4 +1,4 @@
-# EasyNMT v1.0.0-beta.2 · Mobile & XP Polish
+# Mentory v1.0.0-beta.2 · Mobile & XP Polish
 
 - Виправлено історичний баг, коли завершений урок відображався з `0 XP`. XP відновлюється лише з серверних доказів і ніколи не дублюється чи зменшується.
 - Після curriculum-тесту сервер одразу оновлює XP у сесії для сторінок результату, кабінету та профілю.
@@ -8,7 +8,7 @@
 - Task 5.1 Personal Focus і компактний маршрут включені в цю накопичувальну збірку.
 - Додано регресійні тести для XP-repair, мобільної CTA та компактного маршруту.
 
-# EasyNMT Task 5.1 · Personal Focus & Compact Route
+# Mentory Task 5.1 · Personal Focus & Compact Route
 
 - Dashboard now shows only the three nearest curriculum topics; the full route stays in “Інші уроки”.
 - The three-topic window follows the learner: previous/current/next where possible, and the final three topics after route completion.
@@ -19,24 +19,24 @@
 
 ---
 
-# EasyNMT v1.0.0-beta.1 · Task 5 Beta Readiness
+# Mentory v1.0.0-beta.1 · Task 5 Beta Readiness
 
 - Додано release gate для SQLite, storage, backups, OpenAI, Google OAuth і single-worker runtime.
 - `/health` повертає release metadata; `/ready` перевіряє реальну локальну готовність без зовнішніх API-викликів.
 - Додано автоматичні verified SQLite hot backups із SHA-256 manifest і retention policy.
 - Додано CLI `beta check`, `beta backup`, `beta verify-backup` і `beta smoke`.
-- Кожна відповідь має `X-Request-ID` та `X-EasyNMT-Version`; 500-помилки можна зіставити з Railway logs.
+- Кожна відповідь має `X-Request-ID` та `X-Mentory-Version`; 500-помилки можна зіставити з Railway logs.
 - Railway Beta за замовчуванням вимагає OpenAI, persistent volume та один web worker.
 - Production lesson fallback більше не маскує збій AI шаблонним уроком.
 - Додано cumulative installer і ручний acceptance checklist.
 
 ---
 
-# EasyNMT v1.0 Beta
+# Mentory v1.0 Beta
 
 Найбільше оновлення: автономна генерація програми, тем, повних уроків, тестів із 12 питань та AI-перевірка з частковими балами.
 
-# EasyNMT Final Update Before Beta
+# Mentory Final Update Before Beta
 
 - Easy Chat перетворено на модуль **AI Викладач**.
 - Додано єдиний OpenAI gateway на Responses API.
@@ -50,11 +50,11 @@
 - Серверна історія стала авторитетним джерелом контексту після синхронізації розмови.
 - Додано перевірку справжнього формату зображень, денний upload-ліміт і видалення приватних файлів разом із розмовою.
 - Додано міграцію AI-повідомлень із user-scoped ID для ізоляції акаунтів.
-- Підготовлено документацію до EasyNMT v1.0 Beta.
+- Підготовлено документацію до Mentory v1.0 Beta.
 
 ---
 
-# EasyNMT Changelog
+# Mentory Changelog
 
 ## Easy Chat v3.0 Nebula Mobile-First
 
@@ -70,7 +70,7 @@
 
 ## Easy Chat v2.0 AI Workspace Foundation
 
-- Повністю перебудовано дизайн чату як окремий AI Workspace у стилі EasyNMT.
+- Повністю перебудовано дизайн чату як окремий AI Workspace у стилі Mentory.
 - Додано багаточатову історію з пошуком, перейменуванням, закріпленням, видаленням та експортом.
 - Додано SSE endpoint `/api/tutor-chat/stream`, плавну потокову відповідь і зупинку генерації.
 - Додано три режими відповіді: пояснення, коротко та практика.
@@ -81,7 +81,7 @@
 
 ## Easy Chat v1.2 Native Redesign
 
-- Повністю перебудовано інтерфейс чату під візуальну мову EasyNMT: космічний фон, фірмові фіолетово-сині акценти, компактний AI-викладач і чиста структура.
+- Повністю перебудовано інтерфейс чату під візуальну мову Mentory: космічний фон, фірмові фіолетово-сині акценти, компактний AI-викладач і чиста структура.
 - Прибрано повне перезавантаження сторінки під час відповідей. Додано окремий JSON endpoint `/api/tutor-chat`.
 - Повернуто плавний друк відповіді, локальний стан «Easy думає» та кнопку зупинки.
 - Додано адаптивну мобільну версію, коректну роботу з екранною клавіатурою та safe area.
@@ -89,7 +89,7 @@
 - Додано базове форматування відповідей: заголовки, списки, цитати, жирний текст, inline code та code blocks.
 - Глобальний loader більше не запускається на сторінці чату.
 
-# EasyNMT v0.9.9.9 — Welcome Experience Reliability
+# Mentory v0.9.9.9 — Welcome Experience Reliability
 
 - Welcome screen is now shown after email/Google login and after first page load in a new browser session.
 - The redirect logic was moved from an ignored block in `dashboard.html` to the shared `base.html`.
@@ -105,14 +105,14 @@
 - Existing Google accounts with missing or partial legacy plans are repaired safely and sent directly to the dashboard.
 - Brand-new Google accounts still complete onboarding once.
 
-# EasyNMT v0.9.9.9
+# Mentory v0.9.9.9
 
 - Зафіксовано останню стабільну демо-збірку перед v1.0 Beta.
 - Уніфіковано номер версії в інтерфейсі.
 - Збережено Progress Foundation, авторизацію, одноразову діагностику та Easy Chat Fix 6.1.
 - Підготовлено чисту основу для інтеграції OpenAI без зміни поточної навчальної логіки.
 
-# EasyNMT v0.9.9 — Виправлення 4: Progress Foundation
+# Mentory v0.9.9 — Виправлення 4: Progress Foundation
 
 - Додано історію спроб тестів із захистом від повторного POST і повторного XP.
 - Одна тема дає максимум 60 XP: 10 XP за першу невдалу практику та ще 50 XP після першого успішного проходження, або 60 XP за проходження з першої спроби.
@@ -124,7 +124,7 @@
 - Результат тесту відновлюється після оновлення сторінки.
 - Бібліотека та сторінка прогресу тепер поважають блокування тем.
 
-# EasyNMT v0.9.9 — Виправлення 3
+# Mentory v0.9.9 — Виправлення 3
 
 - Easy працює як окремий AI-помічник і отримує контекст теми лише після відкриття з уроку.
 - Сповіщення автоматично зникають через 5 секунд, а таймер зупиняється під час наведення або фокусу.
@@ -134,7 +134,7 @@
 - Для нових користувачів діагностика все ще обов’язкова один раз після завершення онбордингу.
 - Посилено контраст тексту в покроковому поясненні на аркуші.
 
-# EasyNMT v0.9.9 — Виправлення 2
+# Mentory v0.9.9 — Виправлення 2
 
 - Вирівняно й перемальовано мобільну кнопку меню ☰.
 - Космічний маршрут отримав суцільну лінію та динамічне заповнення за прогресом.
@@ -142,17 +142,17 @@
 - Плаваючу кнопку Easy приховано на телефоні, бо чат уже є в нижній навігації.
 - Авторизацію, базу даних, уроки та серверні маршрути не змінено.
 
-# EasyNMT v0.9.9 — Виправлення 1 (Mobile UX Redesign)
+# Mentory v0.9.9 — Виправлення 1 (Mobile UX Redesign)
 
 - Верхня кнопка меню на мобільному відкриває навігацію кабінету.
 - Прибрано дубльовану плаваючу круглу кнопку меню.
-- Замінено книжку біля наступного уроку на фірмовий знак EasyNMT.
+- Замінено книжку біля наступного уроку на фірмовий знак Mentory.
 - Нижня навігація отримала чисті SVG-іконки, зокрема нормальну іконку профілю.
 - Оновлено сторінку профілю та мобільні відступи.
 - Прибрано із PNG-логотипів відокремлений синій графічний артефакт.
 - Google Login, маршрути, база даних та навчальна логіка не змінювалися.
 
-# EasyNMT v0.9.9.5 Foundation
+# Mentory v0.9.9.5 Foundation
 
 - Стабілізовано Railway healthcheck: `/health` завжди перевіряє лише живий вебпроцес.
 - Прибрано дубльовані маршрути `/health`.
@@ -160,7 +160,7 @@
 - Створено модульну основу `easynmt_core/` перед інтеграцією OpenAI у v1.0.
 - Збережено сумісність із чинними сторінками, Dashboard, уроками, тестами та Google OAuth.
 
-# EasyNMT v0.9.9.5 — Authentication Core
+# Mentory v0.9.9.5 — Authentication Core
 
 - Google OpenID Connect винесено в окремий `auth_service.py`.
 - Додано незалежний маршрут `/health` для Railway Healthcheck.
@@ -179,12 +179,12 @@
 - Added `cryptography` explicitly for OpenID Connect token validation.
 - Technical environment-variable names are no longer shown to users.
 
-# EasyNMT v0.9.9
+# Mentory v0.9.9
 
 - Додано інтерактивний «розумний зошит» із покроковим поясненням на аркуші.
 - Для завдань 9–12 учень розв’язує задачу на папері та завантажує фото.
 - Додано AI-перевірку рукописного ходу розв’язання з частковими балами 0–3.
-- Якщо є помилка, EasyNMT створює копію фото з рамкою, поясненням і правильним кроком.
+- Якщо є помилка, Mentory створює копію фото з рамкою, поясненням і правильним кроком.
 - Фото зберігаються поза static у приватній папці та відкриваються лише власнику.
 - Додано адаптивний вигляд зошита для ПК і телефона.
 
@@ -195,7 +195,7 @@
 - Переписано описи на головній сторінці простою людською мовою.
 - Прибрано надмірні вертикальні проміжки між блоками головної сторінки на ПК.
 - Кабінет на ПК став ширшим і трохи більшим; мобільний вигляд не змінено.
-# EasyNMT v0.9.9 Stable — Повна хуманізація текстів
+# Mentory v0.9.9 Stable — Повна хуманізація текстів
 
 - Переписано інтерфейсні тексти у природному стилі українського репетитора.
 - Додано живі звертання: «зверни увагу», «подивись», «перевір», «спробуй».
@@ -204,7 +204,7 @@
 - Хуманізовано повідомлення тестів, результатів, уроків, навігації та досягнень.
 - Дизайн, маршрути, база даних і логіка прогресу не змінювалися.
 
-# EasyNMT v0.9.8.1 Stable — Dashboard & Lessons Fix
+# Mentory v0.9.8.1 Stable — Dashboard & Lessons Fix
 
 - Повністю перебудовано Dashboard без вузьких вертикальних карток.
 - Головний блок, статистика, рівні та маршрут тепер мають стабільну сітку.
@@ -214,7 +214,7 @@
 - Збережено тест із 12 питань і письмовими відповідями 5–12.
 - Перевірено Python, Jinja-шаблони, Flask endpoints і ключові навчальні маршрути.
 
-# EasyNMT v0.9.8.1 Stable — Humanized Learning Engine
+# Mentory v0.9.8.1 Stable — Humanized Learning Engine
 
 - Додано послідовне відкриття тем: наступна відкривається після успішного тесту.
 - Тест розширено до 12 питань і 24 балів.
@@ -225,7 +225,7 @@
 - Додано єдиний природний голос Easy у prompts.py.
 - Оновлено тексти уроків, тестів, результатів і навігації.
 
-# EasyNMT v0.9.7.6 Stable Horizontal Dashboard
+# Mentory v0.9.7.6 Stable Horizontal Dashboard
 
 - Привітання переміщене першим блоком зверху.
 - Кожна секція кабінету займає всю доступну ширину.
@@ -233,7 +233,7 @@
 - Ліва навігаційна панель збережена окремою колонкою.
 - Верхня панель кабінету спрощена.
 
-# EasyNMT v0.9.7.6 Compact Dashboard Hotfix
+# Mentory v0.9.7.6 Compact Dashboard Hotfix
 
 - Dashboard cards made compact on desktop.
 - Mascot size constrained to prevent layout overflow.
@@ -241,20 +241,20 @@
 - Text wrapping and spacing improved.
 - Mobile layout preserved.
 
-# EasyNMT v0.9.7.6 Stable Hotfix
+# Mentory v0.9.7.6 Stable Hotfix
 
 - Fixed dashboard 500 error caused by an incorrect Flask endpoint.
 - Replaced `url_for("achievements")` with `url_for("achievements_page")`.
 - Rechecked every `url_for()` reference in all templates against registered Flask endpoints.
 - Verified Python syntax and core route responses with Flask test client.
 
-# EasyNMT v0.9.7.6.2
+# Mentory v0.9.7.6.2
 
 - Dashboard navigation moved into a separate full-height desktop sidebar.
 - Added grouped learning, tools, profile, and settings navigation.
 - Preserved compact responsive navigation for tablets and phones.
 
-# EasyNMT Changelog
+# Mentory Changelog
 
 ## v0.9.7.6.1 Stable — Dashboard repair and stability pass
 - Fixed the `/dashboard` 500 error caused by an invalid Jinja endpoint name.
@@ -270,11 +270,11 @@
 - Prevented hero text and AI tutor cards from overlapping.
 - Improved tablet and smartphone hero layout.
 
-# EasyNMT Changelog
+# Mentory Changelog
 
 ## v0.9.6 Cosmic Tutor
 - New cosmic background across landing, onboarding, authentication and dashboard.
-- EasyNMT robot is now the main AI tutor and brand mascot.
+- Mentory robot is now the main AI tutor and brand mascot.
 - Compact goal, subject and date selection screens designed to fit without scrolling.
 - New glass cards, responsive layout, micro-animations and space journey progress.
 - Added logo assets and favicon.
@@ -284,14 +284,14 @@
 ## v0.9.6 Cosmic Tutor
 
 - Додано SEO title, description, canonical і social metadata.
-- Додано фрази EasyNMT та «Легкий НМТ» у головну сторінку.
+- Додано фрази Mentory та «Легкий НМТ» у головну сторінку.
 - Додано structured data для освітнього вебзастосунку.
 - Додано динамічні `/robots.txt` і `/sitemap.xml`.
 - Приватні сторінки захищено від індексації за замовчуванням.
 - Додано підтримку Google Search Console verification через Railway Variable.
 - Додано `SEO_SETUP.md`.
 
-# EasyNMT Changelog
+# Mentory Changelog
 
 ## v0.9.6 Cosmic Tutor Label Fix
 - Updated the dashboard release badge from `v0.7.9 Beta Ready` to `v0.9.6 Cosmic Tutor`.
@@ -304,7 +304,7 @@
 - Відновлено горизонтальний індикатор кроків 1–2–3 на сторінках онбордингу.
 - Повернуто окрему зміну предмета в особистий кабінет і профіль.
 - Додано адаптивні стилі для мобільних екранів.
-# EasyNMT Changelog
+# Mentory Changelog
 
 ## v0.9 OpenAI Ready
 - Додано окремий `ai_service.py` на OpenAI Responses API.
@@ -325,7 +325,7 @@
 - Accounts, selected plan, XP, streak and progress are restored after login.
 - Added separate progress storage for every subject.
 - Switching subjects no longer deletes XP or completed lessons from the previous subject.
-- Quiz mistakes are now stored in SQLite and remain visible after restarting EasyNMT.
+- Quiz mistakes are now stored in SQLite and remain visible after restarting Mentory.
 - Added automatic database migrations for existing installations.
 
 

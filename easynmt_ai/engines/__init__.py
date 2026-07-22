@@ -1,4 +1,4 @@
-"""Public engine interfaces for the EasyNMT intelligence layer."""
+"""Public engine interfaces for the Mentory intelligence layer."""
 
 from .base import AIEngine
 from .curriculum import CurriculumEngine

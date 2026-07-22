@@ -1,4 +1,4 @@
-# EasyNMT v1.0 Beta: публікація на Railway
+# Mentory v1.0 Beta: публікація на Railway
 
 ## Runtime
 

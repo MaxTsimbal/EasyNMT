@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Мій план | EasyNMT{% endblock %}
+{% block title %}Мій план | Mentory{% endblock %}
 {% block content %}
 <div class="lesson-page">
-    <div class="logo">EasyNMT</div>
+    <div class="logo">Mentory</div>
     <div class="lesson-header fade-up"><span class="pill">📅 Study Planner</span><h1>Твій план підготовки</h1><p>{{ subject }} · ціль {{ goal }} · режим {{ daily_time }}</p></div>
     <div class="goal-card premium"><span class="score">🧭 План на найближчий етап</span><span class="desc">Рухайся урок за уроком: теорія → приклади → тест → повторення помилок.</span></div><br>
     {% if curriculum_navigation %}

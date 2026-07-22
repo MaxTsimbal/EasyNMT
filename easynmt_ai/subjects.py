@@ -221,7 +221,7 @@ def get_subject(subject_key: str) -> SubjectDefinition:
     try:
         return SUBJECT_REGISTRY[str(subject_key)]
     except KeyError as exc:
-        raise KeyError(f"Unknown EasyNMT subject: {subject_key}") from exc
+        raise KeyError(f"Unknown Mentory subject: {subject_key}") from exc
 
 
 def active_subjects() -> tuple[SubjectDefinition, ...]:

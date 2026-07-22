@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Профіль | EasyNMT{% endblock %}
+{% block title %}Профіль | Mentory{% endblock %}
 {% block body_class %}profile-app{% endblock %}
 {% block content %}
 <section class="profile-page">
@@ -31,7 +31,7 @@
             </div>
             <div class="profile-detail-row"><span>🏆 Досягнення</span><strong>{{ all_achievements|length }}</strong></div>
             <a class="profile-action-row" href="{{ url_for('settings') }}"><span>⚙️ Налаштування профілю</span><b>→</b></a>
-            <a class="profile-action-row" href="{{ url_for('home') }}#features"><span>✦ Можливості EasyNMT</span><b>→</b></a>
+            <a class="profile-action-row" href="{{ url_for('home') }}#features"><span>✦ Можливості Mentory</span><b>→</b></a>
             <a class="profile-action-row" href="{{ url_for('home') }}#subjects"><span>▦ Предмети</span><b>→</b></a>
             <a class="profile-action-row" href="{{ url_for('home') }}#how-it-works"><span>❔ Як це працює</span><b>→</b></a>
             <a class="profile-action-row" href="{{ url_for('dashboard') }}"><span>← Повернутися в кабінет</span><b></b></a>

@@ -1,7 +1,7 @@
 "use strict";
 
 /* ==========================================================================
-   EasyNMT v0.9.6 Cosmic Tutor Responsive
+   Mentory v0.9.6 Cosmic Tutor Responsive
    File: static/js/animations.js
    ========================================================================== */
 
@@ -840,7 +840,7 @@ document.addEventListener("DOMContentLoaded", () => {
         attachAutoDismiss(toast, duration);
     }
 
-    window.EasyNMT = {
+    window.Mentory = {
         showToast,
         getStoredValue,
         setStoredValue
@@ -1185,7 +1185,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 });
 
-/* EasyNMT v0.9.9 · Fix 1 — one mobile menu button for the dashboard */
+/* Mentory v0.9.9 · Fix 1 — one mobile menu button for the dashboard */
 document.addEventListener("DOMContentLoaded", () => {
     const body = document.body;
     const headerToggle = document.getElementById("mobileMenuButton");

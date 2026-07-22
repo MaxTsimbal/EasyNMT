@@ -1,9 +1,9 @@
-# Google Sign-In для EasyNMT
+# Google Sign-In для Mentory
 
 ## 1. Створи OAuth-клієнт у Google Cloud
 
 1. Відкрий Google Cloud Console.
-2. Створи або вибери проєкт EasyNMT.
+2. Створи або вибери проєкт Mentory.
 3. Налаштуй OAuth consent screen.
 4. Створи OAuth Client ID типу **Web application**.
 5. Додай дозволені redirect URI без зайвого слеша в кінці:

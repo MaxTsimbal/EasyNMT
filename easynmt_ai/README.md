@@ -1,6 +1,6 @@
-# EasyNMT AI foundation
+# Mentory AI foundation
 
-This package is the intelligence boundary for EasyNMT v1.0 Beta. It provides
+This package is the intelligence boundary for Mentory v1.0 Beta. It provides
 the contracts that future AI-first learning modules use while preserving the
 current Flask, SQLite, and server-rendered application.
 
@@ -66,7 +66,7 @@ not written to this telemetry record.
 
 ### `CurriculumEngine`
 
-Generates a typed, versioned mathematics roadmap constrained to EasyNMT's
+Generates a typed, versioned mathematics roadmap constrained to Mentory's
 canonical taxonomy. Local policy owns topic eligibility and prerequisites;
 OpenAI may only propose safe pacing, priority, and review placement. A
 deterministic fallback uses the same validation path. The application service

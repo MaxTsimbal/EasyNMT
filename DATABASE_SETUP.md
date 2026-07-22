@@ -1,6 +1,6 @@
-# EasyNMT database
+# Mentory database
 
-EasyNMT automatically creates `instance/users.db` on first launch.
+Mentory automatically creates `instance/users.db` on first launch.
 
 Stored data:
 - registered accounts and secure password hashes;
@@ -19,7 +19,7 @@ Stored data:
 - immutable production lessons, hashed lesson-delivery evidence and lesson
   lifecycle audit events.
 
-## Updating an existing EasyNMT folder
+## Updating an existing Mentory folder
 To keep accounts from an older version, copy the old file:
 
 `instance/users.db`

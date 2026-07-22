@@ -172,7 +172,7 @@
                 if (!response.ok || (data && data.ok === false)) throw new Error(data?.error || `Помилка ${response.status}`);
                 return data;
             } catch (error) {
-                console.warn("EasyNMT server sync failed:", error);
+                console.warn("Mentory server sync failed:", error);
                 return null;
             }
         };

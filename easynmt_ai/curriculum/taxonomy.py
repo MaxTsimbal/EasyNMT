@@ -259,7 +259,7 @@ def validate_taxonomy_payload(
         subject_definition = None
         issues.append(TaxonomyValidationIssue(
             "invalid_subject",
-            "Taxonomy subject must be a registered EasyNMT subject",
+            "Taxonomy subject must be a registered Mentory subject",
             field="subject",
         ))
     if expected_subject is not None and subject != expected_subject:

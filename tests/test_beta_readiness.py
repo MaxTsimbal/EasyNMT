@@ -154,7 +154,7 @@ class BetaRuntimeIntegrationTests(unittest.TestCase):
         self.assertEqual(ready.status_code, 200)
         self.assertEqual(ready.get_json()["status"], "ready")
         for response in (health, ready):
-            self.assertEqual(response.headers["X-EasyNMT-Version"], "1.0.0-beta.2")
+            self.assertEqual(response.headers["X-Mentory-Version"], "1.0.0-beta.2")
             self.assertRegex(response.headers["X-Request-ID"], r"^[a-f0-9]{32}$")
 
     def test_valid_request_id_is_preserved_and_invalid_one_is_replaced(self):

@@ -138,7 +138,7 @@ def build_curriculum_prompt(
     }
     return PromptSpec(
         instructions=(
-            f"You are the {subject.display_name} curriculum planning engine for EasyNMT. "
+            f"You are the {subject.display_name} curriculum planning engine for Mentory. "
             "Return only a roadmap proposal using topic_id values from canonical_topics. "
             "Include every policy.required_topic_id exactly once and preserve all prerequisite "
             "and recommended ordering. Do not invent topics, prerequisites, learner facts, "

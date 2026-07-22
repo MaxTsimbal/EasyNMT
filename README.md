@@ -1,6 +1,6 @@
-# EasyNMT
+# Mentory
 
-EasyNMT is a Flask and SQLite learning platform for structured NMT preparation.
+Mentory is a Flask and SQLite learning platform for structured NMT preparation.
 The active product path combines curated lessons, server-generated quizzes,
 per-subject progress, mistake review, and an optional OpenAI-powered tutor.
 
@@ -91,7 +91,7 @@ See [INSTALL_TASK_3C_FINAL.md](INSTALL_TASK_3C_FINAL.md) and
 ## Local setup
 
 ```powershell
-$repo = 'C:\path\to\EasyNMT_Public'
+$repo = 'C:\path\to\Mentory_Public'
 Set-Location -LiteralPath $repo
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt

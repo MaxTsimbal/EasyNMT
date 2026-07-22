@@ -1,4 +1,4 @@
-"""Small, dependency-light Google OAuth 2.0 client for EasyNMT.
+"""Small, dependency-light Google OAuth 2.0 client for Mentory.
 
 The module reads credentials dynamically from Railway environment variables,
 uses OAuth 2.0 authorization-code flow, validates state, exchanges the code,

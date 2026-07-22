@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ subject_name }} | EasyNMT{% endblock %}
+{% block title %}{{ subject_name }} | Mentory{% endblock %}
 {% block body_class %}welcome-experience-page welcome-subject-{{ subject_key }}{% endblock %}
 
 {% block content %}
@@ -58,7 +58,7 @@
         {% endif %}
     </div>
 
-    <a class="welcome-logo" href="{{ url_for('home') }}" aria-label="EasyNMT — головна">
+    <a class="welcome-logo" href="{{ url_for('home') }}" aria-label="Mentory — головна">
         <img src="{{ url_for('static', filename='images/easynmt-mascot.png') }}" alt="" width="42" height="42">
         <span>Easy<span>NMT</span></span>
     </a>

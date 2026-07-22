@@ -11,7 +11,7 @@
 
 ## Важливо перед встановленням
 
-Не видаляй поточну папку `EasyNMT_Public`.
+Не видаляй поточну папку `Mentory_Public`.
 
 Пакет треба накласти поверх чинного проєкту. Так збережуться:
 
@@ -29,9 +29,9 @@
 Перебуваючи в папці чинного проєкту:
 
 ```powershell
-Set-Location 'C:\Users\Derossi\Documents\EasyNMT\EasyNMT_Public'
+Set-Location 'C:\Users\Derossi\Documents\Mentory\Mentory_Public'
 
-$zip = Get-ChildItem "$env:USERPROFILE\Downloads\EasyNMT_Task3C_FINAL_Human_Grading_Contextual_Easy_READY*.zip" |
+$zip = Get-ChildItem "$env:USERPROFILE\Downloads\Mentory_Task3C_FINAL_Human_Grading_Contextual_Easy_READY*.zip" |
     Sort-Object LastWriteTime -Descending |
     Select-Object -First 1
 
@@ -39,11 +39,11 @@ if (-not $zip) {
     throw "Фінальний архів Task 3C не знайдено у Downloads."
 }
 
-$temp = Join-Path $env:TEMP "EasyNMT_Task3C_FINAL_Install"
+$temp = Join-Path $env:TEMP "Mentory_Task3C_FINAL_Install"
 Remove-Item $temp -Recurse -Force -ErrorAction SilentlyContinue
 Expand-Archive -Path $zip.FullName -DestinationPath $temp -Force
 
-robocopy "$temp\EasyNMT_Public" "." /E `
+robocopy "$temp\Mentory_Public" "." /E `
     /XD .git .venv instance __pycache__ `
     /XF .env *.pyc *.db *.sqlite *.sqlite3
 

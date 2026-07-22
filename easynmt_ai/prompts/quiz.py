@@ -45,7 +45,7 @@ def build_quiz_prompt(context: AIContext, lesson: Lesson, *, question_count: int
 
     return PromptSpec(
         instructions=(
-            "You are the quiz generation engine for EasyNMT. Test only concepts "
+            "You are the quiz generation engine for Mentory. Test only concepts "
             "present in the supplied lesson. Provide unambiguous questions, exact "
             "answer keys, and short explanations. Do not grade or persist anything. "
             "Write learner-facing text in the requested language."

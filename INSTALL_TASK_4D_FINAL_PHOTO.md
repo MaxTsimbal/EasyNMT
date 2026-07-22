@@ -1,14 +1,14 @@
 # Встановлення Task 4D — Final Photo Solution
 
-Патч встановлюється поверх поточного `EasyNMT_Public` із Task 4C.
+Патч встановлюється поверх поточного `Mentory_Public` із Task 4C.
 Базу даних, Railway Volume, акаунти, результати й прогрес видаляти не потрібно.
 
 ## 1. Накласти архів
 
-Розпакуй архів і скопіюй вміст папки `EasyNMT_Public` у:
+Розпакуй архів і скопіюй вміст папки `Mentory_Public` у:
 
 ```text
-C:\Users\Derossi\Documents\EasyNMT\EasyNMT_Public
+C:\Users\Derossi\Documents\Mentory\Mentory_Public
 ```
 
 Підтвердь заміну файлів.
@@ -16,7 +16,7 @@ C:\Users\Derossi\Documents\EasyNMT\EasyNMT_Public
 ## 2. Перевірити локально
 
 ```powershell
-Set-Location 'C:\Users\Derossi\Documents\EasyNMT\EasyNMT_Public'
+Set-Location 'C:\Users\Derossi\Documents\Mentory\Mentory_Public'
 python -m compileall -q .
 python -m pytest -q
 python -m pip check

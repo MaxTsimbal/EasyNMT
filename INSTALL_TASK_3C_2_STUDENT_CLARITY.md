@@ -1,7 +1,7 @@
 # Task 3C.2 Student Clarity Final — встановлення
 
 Це завершальний пакет виправлень для production-тестів перед переходом до етапу 4.
-Він накладається поверх поточного `EasyNMT_Public` і вже містить попередній runtime-fix Contextual Easy v3.0.1.
+Він накладається поверх поточного `Mentory_Public` і вже містить попередній runtime-fix Contextual Easy v3.0.1.
 
 ## Що змінюється
 
@@ -27,9 +27,9 @@
 ## Встановлення у PowerShell
 
 ```powershell
-Set-Location 'C:\Users\Derossi\Documents\EasyNMT\EasyNMT_Public'
+Set-Location 'C:\Users\Derossi\Documents\Mentory\Mentory_Public'
 
-$zip = Get-ChildItem "$env:USERPROFILE\Downloads\EasyNMT_Task3C_2_STUDENT_CLARITY_FINAL_READY*.zip" |
+$zip = Get-ChildItem "$env:USERPROFILE\Downloads\Mentory_Task3C_2_STUDENT_CLARITY_FINAL_READY*.zip" |
     Sort-Object LastWriteTime -Descending |
     Select-Object -First 1
 
@@ -37,11 +37,11 @@ if (-not $zip) {
     throw "Архів Task 3C.2 Student Clarity не знайдено у Downloads."
 }
 
-$temp = Join-Path $env:TEMP "EasyNMT_Task3C_2_StudentClarity"
+$temp = Join-Path $env:TEMP "Mentory_Task3C_2_StudentClarity"
 Remove-Item $temp -Recurse -Force -ErrorAction SilentlyContinue
 Expand-Archive -Path $zip.FullName -DestinationPath $temp -Force
 
-robocopy "$temp\EasyNMT_Public" "." /E `
+robocopy "$temp\Mentory_Public" "." /E `
     /XD .git .venv instance __pycache__ .pytest_cache `
     /XF .env *.pyc *.db *.sqlite *.sqlite3
 

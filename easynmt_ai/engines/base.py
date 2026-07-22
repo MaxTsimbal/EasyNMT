@@ -1,4 +1,4 @@
-"""Base contract implemented by all EasyNMT AI engines."""
+"""Base contract implemented by all Mentory AI engines."""
 from __future__ import annotations
 
 from abc import ABC

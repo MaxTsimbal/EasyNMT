@@ -1,4 +1,4 @@
-"""Public contracts for the EasyNMT learning intelligence layer."""
+"""Public contracts for the Mentory learning intelligence layer."""
 
 from .cache import AICache, NullAICache, build_cache_key
 from .curriculum import CurriculumRepository, CurriculumService

@@ -1,15 +1,15 @@
-# EasyNMT production audit
+# Mentory production audit
 
 Date: 2026-07-19
 
 Branch: `codex/production-hardening`
 
 Baseline: `31f4e19` (`main`)
-Scope: canonical repository `EasyNMT_Public`
+Scope: canonical repository `Mentory_Public`
 
 ## Executive status
 
-The core EasyNMT learning journey is now internally consistent and suitable for
+The core Mentory learning journey is now internally consistent and suitable for
 a controlled v1.0 Beta: account creation/login, signed sessions, onboarding,
 diagnostics, lesson gating, quiz completion, XP/progress persistence, mistake
 review, offline tutor behavior, and the active APIs have automated coverage.
@@ -28,9 +28,9 @@ Static JavaScript enhances server-rendered pages but does not own authoritative
 learning state.
 
 The audit also found multiple repository copies outside the canonical nested
-repository (`EasyNMT_Main`, a public backup, and archives). They were not edited
+repository (`Mentory_Main`, a public backup, and archives). They were not edited
 because they have separate history and may be user backups. All code changes in
-this report apply only to `EasyNMT_Public`.
+this report apply only to `Mentory_Public`.
 
 ## Problems found
 

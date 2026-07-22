@@ -1,6 +1,6 @@
 # Task 3D.2 Lesson Generation Loader
 
-This package is installed over the current EasyNMT `codex/production-hardening` worktree.
+This package is installed over the current Mentory `codex/production-hardening` worktree.
 
 ## What is replaced
 

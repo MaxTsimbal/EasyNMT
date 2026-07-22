@@ -1,4 +1,4 @@
-// EasyNMT v0.7.3 — shared UI helpers
+// Mentory v0.7.3 — shared UI helpers
 
 document.addEventListener("DOMContentLoaded", () => {
     const textareas = document.querySelectorAll("textarea");

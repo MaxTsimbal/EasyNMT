@@ -369,7 +369,7 @@ def build_lesson_prompt(
     )
     return PromptSpec(
         instructions="\n\n".join((
-            "You are EasyNMT's production Lesson Engine. Produce a self-contained lesson "
+            "You are Mentory's production Lesson Engine. Produce a self-contained lesson "
             "that fully prepares the learner for an assessment on only the supplied "
             "objectives and competencies. Do not change progress, XP, mastery, or access.",
             explanation_instructions(),

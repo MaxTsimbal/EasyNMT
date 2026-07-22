@@ -1,4 +1,4 @@
-"""Structured failures shared by every EasyNMT AI engine."""
+"""Structured failures shared by every Mentory AI engine."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
